@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="theme-color" content="{{ $_settings->primaryColor() }}">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="{{ $_appName }}">
+    <meta name="application-name" content="{{ $_appName }}">
+    <title>@yield('title', 'Dashboard') — {{ $_appName }}</title>
+
+    {{-- PWA --}}
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192.svg">
+    @if($_settings->faviconUrl())
+    <link rel="icon" href="{{ $_settings->faviconUrl() }}">
+    @endif
+
+    {{-- CSS CDN --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+
+    {{-- Dynamic Theme --}}
+    <style>{!! app(\App\Managers\ThemeManager::class)->generateCss() !!}</style>
+
+    <style>
+    /* ═══════════════════════════════════════════════════════
+       GLOBAL BASE
+       ═══════════════════════════════════════════════════════ */
+    :root {
+        --body-bg:      #f1f5f9;
+        --card-shadow:  0 1px 3px rgba(0,0,0,.10);
+        --topbar-h:     60px;
+        --nav-h:        110px; /* height reserved for bottom nav */
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+        font-family: 'Inter', sans-serif;
+        background: var(--body-bg);
+        overflow-x: hidden;
+        /* push content above bottom nav */
+        padding-bottom: var(--nav-h);
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       TOPBAR
+       ═══════════════════════════════════════════════════════ */
+    #topbar {
+        background: #fff;
+        border-bottom: 1px solid #e2e8f0;
+        padding: 0 1.25rem;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 900;
+        box-shadow: 0 1px 8px rgba(0,0,0,.06);
+        gap: 1rem;
+    }
+
+    /* Brand (left side of topbar) */
+    .topbar-brand {
+        display: flex;
+        align-items: center;
+        gap: .6rem;
+        text-decoration: none;
+        flex-shrink: 0;
+    }
+    .topbar-brand-icon {
+        width: 34px; height: 34px;
+        background: var(--app-primary, #2563eb);
+        border-radius: 9px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0; overflow: hidden;
+    }
+    .topbar-brand-name {
+        font-weight: 700; font-size: .88rem;
+        color: #1e293b; white-space: nowrap;
+        line-height: 1.1;
+    }
+    .topbar-brand-sub {
+        font-size: .62rem; color: #94a3b8;
+        display: block; line-height: 1;
+    }
+
+    /* Page title (center area) */
+    .topbar-title-wrap { flex: 1; min-width: 0; }
+    .page-title-text {
+        font-weight: 600; color: #1e293b;
+        margin: 0; font-size: 1rem;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    /* Notification bell badge */
+    .notif-badge {
+        position: absolute; top: -4px; right: -4px;
+        background: #ef4444; color: #fff; border-radius: 50%;
+        width: 16px; height: 16px; font-size: .55rem; font-weight: 700;
+        display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       CONTENT WRAPPER
+       ═══════════════════════════════════════════════════════ */
+    .content-wrapper { padding: 1.5rem; }
+
+    /* ═══════════════════════════════════════════════════════
+       CARDS & COMPONENTS
+       ═══════════════════════════════════════════════════════ */
+    .stat-card {
+        background: #fff; border-radius: 12px; padding: 1.25rem;
+        box-shadow: var(--card-shadow); border: 1px solid #e2e8f0;
+        transition: transform .2s, box-shadow .2s; height: 100%;
+    }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.10); }
+    .stat-icon  { width:48px; height:48px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.25rem; }
+    .stat-value { font-size:1.75rem; font-weight:700; color:var(--app-primary,#1e293b); }
+    .stat-label { font-size:.78rem; color:#64748b; font-weight:500; }
+
+    .card { border:1px solid #e2e8f0; border-radius:12px; box-shadow:var(--card-shadow); }
+    .card-header { background:#fff; border-bottom:1px solid #e2e8f0; padding:1rem 1.25rem; border-radius:12px 12px 0 0 !important; }
+
+    .table th  { font-size:.75rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.05em; background:#f8fafc; }
+    .table td  { font-size:.875rem; vertical-align:middle; }
+    .table > :not(caption) > * > * { padding:.75rem 1rem; }
+
+    .badge         { font-weight:500; font-size:.72rem; padding:.35em .65em; border-radius:6px; }
+    .badge-pending  { background:#fef3c7; color:#92400e; }
+    .badge-approved { background:#d1fae5; color:#065f46; }
+    .badge-answered { background:#ede9fe; color:#5b21b6; }
+    .badge-rejected { background:#fee2e2; color:#991b1b; }
+    .badge-upcoming { background:#dbeafe; color:#1e40af; }
+    .badge-ongoing  { background:#d1fae5; color:#065f46; }
+    .badge-done     { background:#f3f4f6; color:#374151; }
+
+    .countdown-box {
+        background: linear-gradient(135deg, var(--app-primary,#2563eb), #7c3aed);
+        border-radius:12px; padding:1.25rem 1.5rem; color:#fff;
+    }
+    .count-number { font-size:2rem; font-weight:700; line-height:1; }
+    .count-label  { font-size:.65rem; text-transform:uppercase; opacity:.8; }
+
+    .verse-card {
+        background: linear-gradient(135deg, #0f172a, #1e3a5f);
+        border-radius:12px; padding:1.5rem; color:#fff;
+    }
+    .verse-text { font-size:.95rem; font-style:italic; line-height:1.8; }
+    .verse-ref  { font-size:.78rem; opacity:.7; font-weight:500; }
+
+    .btn { border-radius:8px; font-weight:500; font-size:.875rem; }
+    .btn-sm { font-size:.78rem; }
+    .form-control, .form-select, .form-check-input { border-radius:8px; font-size:.875rem; border-color:#d1d5db; }
+    .form-label  { font-size:.825rem; font-weight:500; color:#374151; margin-bottom:.35rem; }
+    .alert       { border-radius:10px; border:none; }
+    .input-group-text { border-radius:8px; font-size:.875rem; }
+
+    .member-photo    { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
+    .member-photo-lg { width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid #e2e8f0; }
+    .avatar-placeholder { border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; }
+
+    /* ═══════════════════════════════════════════════════════
+       BIRTHDAY THEME (active all day on user's birthday)
+       ═══════════════════════════════════════════════════════ */
+    @if($_isBirthday ?? false)
+    :root {
+        --app-primary:    #d97706 !important;
+        --body-bg:        #fffbeb !important;
+    }
+    #topbar {
+        background: linear-gradient(135deg,#fffbeb,#fef3c7) !important;
+        border-bottom-color: #fde68a !important;
+    }
+    .stat-value               { color:#d97706 !important; }
+    .btn-primary              { background:#d97706 !important; border-color:#d97706 !important; }
+    .btn-primary:hover        { background:#b45309 !important; border-color:#b45309 !important; }
+    .birthday-top-banner {
+        background: linear-gradient(135deg,#f59e0b,#d97706);
+        color:#fff; font-size:.82rem; font-weight:600;
+        padding:.45rem 1.5rem; display:flex; align-items:center;
+        justify-content:center; gap:.5rem; letter-spacing:.01em;
+    }
+    @endif
+
+    /* ═══════════════════════════════════════════════════════
+       BIRTHDAY POPUP
+       ═══════════════════════════════════════════════════════ */
+    .birthday-backdrop {
+        position:fixed; inset:0; background:rgba(0,0,0,.72);
+        z-index:9999; display:flex; align-items:center; justify-content:center;
+    }
+    .birthday-card {
+        background:#fff; border-radius:24px; padding:2.5rem 2rem;
+        max-width:420px; width:90%; text-align:center;
+        animation:bounceIn .6s ease; position:relative; overflow:hidden;
+    }
+    @keyframes bounceIn {
+        0%   { transform:scale(.5); opacity:0; }
+        80%  { transform:scale(1.05); }
+        100% { transform:scale(1); opacity:1; }
+    }
+    #confetti-canvas { position:fixed; inset:0; pointer-events:none; z-index:9998; }
+
+    /* ═══════════════════════════════════════════════════════
+       WHATSAPP FLOAT
+       ═══════════════════════════════════════════════════════ */
+    .wa-float {
+        position:fixed; bottom:calc(var(--nav-h) + 12px); right:20px;
+        z-index:800; display:flex; flex-direction:column; gap:10px; align-items:flex-end;
+    }
+    .wa-btn {
+        width:52px; height:52px; border-radius:50%;
+        display:flex; align-items:center; justify-content:center;
+        font-size:1.4rem; color:#fff; text-decoration:none;
+        box-shadow:0 4px 12px rgba(0,0,0,.2); transition:transform .2s,box-shadow .2s;
+    }
+    .wa-btn:hover { transform:scale(1.1); box-shadow:0 6px 20px rgba(0,0,0,.3); color:#fff; }
+    .wa-btn.leader { background:#25d366; }
+    .wa-btn.co     { background:#128c7e; }
+    .wa-label {
+        background:rgba(0,0,0,.7); color:#fff; font-size:.72rem;
+        padding:.2rem .6rem; border-radius:10px; white-space:nowrap; margin-right:4px;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       PWA INSTALL BANNER
+       ═══════════════════════════════════════════════════════ */
+    #pwa-banner {
+        position:fixed; bottom:calc(var(--nav-h) + 8px);
+        left:50%; transform:translateX(-50%) translateY(200%);
+        width: calc(100% - 32px); max-width: 480px;
+        z-index:850; background:var(--app-primary,#2563eb); color:#fff;
+        padding:.75rem 1.25rem; display:flex; align-items:center; gap:1rem;
+        border-radius:16px; box-shadow:0 8px 32px rgba(0,0,0,.25);
+        transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    #pwa-banner.show { transform:translateX(-50%) translateY(0); }
+
+    /* ═══════════════════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════════════════ */
+    @media (max-width: 767.98px) {
+        .content-wrapper { padding:1rem; }
+        #topbar { padding:0 .875rem; }
+        .topbar-brand-name { display:none; } /* hide brand name on very small, icon only */
+    }
+    @media (max-width: 575.98px) {
+        .topbar-brand-sub { display:none; }
+    }
+    </style>
+    @stack('styles')
+</head>
+<body>
+    {{-- Birthday confetti canvas --}}
+    @if($_isBirthday ?? false)
+    <canvas id="confetti-canvas"></canvas>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════════
+         TOPBAR
+         ══════════════════════════════════════════════════════ --}}
+    <header id="topbar">
+        {{-- Brand --}}
+        <a href="{{ route('dashboard') }}" class="topbar-brand">
+            <div class="topbar-brand-icon">
+                @if($_settings->logoUrl())
+                <img src="{{ $_settings->logoUrl() }}" alt="Logo" style="width:100%;height:100%;object-fit:contain">
+                @else
+                <i class="fa-solid fa-cross text-white" style="font-size:.8rem"></i>
+                @endif
+            </div>
+            <div class="d-none d-sm-block">
+                <span class="topbar-brand-name">{{ $_appName }}</span>
+                <span class="topbar-brand-sub">{{ $_settings->get('app_tagline','Komunitas Rohani') }}</span>
+            </div>
+        </a>
+
+        {{-- Page Title --}}
+        <div class="topbar-title-wrap d-none d-md-block">
+            <p class="page-title-text mb-0">@yield('page-title', 'Dashboard')</p>
+        </div>
+
+        {{-- Right Actions --}}
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            @yield('page-actions')
+
+            {{-- Notification Bell --}}
+            <div class="position-relative">
+                <a href="{{ route('notifications.index') }}" class="btn btn-sm btn-light position-relative" title="Notifikasi">
+                    <i class="fa-solid fa-bell"></i>
+                    @if($_notifCount > 0)
+                    <span class="notif-badge">{{ $_notifCount > 9 ? '9+' : $_notifCount }}</span>
+                    @endif
+                </a>
+            </div>
+
+            {{-- Role badge --}}
+            <span class="badge {{ auth()->user()->isAdmin() ? 'bg-danger' : 'bg-primary' }} d-none d-sm-inline"
+                  style="font-size:.62rem;text-transform:uppercase;letter-spacing:.05em">
+                {{ auth()->user()->role }}
+            </span>
+
+            {{-- Profile --}}
+            <a href="{{ route('profile.edit') }}" class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1">
+                <i class="fa-solid fa-user-circle"></i>
+                <span class="d-none d-lg-inline">{{ Str::limit(auth()->user()->name, 14) }}</span>
+            </a>
+        </div>
+    </header>
+
+    {{-- Birthday banners --}}
+    @if($_isBirthday ?? false)
+    <div class="birthday-top-banner">
+        🎂 Selamat Ulang Tahun, <strong>{{ $_birthdayName }}</strong>! Semoga hari ini penuh berkat! 🎉✨
+    </div>
+    @elseif(($_birthdayMembers ?? collect())->isNotEmpty())
+    <div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border-bottom:1px solid #fcd34d;padding:.45rem 1.5rem;font-size:.82rem;font-weight:500;color:#92400e;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+        🎂 <strong>Ulang Tahun Hari Ini:</strong>
+        @foreach($_birthdayMembers as $bMember)
+        <span class="badge" style="background:#f59e0b;color:#fff">{{ $bMember->nama_panggilan ?: $bMember->nama_lengkap }}</span>
+        @endforeach
+        — Jangan lupa ucapkan selamat! 🎉
+    </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════════
+         MAIN CONTENT
+         ══════════════════════════════════════════════════════ --}}
+    <main>
+        <div class="content-wrapper">
+            @if(session('success'))
+            <div class="alert alert-success alert-dismissible fade show d-flex align-items-center gap-2 mb-3" role="alert">
+                <i class="fa-solid fa-circle-check fa-lg flex-shrink-0"></i>
+                <div>{{ session('success') }}</div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+            </div>
+            @endif
+            @if(session('error'))
+            <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center gap-2 mb-3" role="alert">
+                <i class="fa-solid fa-circle-exclamation fa-lg flex-shrink-0"></i>
+                <div>{{ session('error') }}</div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
+            </div>
+            @endif
+
+            @yield('content')
+        </div>
+    </main>
+
+    {{-- WhatsApp Float --}}
+    @php $waLeader = $_settings->waLeader(); $waCoLeader = $_settings->waCoLeader(); @endphp
+    @if($waLeader || $waCoLeader)
+    <div class="wa-float">
+        @if($waLeader)
+        <div class="d-flex align-items-center gap-2">
+            <span class="wa-label">Leader</span>
+            <a href="https://wa.me/{{ preg_replace('/\D/','',$waLeader) }}" target="_blank" rel="noopener"
+               class="wa-btn leader" title="Hubungi Leader">
+                <i class="fa-brands fa-whatsapp"></i>
+            </a>
+        </div>
+        @endif
+        @if($waCoLeader)
+        <div class="d-flex align-items-center gap-2">
+            <span class="wa-label">Co-Leader</span>
+            <a href="https://wa.me/{{ preg_replace('/\D/','',$waCoLeader) }}" target="_blank" rel="noopener"
+               class="wa-btn co" title="Hubungi Co-Leader">
+                <i class="fa-brands fa-whatsapp"></i>
+            </a>
+        </div>
+        @endif
+    </div>
+    @endif
+
+    {{-- PWA Install Banner --}}
+    <div id="pwa-banner">
+        <div class="rounded-3 bg-white d-flex align-items-center justify-content-center flex-shrink-0"
+             style="width:38px;height:38px">
+            <i class="fa-solid fa-cross" style="color:var(--app-primary,#2563eb);font-size:.9rem"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="fw-semibold" style="font-size:.88rem">Install {{ $_appName }}</div>
+            <div style="font-size:.73rem;opacity:.85">Tambahkan ke layar utama untuk akses cepat</div>
+        </div>
+        <button id="pwa-install-btn" class="btn btn-sm btn-light fw-semibold">Install</button>
+        <button id="pwa-dismiss-btn" class="btn btn-sm" style="color:rgba(255,255,255,.75)">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    {{-- Birthday Popup --}}
+    @if(session('show_birthday_popup'))
+    <div class="birthday-backdrop" id="birthdayBackdrop">
+        <div class="birthday-card">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,#fef3c7,#fde68a,#fef3c7);opacity:.4;border-radius:24px"></div>
+            <div style="position:relative;z-index:1">
+                <div style="font-size:4rem;line-height:1;margin-bottom:.5rem">🎂</div>
+                <h2 class="fw-bold mb-1" style="color:#92400e;font-size:1.6rem">Selamat Ulang Tahun!</h2>
+                <h4 class="fw-bold mb-3" style="color:#b45309">{{ session('birthday_name') }} 🎉</h4>
+                <div class="p-3 mb-3 rounded-3" style="background:rgba(255,255,255,.8)">
+                    <p class="mb-0" style="font-size:.875rem;line-height:1.7;color:#374151;font-style:italic">
+                        "Sebab Aku ini mengetahui rancangan-rancangan apa yang ada pada-Ku mengenai kamu, demikianlah firman TUHAN, yaitu rancangan damai sejahtera dan bukan rancangan kecelakaan, untuk memberikan kepadamu hari depan yang penuh harapan."
+                    </p>
+                    <p class="mb-0 mt-2 text-muted fw-semibold" style="font-size:.78rem">— Yeremia 29:11</p>
+                </div>
+                <p class="text-muted mb-3" style="font-size:.82rem">
+                    Komunitas I Care True mendoakan dan mengucapkan selamat di hari istimewamu!
+                </p>
+                <button class="btn btn-warning fw-semibold px-4" onclick="document.getElementById('birthdayBackdrop').style.display='none'">
+                    <i class="fa-solid fa-heart me-1"></i>Terima Kasih!
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- ══════════════════════════════════════════════════════
+         CENTER FOCUS NAVIGATION CAROUSEL
+         ══════════════════════════════════════════════════════ --}}
+    <x-navigation-carousel />
+
+    {{-- JS --}}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+    <script>
+    /* Delete confirmation */
+    document.querySelectorAll('.btn-delete').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const form = document.getElementById(this.dataset.form);
+            Swal.fire({
+                title: 'Hapus Data?',
+                text: 'Data yang dihapus tidak dapat dikembalikan!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: '<i class="fa-solid fa-trash me-1"></i> Ya, Hapus!',
+                cancelButtonText: 'Batal',
+                reverseButtons: true
+            }).then(r => { if (r.isConfirmed) form.submit(); });
+        });
+    });
+
+    /* Birthday confetti */
+    @if($_isBirthday ?? false)
+    (function() {
+        const canvas = document.getElementById('confetti-canvas');
+        if (!canvas) return;
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resize(); window.addEventListener('resize', resize);
+        const ctx = canvas.getContext('2d');
+        const colors = ['#f59e0b','#fbbf24','#ec4899','#f472b6','#a855f7','#60a5fa','#34d399','#ef4444'];
+        const pieces = Array.from({length:80}, () => ({
+            x: Math.random()*canvas.width, y: Math.random()*canvas.height,
+            w: Math.random()*9+4, h: Math.random()*4+2,
+            color: colors[Math.floor(Math.random()*colors.length)],
+            rot: Math.random()*360, vel: Math.random()*1.5+.8,
+            rotVel: Math.random()*3-1.5, opacity: Math.random()*.5+.3
+        }));
+        let running = true;
+        function draw() {
+            if (!running) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            pieces.forEach(p => {
+                p.y += p.vel; p.rot += p.rotVel;
+                if (p.y > canvas.height+20) { p.y=-20; p.x=Math.random()*canvas.width; p.vel=Math.random()*1.5+.8; }
+                ctx.save(); ctx.globalAlpha=p.opacity;
+                ctx.translate(p.x,p.y); ctx.rotate(p.rot*Math.PI/180);
+                ctx.fillStyle=p.color; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);
+                ctx.restore();
+            });
+            requestAnimationFrame(draw);
+        }
+        draw();
+        setTimeout(() => { running=false; ctx.clearRect(0,0,canvas.width,canvas.height); },
+            new Date().setHours(24,0,0,0)-Date.now());
+    })();
+    @endif
+
+    /* PWA */
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    let deferredPrompt;
+    const pwaBanner  = document.getElementById('pwa-banner');
+    const installBtn = document.getElementById('pwa-install-btn');
+    const dismissBtn = document.getElementById('pwa-dismiss-btn');
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault(); deferredPrompt = e;
+        if (!sessionStorage.getItem('pwa-dismissed')) setTimeout(() => pwaBanner.classList.add('show'), 2000);
+    });
+    installBtn?.addEventListener('click', async () => {
+        if (deferredPrompt) { deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; }
+        pwaBanner.classList.remove('show');
+    });
+    dismissBtn?.addEventListener('click', () => {
+        pwaBanner.classList.remove('show');
+        sessionStorage.setItem('pwa-dismissed','1');
+    });
+    </script>
+    @stack('scripts')
+</body>
+</html>

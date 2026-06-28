@@ -1,8 +1,15 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+// ── Schedule: Daily verse at 07:00 ─────────────────────────────────────
+Schedule::command('notify:daily-verse')
+    ->dailyAt('07:00')
+    ->withoutOverlapping()
+    ->runInBackground();
+
+// ── Schedule: Schedule reminders every hour ────────────────────────────
+Schedule::command('notify:schedule-reminders')
+    ->hourly()
+    ->withoutOverlapping()
+    ->runInBackground();
