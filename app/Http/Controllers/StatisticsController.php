@@ -68,9 +68,11 @@ class StatisticsController extends Controller
         $topWriters = User::withCount([
                 'devotions as devotions_count' => fn ($q) => $q->where('status', 'approved')
             ])
-            ->having('devotions_count', '>', 0)
-            ->orderByDesc('devotions_count')
-            ->take(5)->get();
+            ->get()
+            ->filter(fn ($u) => $u->devotions_count > 0)
+            ->sortByDesc('devotions_count')
+            ->take(5)
+            ->values();
 
         // ── Achievement Stats ─────────────────────────────────────
         $achievementStats = Achievement::withCount('userAchievements as count')

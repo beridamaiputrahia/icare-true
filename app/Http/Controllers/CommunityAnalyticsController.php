@@ -95,8 +95,9 @@ class CommunityAnalyticsController extends Controller
         // ── Achievement Distribution ─────────────────────────
         $achievementDist = DB::table('user_achievements')
             ->join('achievements', 'achievements.id', '=', 'user_achievements.achievement_id')
+            ->join('users', 'users.id', '=', 'user_achievements.user_id')
             ->selectRaw('achievements.name, COUNT(*) as count')
-            ->where('user_achievements.tenant_id', $tenantId)
+            ->where('users.tenant_id', $tenantId)
             ->groupBy('achievements.id', 'achievements.name')
             ->orderByDesc('count')
             ->take(8)
