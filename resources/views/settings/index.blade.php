@@ -50,6 +50,25 @@
 
     {{-- Settings Form --}}
     <div class="col-12 col-md-9">
+        @if(isset($groups['maintenance']))
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center gap-2">
+                <i class="fa-solid fa-tools text-danger"></i>
+                <h6 class="mb-0 fw-semibold">Mode Maintenance</h6>
+                <div class="ms-auto">
+                    <form method="POST" action="{{ route('settings.maintenance-toggle') }}" class="d-inline">
+                        @csrf
+                        @php $isOn = app(\App\Managers\SettingsManager::class)->isMaintenanceMode(); @endphp
+                        <button type="submit" class="btn btn-sm {{ $isOn ? 'btn-success' : 'btn-danger' }}">
+                            <i class="fa-solid {{ $isOn ? 'fa-toggle-on' : 'fa-toggle-off' }} me-1"></i>
+                            {{ $isOn ? 'Nonaktifkan' : 'Aktifkan' }}
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        @endif
+
         <form method="POST" action="{{ route('settings.update') }}" enctype="multipart/form-data">
             @csrf @method('PUT')
 
@@ -77,18 +96,6 @@
                     <span class="ms-auto badge bg-warning text-dark" style="font-size:.72rem">
                         <i class="fa-solid fa-shield-halved me-1"></i>Hanya Admin
                     </span>
-                    @endif
-                    @if($group === 'maintenance')
-                    <div class="ms-auto">
-                        <form method="POST" action="{{ route('settings.maintenance-toggle') }}" class="d-inline">
-                            @csrf
-                            @php $isOn = app(\App\Managers\SettingsManager::class)->isMaintenanceMode(); @endphp
-                            <button type="submit" class="btn btn-sm {{ $isOn ? 'btn-success' : 'btn-danger' }}">
-                                <i class="fa-solid {{ $isOn ? 'fa-toggle-on' : 'fa-toggle-off' }} me-1"></i>
-                                {{ $isOn ? 'Nonaktifkan' : 'Aktifkan' }}
-                            </button>
-                        </form>
-                    </div>
                     @endif
                 </div>
                 <div class="card-body">
