@@ -46,8 +46,8 @@ class BirthdayMiddleware
             // --- ADMIN VIEW: show today's birthday members as banner (not full theme) ---
             if ($user->isAdmin()) {
                 $todayMembers = Member::whereNotNull('tanggal_lahir')
-                    ->whereRaw('MONTH(tanggal_lahir) = ?', [today()->month])
-                    ->whereRaw('DAY(tanggal_lahir) = ?', [today()->day])
+                    ->whereRaw("EXTRACT(MONTH FROM tanggal_lahir) = ?", [today()->month])
+                    ->whereRaw("EXTRACT(DAY FROM tanggal_lahir) = ?", [today()->day])
                     ->where('is_active', true)
                     ->get(['id', 'nama_lengkap', 'nama_panggilan']);
 

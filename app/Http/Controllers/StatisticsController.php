@@ -88,13 +88,13 @@ class StatisticsController extends Controller
         // ── Age Groups ────────────────────────────────────────────
         $ageGroups = [
             '< 20'   => Member::whereNotNull('tanggal_lahir')->where('is_active', true)
-                              ->whereRaw("TIMESTAMPDIFF(YEAR, tanggal_lahir, CURDATE()) < 20")->count(),
+                              ->whereRaw("EXTRACT(YEAR FROM AGE(CURRENT_DATE, tanggal_lahir)) < 20")->count(),
             '20–30'  => Member::whereNotNull('tanggal_lahir')->where('is_active', true)
-                              ->whereRaw("TIMESTAMPDIFF(YEAR, tanggal_lahir, CURDATE()) BETWEEN 20 AND 30")->count(),
+                              ->whereRaw("EXTRACT(YEAR FROM AGE(CURRENT_DATE, tanggal_lahir)) BETWEEN 20 AND 30")->count(),
             '31–40'  => Member::whereNotNull('tanggal_lahir')->where('is_active', true)
-                              ->whereRaw("TIMESTAMPDIFF(YEAR, tanggal_lahir, CURDATE()) BETWEEN 31 AND 40")->count(),
+                              ->whereRaw("EXTRACT(YEAR FROM AGE(CURRENT_DATE, tanggal_lahir)) BETWEEN 31 AND 40")->count(),
             '> 40'   => Member::whereNotNull('tanggal_lahir')->where('is_active', true)
-                              ->whereRaw("TIMESTAMPDIFF(YEAR, tanggal_lahir, CURDATE()) > 40")->count(),
+                              ->whereRaw("EXTRACT(YEAR FROM AGE(CURRENT_DATE, tanggal_lahir)) > 40")->count(),
         ];
 
         return view('statistics.index', compact(

@@ -34,8 +34,8 @@ class DashboardController extends Controller
         $start = now()->subMonths(5)->startOfMonth();
         $rawStats = Devotion::where('status', 'approved')
             ->where('created_at', '>=', $start)
-            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as month_key, COUNT(*) as total")
-            ->groupByRaw("DATE_FORMAT(created_at, '%Y-%m')")
+            ->selectRaw("TO_CHAR(created_at, 'YYYY-MM') as month_key, COUNT(*) as total")
+            ->groupByRaw("TO_CHAR(created_at, 'YYYY-MM')")
             ->pluck('total', 'month_key');
 
         $monthlyStats = [];
