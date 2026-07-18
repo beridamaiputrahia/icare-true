@@ -87,7 +87,7 @@
             <div class="card-header-banner">
                 <div class="card-avatar">
                     @if($member->foto)
-                        <img src="{{ Storage::url($member->foto) }}" alt="{{ $member->nama_lengkap }}">
+                        <img src="{{ \App\Support\FileUrl::of($member->foto) }}" alt="{{ $member->nama_lengkap }}">
                     @else
                         {{ strtoupper(substr($member->nama_lengkap, 0, 1)) }}
                     @endif

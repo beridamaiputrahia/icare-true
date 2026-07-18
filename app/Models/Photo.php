@@ -25,9 +25,9 @@ class Photo extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function getUrlAttribute(): string
+    public function getUrlAttribute(): ?string
     {
-        return Storage::url($this->file_path);
+        return \App\Support\FileUrl::of($this->file_path);
     }
 
     public function getFileSizeHumanAttribute(): string

@@ -12,7 +12,7 @@
     <div class="col-12 col-lg-8">
         <div class="card">
             @if($announcement->gambar)
-            <img src="{{ Storage::url($announcement->gambar) }}" class="card-img-top" style="max-height:320px;object-fit:cover" alt="{{ $announcement->judul }}">
+            <img src="{{ \App\Support\FileUrl::of($announcement->gambar) }}" class="card-img-top" style="max-height:320px;object-fit:cover" alt="{{ $announcement->judul }}">
             @endif
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-3">

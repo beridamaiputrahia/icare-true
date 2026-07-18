@@ -28,7 +28,7 @@
                 <div class="text-center mb-4">
                     <div class="position-relative d-inline-block">
                         <img id="fotoPreview"
-                             src="{{ $member->foto ? Storage::url($member->foto) : 'https://ui-avatars.com/api/?name='.urlencode($member->nama_lengkap).'&background=2563eb&color=fff&size=96' }}"
+                             src="{{ $member->foto ? \App\Support\FileUrl::of($member->foto) : 'https://ui-avatars.com/api/?name='.urlencode($member->nama_lengkap).'&background=2563eb&color=fff&size=96' }}"
                              class="rounded-circle border" style="width:96px;height:96px;object-fit:cover">
                         <label for="foto" class="position-absolute bottom-0 end-0 btn btn-sm btn-primary rounded-circle p-1"
                                style="width:30px;height:30px;cursor:pointer" title="Ganti foto">

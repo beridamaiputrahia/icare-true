@@ -552,9 +552,9 @@ foreach ($navItems as $i => $item) {
     @php
         $__u    = auth()->user();
         $__foto = $__u->avatar
-            ? \Illuminate\Support\Facades\Storage::url($__u->avatar)
+            ? \App\Support\FileUrl::of($__u->avatar)
             : ($__u->member?->foto
-                ? \Illuminate\Support\Facades\Storage::url($__u->member->foto)
+                ? \App\Support\FileUrl::of($__u->member->foto)
                 : null);
     @endphp
     <div class="nav-user-strip" id="nav-user-strip">

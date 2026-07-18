@@ -73,20 +73,17 @@ class SettingsManager
 
     public function logoUrl(): ?string
     {
-        $logo = $this->get('logo');
-        return $logo ? Storage::url($logo) : null;
+        return \App\Support\FileUrl::of($this->get('logo'));
     }
 
     public function faviconUrl(): ?string
     {
-        $fav = $this->get('favicon');
-        return $fav ? Storage::url($fav) : null;
+        return \App\Support\FileUrl::of($this->get('favicon'));
     }
 
     public function heroBannerUrl(): ?string
     {
-        $banner = $this->get('hero_banner');
-        return $banner ? Storage::url($banner) : null;
+        return \App\Support\FileUrl::of($this->get('hero_banner'));
     }
 
     public function isMaintenanceMode(): bool

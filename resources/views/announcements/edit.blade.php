@@ -33,7 +33,7 @@
                         <label class="form-label">Gambar</label>
                         @if($announcement->gambar)
                         <div class="mb-2">
-                            <img src="{{ Storage::url($announcement->gambar) }}" class="rounded-3 border" style="max-height:120px">
+                            <img src="{{ \App\Support\FileUrl::of($announcement->gambar) }}" class="rounded-3 border" style="max-height:120px">
                             <p class="text-muted mt-1 mb-0" style="font-size:.75rem">Gambar saat ini. Upload baru untuk mengganti.</p>
                         </div>
                         @endif

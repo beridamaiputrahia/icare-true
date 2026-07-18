@@ -64,7 +64,7 @@
                     <div class="d-flex align-items-center gap-3 mb-4">
                         <div class="avatar-upload-wrap">
                             @if($member?->foto)
-                            <img id="avatar-preview" src="{{ Storage::url($member->foto) }}" alt="Foto">
+                            <img id="avatar-preview" src="{{ \App\Support\FileUrl::of($member->foto) }}" alt="Foto">
                             @else
                             <div class="avatar-placeholder" id="avatar-preview-placeholder">
                                 {{ strtoupper(substr($user->name, 0, 1)) }}

@@ -37,7 +37,7 @@
                         <label class="form-label">Gambar Cover</label>
                         @if($devotion->gambar)
                         <div class="mb-2">
-                            <img src="{{ Storage::url($devotion->gambar) }}" class="rounded-3 border" style="max-height:120px">
+                            <img src="{{ \App\Support\FileUrl::of($devotion->gambar) }}" class="rounded-3 border" style="max-height:120px">
                             <p class="text-muted mt-1 mb-0" style="font-size:.75rem">Gambar saat ini. Upload baru untuk mengganti.</p>
                         </div>
                         @endif

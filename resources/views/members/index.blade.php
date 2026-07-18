@@ -53,7 +53,7 @@
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             @if($member->foto)
-                                <img src="{{ Storage::url($member->foto) }}" class="member-photo" alt="{{ $member->nama_lengkap }}">
+                                <img src="{{ \App\Support\FileUrl::of($member->foto) }}" class="member-photo" alt="{{ $member->nama_lengkap }}">
                             @else
                                 <div class="avatar-placeholder" style="width:40px;height:40px;font-size:.8rem;background:#e2e8f0">
                                     {{ strtoupper(substr($member->nama_lengkap, 0, 1)) }}

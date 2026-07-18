@@ -34,7 +34,7 @@
             <div class="col-12 col-md-6 col-xl-4">
                 <div class="card h-100 border">
                     @if($ann->gambar)
-                    <img src="{{ Storage::url($ann->gambar) }}" class="card-img-top" style="height:180px;object-fit:cover" alt="{{ $ann->judul }}">
+                    <img src="{{ \App\Support\FileUrl::of($ann->gambar) }}" class="card-img-top" style="height:180px;object-fit:cover" alt="{{ $ann->judul }}">
                     @else
                     <div class="d-flex align-items-center justify-content-center bg-warning bg-opacity-10" style="height:120px">
                         <i class="fa-solid fa-bullhorn fa-2x text-warning opacity-50"></i>

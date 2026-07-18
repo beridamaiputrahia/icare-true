@@ -143,7 +143,7 @@
                         @elseif($setting->type === 'image')
                         <div>
                             @if($setting->value)
-                            <img src="{{ Storage::url($setting->value) }}" class="img-preview d-block mb-2">
+                            <img src="{{ \App\Support\FileUrl::of($setting->value) }}" class="img-preview d-block mb-2">
                             @endif
                             <input type="file" name="{{ $setting->key }}" class="form-control form-control-sm"
                                    accept="image/*" style="max-width:320px">

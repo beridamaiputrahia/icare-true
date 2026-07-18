@@ -12,7 +12,7 @@
     <div class="col-12 col-lg-8">
         <div class="card">
             @if($devotion->gambar)
-            <img src="{{ Storage::url($devotion->gambar) }}" class="card-img-top" style="max-height:280px;object-fit:cover">
+            <img src="{{ \App\Support\FileUrl::of($devotion->gambar) }}" class="card-img-top" style="max-height:280px;object-fit:cover">
             @endif
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-3">

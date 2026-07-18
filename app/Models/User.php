@@ -207,7 +207,7 @@ class User extends Authenticatable
 
     public function getAvatarUrlAttribute(): ?string
     {
-        return $this->avatar ? \Illuminate\Support\Facades\Storage::url($this->avatar) : null;
+        return \App\Support\FileUrl::of($this->avatar);
     }
 
     public function markOnline(): void

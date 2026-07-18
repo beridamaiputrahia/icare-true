@@ -32,7 +32,7 @@ class Album extends Model
 
     public function getCoverUrlAttribute(): ?string
     {
-        return $this->cover ? Storage::url($this->cover) : null;
+        return \App\Support\FileUrl::of($this->cover);
     }
 
     public function getPhotosCountAttribute(): int

@@ -42,7 +42,7 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
 
     $logo    = \App\Models\AppSetting::get('logo', null, $tenantId);
     $appName = \App\Models\AppSetting::get('app_name', 'I Care True', $tenantId);
-    $iconUrl = $logo ? \Illuminate\Support\Facades\Storage::url($logo) : '/icons/icon.svg';
+    $iconUrl = \App\Support\FileUrl::of($logo) ?? '/icons/icon.svg';
 
     $manifest = [
         'name'             => $appName,

@@ -49,7 +49,7 @@
              style="{{ $banner ? $banner->gradient_style : 'background:linear-gradient(135deg,#2563eb,#1d4ed8)' }}">
             <div class="d-flex align-items-center gap-3 mb-3">
                 @if($member->foto)
-                <img src="{{ Storage::url($member->foto) }}" class="avatar-ring">
+                <img src="{{ \App\Support\FileUrl::of($member->foto) }}" class="avatar-ring">
                 @else
                 <div class="avatar-placeholder">{{ strtoupper(substr($member->nama_lengkap, 0, 1)) }}</div>
                 @endif
