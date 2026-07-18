@@ -13,4 +13,10 @@ php artisan view:cache
 php artisan storage:link || true
 php artisan migrate --force
 
+# Seed data awal hanya sekali, saat tabel users masih kosong.
+USER_COUNT=$(php artisan tinker --execute="echo \App\Models\User::count();" 2>/dev/null | tail -1)
+if [ "$USER_COUNT" = "0" ]; then
+    php artisan db:seed --force
+fi
+
 exec apache2-foreground
