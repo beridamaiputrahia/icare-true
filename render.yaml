@@ -22,7 +22,7 @@ services:
       - key: BCRYPT_ROUNDS
         value: "12"
       - key: APP_KEY
-        generateValue: true
+        sync: false
       - key: SESSION_DRIVER
         value: database
       - key: SESSION_LIFETIME
