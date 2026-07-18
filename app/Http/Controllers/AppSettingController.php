@@ -19,6 +19,7 @@ class AppSettingController extends Controller
 
     public function update(Request $request)
     {
+        // Ambil setting milik tenant yang sedang login (BelongsToTenant scope aktif)
         $settings = AppSetting::orderBy('sort_order')->get();
 
         foreach ($settings as $setting) {
@@ -26,23 +27,28 @@ class AppSettingController extends Controller
 
             if ($setting->type === 'image') {
                 if ($request->hasFile($key)) {
-                    // Delete old image
                     if ($setting->value) {
                         Storage::disk('public')->delete($setting->value);
                     }
-                    $path = $request->file($key)->store("settings", 'public');
+                    $path = $request->file($key)->store('settings', 'public');
+                    // Update langsung di row yang sudah diketahui (hindari updateOrCreate ambiguity)
+                    $setting->update(['value' => $path]);
                     $this->settings->set($key, $path);
                 }
                 continue;
             }
 
             if ($setting->type === 'boolean') {
-                $this->settings->set($key, $request->boolean($key) ? '1' : '0');
+                $value = $request->boolean($key) ? '1' : '0';
+                $setting->update(['value' => $value]);
+                $this->settings->set($key, $value);
                 continue;
             }
 
             if ($request->has($key)) {
-                $this->settings->set($key, $request->input($key));
+                $value = $request->input($key);
+                $setting->update(['value' => $value]);
+                $this->settings->set($key, $value);
             }
         }
 

@@ -104,7 +104,7 @@
                 <a href="{{ route('prayers.show', $prayer) }}" class="btn btn-sm btn-outline-info" title="Detail">
                     <i class="fa-solid fa-eye"></i>
                 </a>
-                @if(auth()->user()->isAdmin())
+                @if($_feat['doa'] ?? false)
                     @if($prayer->status === 'pending')
                     <form method="POST" action="{{ route('prayers.approve', $prayer) }}" class="d-inline">
                         @csrf @method('PATCH')

@@ -19,6 +19,7 @@ use App\Http\Controllers\PrayerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QrCodeController;
 use App\Http\Controllers\ScheduleController;
+use App\Http\Controllers\GameController;
 use App\Http\Controllers\StatisticsController;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,48 @@ use Illuminate\Support\Facades\Route;
 // ── Public ────────────────────────────────────────────────────────────────
 Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
+Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
+    // Identifikasi tenant: dari user login (jika ada) atau dari subdomain
+    $tenantId = null;
+    if (auth()->check()) {
+        $tenantId = auth()->user()->tenant_id;
+    } else {
+        // Coba deteksi dari subdomain: {slug}.domain.com
+        $host = $request->getHost();
+        $subdomain = explode('.', $host)[0];
+        $tenant = \App\Models\Tenant::where('slug', $subdomain)->where('is_active', true)->first();
+        $tenantId = $tenant?->id;
+    }
+
+    $logo    = \App\Models\AppSetting::get('logo', null, $tenantId);
+    $appName = \App\Models\AppSetting::get('app_name', 'I Care True', $tenantId);
+    $iconUrl = $logo ? \Illuminate\Support\Facades\Storage::url($logo) : '/icons/icon.svg';
+
+    $manifest = [
+        'name'             => $appName,
+        'short_name'       => $appName,
+        'description'      => 'Pusat Informasi Komunitas Rohani Kristen',
+        'start_url'        => '/',
+        'scope'            => '/',
+        'display'          => 'standalone',
+        'orientation'      => 'portrait',
+        'background_color' => '#1e293b',
+        'theme_color'      => '#2563eb',
+        'categories'       => ['lifestyle', 'social'],
+        'lang'             => 'id',
+        'icons'            => [
+            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
+        ],
+        'shortcuts' => [
+            ['name' => 'Dashboard', 'url' => '/dashboard', 'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
+            ['name' => 'Jadwal',    'url' => '/schedules', 'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
+            ['name' => 'Doa',       'url' => '/prayers',   'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
+        ],
+    ];
+    return response()->json($manifest)->header('Content-Type', 'application/manifest+json');
+})->name('manifest');
+Route::get('game/assets/feature-js', [\App\Http\Controllers\GameController::class, 'serveJsx'])->name('game.jsx');
 
 // ── Authenticated ─────────────────────────────────────────────────────────
 Route::middleware(['auth', 'birthday'])->group(function () {
@@ -41,45 +84,55 @@ Route::middleware(['auth', 'birthday'])->group(function () {
 
     // ── Jadwal ──────────────────────────────────────────────────────────
     Route::get('schedules', [ScheduleController::class, 'index'])->name('schedules.index');
-    Route::get('schedules/create', [ScheduleController::class, 'create'])->name('schedules.create')->middleware('admin');
+    Route::get('schedules/create', [ScheduleController::class, 'create'])->name('schedules.create')
+         ->middleware(['role:admin,icl,ctl', 'feature:jadwal']);
     Route::get('schedules/{schedule}', [ScheduleController::class, 'show'])->name('schedules.show');
-    Route::resource('schedules', ScheduleController::class)->except(['index', 'show', 'create'])->middleware('admin');
+    Route::resource('schedules', ScheduleController::class)->except(['index', 'show', 'create'])
+         ->middleware(['role:admin,icl,ctl', 'feature:jadwal']);
 
     // ── Pengumuman ──────────────────────────────────────────────────────
     Route::get('announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
-    Route::get('announcements/create', [AnnouncementController::class, 'create'])->name('announcements.create')->middleware('admin');
+    Route::get('announcements/create', [AnnouncementController::class, 'create'])->name('announcements.create')
+         ->middleware(['role:admin,icl,ctl', 'feature:pengumuman']);
     Route::get('announcements/{announcement}', [AnnouncementController::class, 'show'])->name('announcements.show');
-    Route::resource('announcements', AnnouncementController::class)->except(['index', 'show', 'create'])->middleware('admin');
+    Route::resource('announcements', AnnouncementController::class)->except(['index', 'show', 'create'])
+         ->middleware(['role:admin,icl,ctl', 'feature:pengumuman']);
 
     // ── Anggota ─────────────────────────────────────────────────────────
     // Static routes MUST come before {member} wildcard to avoid route conflict
     Route::get('members', [MemberController::class, 'index'])->name('members.index');
-    Route::get('members/create', [MemberController::class, 'create'])->name('members.create')->middleware('admin');
+    Route::get('members/create', [MemberController::class, 'create'])->name('members.create')
+         ->middleware(['role:admin,icl,ctl', 'feature:anggota']);
     Route::get('members/{member}', [MemberController::class, 'show'])->name('members.show');
-    Route::patch('members/{member}/role', [MemberController::class, 'updateRole'])->name('members.role')->middleware('admin');
+    Route::patch('members/{member}/role', [MemberController::class, 'updateRole'])->name('members.role')
+         ->middleware('admin');
+    Route::patch('members/{member}/secondary-role', [MemberController::class, 'updateSecondaryRole'])
+         ->name('members.secondary-role')->middleware('admin');
     Route::resource('members', MemberController::class)
         ->except(['index', 'show', 'create'])
-        ->middleware('admin');
+        ->middleware(['role:admin,icl,ctl', 'feature:anggota']);
 
     // ── Renungan ────────────────────────────────────────────────────────
     Route::resource('devotions', DevotionController::class);
     Route::patch('devotions/{devotion}/approve', [DevotionController::class, 'approve'])
-         ->name('devotions.approve')->middleware('admin');
+         ->name('devotions.approve')->middleware(['role:admin,icl,ctl', 'feature:renungan']);
     Route::patch('devotions/{devotion}/reject',  [DevotionController::class, 'reject'])
-         ->name('devotions.reject')->middleware('admin');
+         ->name('devotions.reject')->middleware(['role:admin,icl,ctl', 'feature:renungan']);
 
     // ── Ayat Harian ─────────────────────────────────────────────────────
     Route::get('daily-verses', [DailyVerseController::class, 'index'])->name('daily-verses.index');
-    Route::get('daily-verses/create', [DailyVerseController::class, 'create'])->name('daily-verses.create')->middleware('admin');
+    Route::get('daily-verses/create', [DailyVerseController::class, 'create'])->name('daily-verses.create')
+         ->middleware(['role:admin,icl,ctl', 'feature:ayat_harian']);
     Route::get('daily-verses/{dailyVerse}', [DailyVerseController::class, 'show'])->name('daily-verses.show');
-    Route::resource('daily-verses', DailyVerseController::class)->except(['index', 'show', 'create'])->middleware('admin');
+    Route::resource('daily-verses', DailyVerseController::class)->except(['index', 'show', 'create'])
+         ->middleware(['role:admin,icl,ctl', 'feature:ayat_harian']);
 
     // ── Doa ─────────────────────────────────────────────────────────────
     Route::resource('prayers', PrayerController::class);
     Route::patch('prayers/{prayer}/approve',  [PrayerController::class, 'approve'])
-         ->name('prayers.approve')->middleware('admin');
+         ->name('prayers.approve')->middleware(['role:admin,icl,ctl', 'feature:doa']);
     Route::patch('prayers/{prayer}/answered', [PrayerController::class, 'markAnswered'])
-         ->name('prayers.answered')->middleware('admin');
+         ->name('prayers.answered')->middleware(['role:admin,icl,ctl', 'feature:doa']);
 
     // ── Achievement ─────────────────────────────────────────────────────
     Route::get('achievements', [AchievementController::class, 'index'])->name('achievements.index');
@@ -120,6 +173,14 @@ Route::middleware(['auth', 'birthday'])->group(function () {
         Route::get('members/{member}/svg',      [QrCodeController::class, 'svg'])->name('svg');
     });
 
+    // ── Game Hub ─────────────────────────────────────────────────────────
+    Route::get('game', [GameController::class, 'index'])->name('game.index');
+    Route::post('game/challenge',     [\App\Http\Controllers\GameSessionController::class, 'challenge'])->name('game.challenge');
+    Route::post('game/respond',       [\App\Http\Controllers\GameSessionController::class, 'respond'])->name('game.respond');
+    Route::post('game/move',          [\App\Http\Controllers\GameSessionController::class, 'move'])->name('game.move');
+    Route::get('game/pending',        [\App\Http\Controllers\GameSessionController::class, 'pending'])->name('game.pending');
+    Route::get('game/session/{code}', [\App\Http\Controllers\GameSessionController::class, 'show'])->name('game.session.show');
+
     // ── Phase 4: Leaderboard ─────────────────────────────────────────────
     Route::get('leaderboard', [LeaderboardController::class, 'index'])->name('leaderboard.index');
 
@@ -147,7 +208,7 @@ Route::middleware(['auth', 'birthday'])->group(function () {
 
     // ── Phase 4: Community Analytics (admin) ────────────────────────────
     Route::get('analytics', [CommunityAnalyticsController::class, 'index'])
-         ->name('analytics.index')->middleware('admin');
+         ->name('analytics.index')->middleware('role:admin,icl,ctl');
 });
 
 require __DIR__ . '/auth.php';

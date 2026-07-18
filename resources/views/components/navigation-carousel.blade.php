@@ -457,8 +457,10 @@
 @php
 use Illuminate\Support\Facades\Route as RouteFacade;
 
-$isAdmin = auth()->user()?->isAdmin();
-$notif   = $_notifCount ?? 0;
+$__authUser = auth()->user();
+$isAdmin    = $__authUser?->isAdmin();
+$isLeader   = $__authUser?->isLeader(); // admin + ICL + CTL
+$notif      = $_notifCount ?? 0;
 
 $allItems = [
     ['icon' => 'fa-gauge-high',       'label' => 'Dashboard',   'route' => 'dashboard',           'pattern' => 'dashboard'],
@@ -469,14 +471,15 @@ $allItems = [
     ['icon' => 'fa-hands-praying',    'label' => 'Doa',         'route' => 'prayers.index',       'pattern' => 'prayers.*'],
     ['icon' => 'fa-trophy',           'label' => 'Achievement', 'route' => 'achievements.index',  'pattern' => 'achievements.*'],
     ['icon' => 'fa-ranking-star',     'label' => 'Leaderboard', 'route' => 'leaderboard.index',   'pattern' => 'leaderboard.*'],
+    ['icon' => 'fa-gamepad',          'label' => 'Game',        'route' => 'game.index',          'pattern' => 'game.*'],
     ['icon' => 'fa-coins',            'label' => 'Poin',        'route' => 'points.index',        'pattern' => 'points.*'],
     ['icon' => 'fa-images',           'label' => 'Galeri',      'route' => 'albums.index',        'pattern' => 'albums.*'],
     ['icon' => 'fa-comments',         'label' => 'Chat',        'route' => 'chat.index',          'pattern' => 'chat.*'],
     ['icon' => 'fa-chart-line',       'label' => 'Statistik',   'route' => 'statistics.index',    'pattern' => 'statistics.*'],
     ['icon' => 'fa-user-gear',        'label' => 'Profil',      'route' => 'profile.edit',        'pattern' => 'profile.*'],
-    $isAdmin ? ['icon' => 'fa-chart-pie', 'label' => 'Analytics',    'route' => 'analytics.index',    'pattern' => 'analytics.*']    : null,
-    $isAdmin ? ['icon' => 'fa-bible',     'label' => 'Ayat Harian',  'route' => 'daily-verses.index', 'pattern' => 'daily-verses.*'] : null,
-    $isAdmin ? ['icon' => 'fa-sliders',   'label' => 'Pengaturan',   'route' => 'settings.index',     'pattern' => 'settings.*']     : null,
+    $isLeader ? ['icon' => 'fa-chart-pie', 'label' => 'Analytics',    'route' => 'analytics.index',    'pattern' => 'analytics.*']    : null,
+    $isAdmin  ? ['icon' => 'fa-bible',     'label' => 'Ayat Harian',  'route' => 'daily-verses.index', 'pattern' => 'daily-verses.*'] : null,
+    $isAdmin  ? ['icon' => 'fa-sliders',   'label' => 'Pengaturan',   'route' => 'settings.index',     'pattern' => 'settings.*']     : null,
 ];
 
 $navItems = array_values(array_filter($allItems));
@@ -565,7 +568,7 @@ foreach ($navItems as $i => $item) {
         @endif
         <div class="nus-info">
             <div class="nus-name">{{ Str::limit($__u->name, 20) }}</div>
-            <div class="nus-role">{{ $__u->role }}</div>
+            <div class="nus-role">{{ $__u->roleLabel() }}</div>
         </div>
         <form method="POST" action="{{ route('logout') }}" class="ms-auto">
             @csrf

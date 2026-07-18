@@ -2,18 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Prayer extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'judul', 'isi_doa', 'pengirim', 'status',
         'is_anonymous', 'catatan_admin',
         'approved_at', 'answered_at',
         'user_id', 'approved_by',
+        'tenant_id',
     ];
 
     protected $casts = [

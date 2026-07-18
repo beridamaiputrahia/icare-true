@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,8 +12,8 @@
     <title>@yield('title', 'Dashboard') — {{ $_appName }}</title>
 
     {{-- PWA --}}
-    <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/icons/icon-192.svg">
+    <link rel="manifest" href="{{ route('manifest') }}">
+    <link rel="apple-touch-icon" href="{{ $_settings->logoUrl() ?? '/icons/icon-192.svg' }}">
     @if($_settings->faviconUrl())
     <link rel="icon" href="{{ $_settings->faviconUrl() }}">
     @endif
@@ -29,29 +29,114 @@
 
     <style>
     /* ═══════════════════════════════════════════════════════
-       GLOBAL BASE
+       GLOBAL BASE — LIGHT THEME (default)
        ═══════════════════════════════════════════════════════ */
-    :root {
-        --body-bg:      #f1f5f9;
-        --card-shadow:  0 1px 3px rgba(0,0,0,.10);
-        --topbar-h:     60px;
-        --nav-h:        110px; /* height reserved for bottom nav */
+    :root,
+    [data-theme="light"] {
+        --body-bg:         #f1f5f9;
+        --surface:         #ffffff;
+        --surface-2:       #f8fafc;
+        --border:          #e2e8f0;
+        --text:            #1e293b;
+        --text-muted:      #64748b;
+        --text-subtle:     #94a3b8;
+        --card-shadow:     0 1px 3px rgba(0,0,0,.10);
+        --topbar-h:        60px;
+        --nav-h:           110px;
+        --input-border:    #d1d5db;
+        --badge-pending-bg:#fef3c7;  --badge-pending-fg:#92400e;
+        --badge-approved-bg:#d1fae5; --badge-approved-fg:#065f46;
+        --badge-answered-bg:#ede9fe; --badge-answered-fg:#5b21b6;
+        --badge-rejected-bg:#fee2e2; --badge-rejected-fg:#991b1b;
+        --badge-upcoming-bg:#dbeafe; --badge-upcoming-fg:#1e40af;
+        --badge-done-bg:   #f3f4f6;  --badge-done-fg:#374151;
+        --table-header-bg: #f8fafc;
+        --theme-toggle-icon: '☀️';
     }
+
+    /* ═══════════════════════════════════════════════════════
+       DARK THEME
+       ═══════════════════════════════════════════════════════ */
+    [data-theme="dark"] {
+        --body-bg:         #0f172a;
+        --surface:         #1e293b;
+        --surface-2:       #162032;
+        --border:          #334155;
+        --text:            #f1f5f9;
+        --text-muted:      #94a3b8;
+        --text-subtle:     #64748b;
+        --card-shadow:     0 1px 6px rgba(0,0,0,.4);
+        --input-border:    #475569;
+        --badge-pending-bg:#451a03;  --badge-pending-fg:#fcd34d;
+        --badge-approved-bg:#052e16; --badge-approved-fg:#6ee7b7;
+        --badge-answered-bg:#2e1065; --badge-answered-fg:#c4b5fd;
+        --badge-rejected-bg:#450a0a; --badge-rejected-fg:#fca5a5;
+        --badge-upcoming-bg:#0c1a4b; --badge-upcoming-fg:#93c5fd;
+        --badge-done-bg:   #1e293b;  --badge-done-fg:#94a3b8;
+        --table-header-bg: #162032;
+        --theme-toggle-icon: '🌙';
+    }
+
+    [data-theme="dark"] body { color-scheme: dark; }
+    [data-theme="dark"] .bg-white,
+    [data-theme="dark"] .card,
+    [data-theme="dark"] .modal-content { background: var(--surface) !important; color: var(--text) !important; }
+    [data-theme="dark"] .card-header  { background: var(--surface) !important; border-color: var(--border) !important; }
+    [data-theme="dark"] .card-footer  { background: var(--surface-2) !important; border-color: var(--border) !important; }
+    [data-theme="dark"] .table        { --bs-table-bg: var(--surface); --bs-table-color: var(--text); --bs-table-border-color: var(--border); }
+    [data-theme="dark"] .table th     { background: var(--table-header-bg) !important; color: var(--text-muted) !important; border-color: var(--border) !important; }
+    [data-theme="dark"] .table td     { border-color: var(--border) !important; }
+    [data-theme="dark"] .table-hover tbody tr:hover { --bs-table-accent-bg: rgba(255,255,255,.04); }
+    [data-theme="dark"] .form-control,
+    [data-theme="dark"] .form-select  { background: var(--surface-2); border-color: var(--input-border); color: var(--text); }
+    [data-theme="dark"] .form-control:focus,
+    [data-theme="dark"] .form-select:focus { background: var(--surface); border-color: var(--app-primary,#3b82f6); color: var(--text); box-shadow: 0 0 0 .2rem rgba(59,130,246,.25); }
+    [data-theme="dark"] .form-control::placeholder { color: var(--text-subtle); }
+    [data-theme="dark"] .form-label   { color: var(--text-muted); }
+    [data-theme="dark"] .input-group-text { background: var(--surface-2); border-color: var(--input-border); color: var(--text-muted); }
+    [data-theme="dark"] .btn-light    { background: var(--surface-2); border-color: var(--border); color: var(--text); }
+    [data-theme="dark"] .btn-light:hover { background: var(--border); }
+    [data-theme="dark"] .btn-outline-secondary { border-color: var(--border); color: var(--text-muted); }
+    [data-theme="dark"] .btn-outline-secondary:hover { background: var(--surface-2); color: var(--text); }
+    [data-theme="dark"] .dropdown-menu { background: var(--surface); border-color: var(--border); }
+    [data-theme="dark"] .dropdown-item { color: var(--text); }
+    [data-theme="dark"] .dropdown-item:hover { background: var(--surface-2); }
+    [data-theme="dark"] .modal-header,
+    [data-theme="dark"] .modal-footer { border-color: var(--border); }
+    [data-theme="dark"] .alert-success { background: #052e16; color: #6ee7b7; border-color: #065f46; }
+    [data-theme="dark"] .alert-danger  { background: #450a0a; color: #fca5a5; border-color: #991b1b; }
+    [data-theme="dark"] .alert-warning { background: #451a03; color: #fcd34d; border-color: #92400e; }
+    [data-theme="dark"] .alert-info    { background: #0c1a4b; color: #93c5fd; border-color: #1e40af; }
+    [data-theme="dark"] .text-muted    { color: var(--text-muted) !important; }
+    [data-theme="dark"] .text-dark     { color: var(--text) !important; }
+    [data-theme="dark"] .border        { border-color: var(--border) !important; }
+    [data-theme="dark"] .border-bottom,
+    [data-theme="dark"] .border-top    { border-color: var(--border) !important; }
+    [data-theme="dark"] hr             { border-color: var(--border); }
+    [data-theme="dark"] .list-group-item { background: var(--surface); border-color: var(--border); color: var(--text); }
+    [data-theme="dark"] .pagination .page-link { background: var(--surface); border-color: var(--border); color: var(--text-muted); }
+    [data-theme="dark"] .pagination .page-item.active .page-link { background: var(--app-primary,#2563eb); border-color: var(--app-primary,#2563eb); }
+    [data-theme="dark"] .birthday-card { background: #1e1505 !important; }
+
+    /* Role badge warna — dark override */
+    [data-theme="dark"] .badge.bg-warning { color: #0f172a !important; }
+
     *, *::before, *::after { box-sizing: border-box; }
     body {
         font-family: 'Inter', sans-serif;
         background: var(--body-bg);
+        color: var(--text);
         overflow-x: hidden;
-        /* push content above bottom nav */
         padding-bottom: var(--nav-h);
+        transition: background .25s, color .25s;
     }
 
     /* ═══════════════════════════════════════════════════════
        TOPBAR
        ═══════════════════════════════════════════════════════ */
     #topbar {
-        background: #fff;
-        border-bottom: 1px solid #e2e8f0;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
         padding: 0 1.25rem;
         height: var(--topbar-h);
         display: flex;
@@ -62,6 +147,7 @@
         z-index: 900;
         box-shadow: 0 1px 8px rgba(0,0,0,.06);
         gap: 1rem;
+        transition: background .25s, border-color .25s;
     }
 
     /* Brand (left side of topbar) */
@@ -81,18 +167,18 @@
     }
     .topbar-brand-name {
         font-weight: 700; font-size: .88rem;
-        color: #1e293b; white-space: nowrap;
+        color: var(--text); white-space: nowrap;
         line-height: 1.1;
     }
     .topbar-brand-sub {
-        font-size: .62rem; color: #94a3b8;
+        font-size: .62rem; color: var(--text-subtle);
         display: block; line-height: 1;
     }
 
     /* Page title (center area) */
     .topbar-title-wrap { flex: 1; min-width: 0; }
     .page-title-text {
-        font-weight: 600; color: #1e293b;
+        font-weight: 600; color: var(--text);
         margin: 0; font-size: 1rem;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
@@ -105,6 +191,16 @@
         display: flex; align-items: center; justify-content: center;
     }
 
+    /* Dark mode toggle button */
+    #theme-toggle {
+        background: none; border: 1px solid var(--border);
+        border-radius: 8px; padding: 4px 8px; cursor: pointer;
+        font-size: .95rem; line-height: 1; color: var(--text-muted);
+        display: flex; align-items: center; justify-content: center;
+        transition: border-color .2s, background .2s;
+    }
+    #theme-toggle:hover { background: var(--surface-2); border-color: var(--text-subtle); }
+
     /* ═══════════════════════════════════════════════════════
        CONTENT WRAPPER
        ═══════════════════════════════════════════════════════ */
@@ -114,30 +210,30 @@
        CARDS & COMPONENTS
        ═══════════════════════════════════════════════════════ */
     .stat-card {
-        background: #fff; border-radius: 12px; padding: 1.25rem;
-        box-shadow: var(--card-shadow); border: 1px solid #e2e8f0;
+        background: var(--surface); border-radius: 12px; padding: 1.25rem;
+        box-shadow: var(--card-shadow); border: 1px solid var(--border);
         transition: transform .2s, box-shadow .2s; height: 100%;
     }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.10); }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
     .stat-icon  { width:48px; height:48px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.25rem; }
     .stat-value { font-size:1.75rem; font-weight:700; color:var(--app-primary,#1e293b); }
-    .stat-label { font-size:.78rem; color:#64748b; font-weight:500; }
+    .stat-label { font-size:.78rem; color:var(--text-muted); font-weight:500; }
 
-    .card { border:1px solid #e2e8f0; border-radius:12px; box-shadow:var(--card-shadow); }
-    .card-header { background:#fff; border-bottom:1px solid #e2e8f0; padding:1rem 1.25rem; border-radius:12px 12px 0 0 !important; }
+    .card { border:1px solid var(--border); border-radius:12px; box-shadow:var(--card-shadow); background:var(--surface); }
+    .card-header { background:var(--surface); border-bottom:1px solid var(--border); padding:1rem 1.25rem; border-radius:12px 12px 0 0 !important; }
 
-    .table th  { font-size:.75rem; font-weight:600; color:#64748b; text-transform:uppercase; letter-spacing:.05em; background:#f8fafc; }
-    .table td  { font-size:.875rem; vertical-align:middle; }
+    .table th  { font-size:.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; background:var(--table-header-bg); }
+    .table td  { font-size:.875rem; vertical-align:middle; color:var(--text); }
     .table > :not(caption) > * > * { padding:.75rem 1rem; }
 
     .badge         { font-weight:500; font-size:.72rem; padding:.35em .65em; border-radius:6px; }
-    .badge-pending  { background:#fef3c7; color:#92400e; }
-    .badge-approved { background:#d1fae5; color:#065f46; }
-    .badge-answered { background:#ede9fe; color:#5b21b6; }
-    .badge-rejected { background:#fee2e2; color:#991b1b; }
-    .badge-upcoming { background:#dbeafe; color:#1e40af; }
-    .badge-ongoing  { background:#d1fae5; color:#065f46; }
-    .badge-done     { background:#f3f4f6; color:#374151; }
+    .badge-pending  { background:var(--badge-pending-bg);  color:var(--badge-pending-fg); }
+    .badge-approved { background:var(--badge-approved-bg); color:var(--badge-approved-fg); }
+    .badge-answered { background:var(--badge-answered-bg); color:var(--badge-answered-fg); }
+    .badge-rejected { background:var(--badge-rejected-bg); color:var(--badge-rejected-fg); }
+    .badge-upcoming { background:var(--badge-upcoming-bg); color:var(--badge-upcoming-fg); }
+    .badge-ongoing  { background:var(--badge-approved-bg); color:var(--badge-approved-fg); }
+    .badge-done     { background:var(--badge-done-bg);     color:var(--badge-done-fg); }
 
     .countdown-box {
         background: linear-gradient(135deg, var(--app-primary,#2563eb), #7c3aed);
@@ -155,14 +251,14 @@
 
     .btn { border-radius:8px; font-weight:500; font-size:.875rem; }
     .btn-sm { font-size:.78rem; }
-    .form-control, .form-select, .form-check-input { border-radius:8px; font-size:.875rem; border-color:#d1d5db; }
-    .form-label  { font-size:.825rem; font-weight:500; color:#374151; margin-bottom:.35rem; }
+    .form-control, .form-select, .form-check-input { border-radius:8px; font-size:.875rem; border-color:var(--input-border); }
+    .form-label  { font-size:.825rem; font-weight:500; color:var(--text-muted); margin-bottom:.35rem; }
     .alert       { border-radius:10px; border:none; }
     .input-group-text { border-radius:8px; font-size:.875rem; }
 
-    .member-photo    { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #e2e8f0; }
-    .member-photo-lg { width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid #e2e8f0; }
-    .avatar-placeholder { border-radius:50%; background:#e2e8f0; display:inline-flex; align-items:center; justify-content:center; color:#64748b; }
+    .member-photo    { width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid var(--border); }
+    .member-photo-lg { width:80px; height:80px; border-radius:50%; object-fit:cover; border:3px solid var(--border); }
+    .avatar-placeholder { border-radius:50%; background:var(--surface-2); display:inline-flex; align-items:center; justify-content:center; color:var(--text-muted); }
 
     /* ═══════════════════════════════════════════════════════
        BIRTHDAY THEME (active all day on user's birthday)
@@ -299,10 +395,17 @@
                 </a>
             </div>
 
+            {{-- Dark mode toggle --}}
+            <button id="theme-toggle" title="Ganti tema" aria-label="Toggle dark mode">
+                <span id="theme-icon">🌙</span>
+            </button>
+
             {{-- Role badge --}}
-            <span class="badge {{ auth()->user()->isAdmin() ? 'bg-danger' : 'bg-primary' }} d-none d-sm-inline"
-                  style="font-size:.62rem;text-transform:uppercase;letter-spacing:.05em">
-                {{ auth()->user()->role }}
+            @php $u = auth()->user(); @endphp
+            <span class="badge bg-{{ $u->roleColor() }} d-none d-sm-inline"
+                  style="font-size:.62rem;text-transform:uppercase;letter-spacing:.05em"
+                  title="{{ $u->roleLabel() }}">
+                {{ $u->roleLabel() }}
             </span>
 
             {{-- Profile --}}
@@ -430,6 +533,26 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
     <script>
+    /* ── DARK MODE ────────────────────────────────────────── */
+    (function() {
+        const html  = document.documentElement;
+        const btn   = document.getElementById('theme-toggle');
+        const icon  = document.getElementById('theme-icon');
+        const saved = localStorage.getItem('theme') ||
+                      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+        function apply(theme) {
+            html.setAttribute('data-theme', theme);
+            icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+            localStorage.setItem('theme', theme);
+        }
+
+        apply(saved);
+        btn?.addEventListener('click', () => {
+            apply(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+        });
+    })();
+
     /* Delete confirmation */
     document.querySelectorAll('.btn-delete').forEach(btn => {
         btn.addEventListener('click', function(e) {

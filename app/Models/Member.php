@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Member extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'user_id',
@@ -20,6 +21,7 @@ class Member extends Model
         'covenant_number',
         'is_active',
         'created_by',
+        'tenant_id',
     ];
 
     protected $casts = [

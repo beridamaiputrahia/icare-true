@@ -10,7 +10,7 @@
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
         <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-bullhorn text-warning me-2"></i>Daftar Pengumuman</h6>
-        @if(auth()->user()->isAdmin())
+        @if($_feat['pengumuman'] ?? false)
         <a href="{{ route('announcements.create') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-plus me-1"></i>Tambah Pengumuman
         </a>
@@ -54,7 +54,7 @@
                         <a href="{{ route('announcements.show', $ann) }}" class="btn btn-sm btn-outline-info flex-grow-1">
                             <i class="fa-solid fa-eye me-1"></i>Baca
                         </a>
-                        @if(auth()->user()->isAdmin())
+                        @if($_feat['pengumuman'] ?? false)
                         <a href="{{ route('announcements.edit', $ann) }}" class="btn btn-sm btn-outline-warning" title="Edit">
                             <i class="fa-solid fa-pen"></i>
                         </a>

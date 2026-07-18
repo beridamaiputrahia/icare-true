@@ -39,7 +39,7 @@
                     <th>#</th>
                     <th>Judul</th>
                     <th>Ayat Pendukung</th>
-                    @if(auth()->user()->isAdmin())<th>Penulis</th>@endif
+                    @if($_feat['renungan'] ?? false)<th>Penulis</th>@endif
                     <th>Status</th>
                     <th>Dikirim</th>
                     <th>Aksi</th>
@@ -53,7 +53,7 @@
                         <div class="fw-semibold text-truncate" style="font-size:.875rem;max-width:200px">{{ $devotion->judul }}</div>
                     </td>
                     <td style="font-size:.82rem">{{ $devotion->ayat_pendukung ?? '-' }}</td>
-                    @if(auth()->user()->isAdmin())
+                    @if($_feat['renungan'] ?? false)
                     <td>
                         <div class="d-flex align-items-center gap-2">
                             <div class="avatar-placeholder" style="width:28px;height:28px;font-size:.7rem;background:#dbeafe;color:#1e40af">
@@ -83,7 +83,7 @@
                                 <i class="fa-solid fa-pen"></i>
                             </a>
                             @endif
-                            @if(auth()->user()->isAdmin())
+                            @if($_feat['renungan'] ?? false)
                                 @if($devotion->status === 'pending')
                                 <form method="POST" action="{{ route('devotions.approve', $devotion) }}" class="d-inline">
                                     @csrf @method('PATCH')
@@ -115,7 +115,7 @@
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="{{ auth()->user()->isAdmin() ? 7 : 6 }}" class="text-center py-5 text-muted">
+                    <td colspan="{{ ($_feat['renungan'] ?? false) ? 7 : 6 }}" class="text-center py-5 text-muted">
                         <i class="fa-solid fa-book-open fa-2x mb-2 d-block opacity-25"></i>
                         Belum ada renungan
                     </td>
@@ -133,7 +133,7 @@
 </div>
 
 {{-- Reject Modal --}}
-@if(auth()->user()->isAdmin())
+@if($_feat['renungan'] ?? false)
 <div class="modal fade" id="rejectModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow">

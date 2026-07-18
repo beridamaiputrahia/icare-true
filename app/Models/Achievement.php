@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class Achievement extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'name', 'slug', 'category', 'description',
         'icon', 'color', 'badge_label',
         'required_count', 'order', 'is_active',
+        'tenant_id',
     ];
 
     protected $casts = [

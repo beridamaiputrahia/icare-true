@@ -10,7 +10,7 @@
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
         <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-calendar-days text-primary me-2"></i>Daftar Jadwal Kegiatan</h6>
-        @if(auth()->user()->isAdmin())
+        @if($_feat['jadwal'] ?? false)
         <a href="{{ route('schedules.create') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-plus me-1"></i>Tambah Jadwal
         </a>
@@ -73,7 +73,7 @@
                             <a href="{{ route('schedules.show', $schedule) }}" class="btn btn-sm btn-outline-info" title="Detail">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            @if(auth()->user()->isAdmin())
+                            @if($_feat['jadwal'] ?? false)
                             <a href="{{ route('schedules.edit', $schedule) }}" class="btn btn-sm btn-outline-warning" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </a>

@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 class Album extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'user_id', 'judul', 'deskripsi', 'cover',
         'tanggal_kegiatan', 'is_published',
+        'tenant_id',
     ];
 
     protected $casts = [

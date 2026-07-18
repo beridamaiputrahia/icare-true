@@ -15,12 +15,12 @@ class ChatController extends Controller
     {
         $user = auth()->user();
 
-        // Global conversation (everyone)
-        $global = Conversation::find(Conversation::GLOBAL_ID);
+        // Global conversation (everyone in this tenant)
+        $global = Conversation::globalForTenant();
 
-        // Leader conversation (admin only)
+        // Leader conversation (admin only, scoped to this tenant)
         $leader = $user->isAdmin()
-            ? Conversation::find(Conversation::LEADER_ID)
+            ? Conversation::leaderForTenant()
             : null;
 
         // Private conversations

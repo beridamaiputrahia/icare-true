@@ -10,9 +10,11 @@
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
         <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-bible text-primary me-2"></i>Daftar Ayat Harian</h6>
+        @if($_feat['ayat_harian'] ?? false)
         <a href="{{ route('daily-verses.create') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-plus me-1"></i>Tambah Ayat
         </a>
+        @endif
     </div>
     <div class="card-body border-bottom py-2">
         <form method="GET" class="d-flex gap-2 flex-wrap">
@@ -61,6 +63,7 @@
                             <a href="{{ route('daily-verses.show', $verse) }}" class="btn btn-sm btn-outline-info" title="Detail">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
+                            @if($_feat['ayat_harian'] ?? false)
                             <a href="{{ route('daily-verses.edit', $verse) }}" class="btn btn-sm btn-outline-warning" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </a>
@@ -70,6 +73,7 @@
                             <button class="btn btn-sm btn-outline-danger btn-delete" data-form="del-v-{{ $verse->id }}" title="Hapus">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
+                            @endif
                         </div>
                     </td>
                 </tr>

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Schedule extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'nama_kegiatan',
@@ -19,6 +20,7 @@ class Schedule extends Model
         'deskripsi',
         'status',
         'created_by',
+        'tenant_id',
     ];
 
     protected $casts = [

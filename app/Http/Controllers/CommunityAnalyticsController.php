@@ -19,16 +19,18 @@ class CommunityAnalyticsController extends Controller
     {
         abort_unless(auth()->user()?->isAdmin(), 403);
 
+        $tenantId = auth()->user()->tenant_id;
+
         // ── KPI Cards ───────────────────────────────────────
         $kpi = [
-            'total_members'    => User::where('is_active', true)->count(),
-            'active_members'   => User::where('is_active', true)->where('last_seen', '>=', now()->subDays(30))->count(),
-            'total_devotions'  => Devotion::where('status', 'approved')->count(),
-            'total_prayers'    => Prayer::whereIn('status', ['approved', 'answered'])->count(),
+            'total_members'      => User::where('tenant_id', $tenantId)->where('is_active', true)->count(),
+            'active_members'     => User::where('tenant_id', $tenantId)->where('is_active', true)->where('last_seen', '>=', now()->subDays(30))->count(),
+            'total_devotions'    => Devotion::where('status', 'approved')->count(),
+            'total_prayers'      => Prayer::whereIn('status', ['approved', 'answered'])->count(),
             'total_achievements' => UserAchievement::count(),
-            'total_points'     => User::sum('total_points'),
-            'total_sharing'    => UserPoint::where('type', UserPoint::TYPE_SHARING_FIRMAN)->count(),
-            'total_albums'     => Album::where('is_published', true)->count(),
+            'total_points'       => User::where('tenant_id', $tenantId)->sum('total_points'),
+            'total_sharing'      => UserPoint::where('type', UserPoint::TYPE_SHARING_FIRMAN)->count(),
+            'total_albums'       => Album::where('is_published', true)->count(),
         ];
 
         // ── Monthly Activity (12 months) ────────────────────
@@ -58,7 +60,8 @@ class CommunityAnalyticsController extends Controller
         $memberGrowth = [
             'labels' => $months->map(fn ($m) => $m->translatedFormat('M Y'))->toArray(),
             'data'   => $months->map(fn ($m) =>
-                User::whereYear('created_at', $m->year)
+                User::where('tenant_id', $tenantId)
+                    ->whereYear('created_at', $m->year)
                     ->whereMonth('created_at', $m->month)
                     ->count()
             )->toArray(),
@@ -68,7 +71,7 @@ class CommunityAnalyticsController extends Controller
         $levelDist = collect($this->pointService->getLevelsData())
             ->map(fn ($l, $lvl) => [
                 'label' => $l['name'],
-                'count' => User::where('level', $lvl)->where('is_active', true)->count(),
+                'count' => User::where('tenant_id', $tenantId)->where('level', $lvl)->where('is_active', true)->count(),
                 'color' => $l['color'],
             ])
             ->values();
@@ -83,7 +86,8 @@ class CommunityAnalyticsController extends Controller
             ]);
 
         // ── Top Active Members ───────────────────────────────
-        $topMembers = User::where('is_active', true)
+        $topMembers = User::where('tenant_id', $tenantId)
+            ->where('is_active', true)
             ->orderByDesc('total_points')
             ->take(5)
             ->get();
@@ -92,6 +96,7 @@ class CommunityAnalyticsController extends Controller
         $achievementDist = DB::table('user_achievements')
             ->join('achievements', 'achievements.id', '=', 'user_achievements.achievement_id')
             ->selectRaw('achievements.name, COUNT(*) as count')
+            ->where('user_achievements.tenant_id', $tenantId)
             ->groupBy('achievements.id', 'achievements.name')
             ->orderByDesc('count')
             ->take(8)

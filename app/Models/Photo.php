@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Storage;
 
 class Photo extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'album_id', 'user_id', 'file_path', 'caption',
         'file_size', 'mime_type', 'sort_order',
+        'tenant_id',
     ];
 
     public function album()

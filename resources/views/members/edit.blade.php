@@ -101,8 +101,8 @@
                     <i class="fa-solid fa-shield-halved text-primary me-2"></i>Manajemen Akun
                 </h6>
                 @if($user)
-                <span class="badge {{ $user->isAdmin() ? 'bg-danger' : 'bg-primary' }} text-uppercase" style="font-size:.65rem;letter-spacing:.05em">
-                    {{ $user->role }}
+                <span class="badge bg-{{ $user->roleColor() }} text-uppercase" style="font-size:.65rem;letter-spacing:.05em">
+                    {{ $user->roleLabel() }}
                 </span>
                 @else
                 <span class="badge bg-secondary" style="font-size:.65rem">Belum punya akun</span>
@@ -126,12 +126,10 @@
                     <div class="col-md-6">
                         <label class="form-label">Role Akun</label>
                         <select name="role" class="form-select @error('role') is-invalid @enderror">
-                            <option value="user"  {{ old('role', $user->role) === 'user'  ? 'selected' : '' }}>
-                                User (Anggota)
-                            </option>
-                            <option value="admin" {{ old('role', $user->role) === 'admin' ? 'selected' : '' }}>
-                                Admin
-                            </option>
+                            <option value="anggota" {{ old('role', $user->role) === 'anggota' ? 'selected' : '' }}>Anggota</option>
+                            <option value="ctl"     {{ old('role', $user->role) === 'ctl'     ? 'selected' : '' }}>CTL (Co-Team Leader)</option>
+                            <option value="icl"     {{ old('role', $user->role) === 'icl'     ? 'selected' : '' }}>ICL (I Care Leader)</option>
+                            <option value="admin"   {{ old('role', $user->role) === 'admin'   ? 'selected' : '' }}>Admin</option>
                         </select>
                         @error('role')<div class="invalid-feedback">{{ $message }}</div>@enderror
                     </div>
@@ -180,8 +178,10 @@
                         <div class="col-md-6">
                             <label class="form-label">Role</label>
                             <select name="role" class="form-select">
-                                <option value="user"  {{ old('role','user') === 'user'  ? 'selected' : '' }}>User (Anggota)</option>
-                                <option value="admin" {{ old('role')        === 'admin' ? 'selected' : '' }}>Admin</option>
+                                <option value="anggota" {{ old('role','anggota') === 'anggota' ? 'selected' : '' }}>Anggota</option>
+                                <option value="ctl"     {{ old('role')           === 'ctl'     ? 'selected' : '' }}>CTL (Co-Team Leader)</option>
+                                <option value="icl"     {{ old('role')           === 'icl'     ? 'selected' : '' }}>ICL (I Care Leader)</option>
+                                <option value="admin"   {{ old('role')           === 'admin'   ? 'selected' : '' }}>Admin</option>
                             </select>
                         </div>
                         <div class="col-md-6">
@@ -263,14 +263,16 @@
             </div>
             <div class="card-body">
                 <p class="text-muted mb-2" style="font-size:.78rem">
-                    Role saat ini: <strong class="text-{{ $user->isAdmin() ? 'danger' : 'primary' }}">{{ ucfirst($user->role) }}</strong>
+                    Role saat ini: <span class="badge bg-{{ $user->roleColor() }}">{{ $user->roleLabel() }}</span>
                 </p>
                 <form method="POST" action="{{ route('members.role', $member) }}">
                     @csrf @method('PATCH')
                     <div class="d-flex gap-2">
                         <select name="role" class="form-select form-select-sm">
-                            <option value="user"  {{ $user->role === 'user'  ? 'selected' : '' }}>User (Anggota)</option>
-                            <option value="admin" {{ $user->role === 'admin' ? 'selected' : '' }}>Admin</option>
+                            <option value="anggota" {{ $user->role === 'anggota' ? 'selected' : '' }}>Anggota</option>
+                            <option value="ctl"     {{ $user->role === 'ctl'     ? 'selected' : '' }}>CTL (Co-Team Leader)</option>
+                            <option value="icl"     {{ $user->role === 'icl'     ? 'selected' : '' }}>ICL (I Care Leader)</option>
+                            <option value="admin"   {{ $user->role === 'admin'   ? 'selected' : '' }}>Admin</option>
                         </select>
                         <button type="submit" class="btn btn-sm btn-danger text-nowrap">
                             <i class="fa-solid fa-shield me-1"></i>Terapkan

@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class Message extends Model
 {
-    protected $fillable = ['conversation_id', 'user_id', 'body', 'is_deleted'];
+    use BelongsToTenant;
+    protected $fillable = ['conversation_id', 'user_id', 'body', 'is_deleted', 'tenant_id'];
 
     protected $casts = ['is_deleted' => 'boolean'];
 

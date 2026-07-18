@@ -145,29 +145,68 @@
                     <i class="fa-solid fa-shield-halved text-primary me-2"></i>Akun Login
                 </h6>
                 @if($user)
-                <span class="badge {{ $user->isAdmin() ? 'bg-danger' : 'bg-primary' }} text-uppercase" style="font-size:.6rem;letter-spacing:.05em">
-                    {{ $user->role }}
-                </span>
+                <div class="d-flex gap-1 align-items-center">
+                    <span class="badge bg-{{ $user->roleColor() }} text-uppercase" style="font-size:.6rem;letter-spacing:.05em">
+                        {{ $user->roleLabel() }}
+                    </span>
+                    @if($user->secondary_role)
+                    <span class="badge bg-secondary text-uppercase" style="font-size:.6rem;letter-spacing:.05em">
+                        {{ $user->secondaryRoleLabel() }}
+                    </span>
+                    @endif
+                </div>
                 @endif
             </div>
             <div class="card-body py-2" style="font-size:.8rem">
                 @if($user)
-                <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                    <div>
-                        <div class="text-muted" style="font-size:.72rem">Email</div>
-                        <div class="fw-medium">{{ $user->email }}</div>
-                    </div>
-                    <form method="POST" action="{{ route('members.role', $member) }}" class="d-flex gap-2 align-items-center">
-                        @csrf @method('PATCH')
-                        <select name="role" class="form-select form-select-sm" style="width:auto">
-                            <option value="user"  {{ $user->role === 'user'  ? 'selected':'' }}>User</option>
-                            <option value="admin" {{ $user->role === 'admin' ? 'selected':'' }}>Admin</option>
-                        </select>
-                        <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">
-                            <i class="fa-solid fa-shield me-1"></i>Ubah Role
-                        </button>
-                    </form>
+                {{-- Email --}}
+                <div class="mb-2">
+                    <div class="text-muted" style="font-size:.72rem">Email</div>
+                    <div class="fw-medium">{{ $user->email }}</div>
                 </div>
+
+                {{-- Ubah Role Utama --}}
+                <form method="POST" action="{{ route('members.role', $member) }}" class="d-flex gap-2 align-items-center mb-2">
+                    @csrf @method('PATCH')
+                    <div class="flex-grow-1">
+                        <label class="text-muted mb-1" style="font-size:.72rem">Role Utama</label>
+                        <select name="role" class="form-select form-select-sm">
+                            <option value="anggota" {{ $user->role === 'anggota' ? 'selected':'' }}>Anggota</option>
+                            <option value="ctl"     {{ $user->role === 'ctl'     ? 'selected':'' }}>CTL (Co-Team Leader)</option>
+                            <option value="icl"     {{ $user->role === 'icl'     ? 'selected':'' }}>ICL (I Care Leader)</option>
+                            <option value="admin"   {{ $user->role === 'admin'   ? 'selected':'' }}>Admin</option>
+                        </select>
+                    </div>
+                    <div class="align-self-end">
+                        <button type="submit" class="btn btn-sm btn-outline-danger text-nowrap">
+                            <i class="fa-solid fa-shield me-1"></i>Simpan
+                        </button>
+                    </div>
+                </form>
+
+                {{-- Double Role (hanya tampil jika user adalah admin) --}}
+                @if($user->isAdmin())
+                <form method="POST" action="{{ route('members.secondary-role', $member) }}" class="d-flex gap-2 align-items-center">
+                    @csrf @method('PATCH')
+                    <div class="flex-grow-1">
+                        <label class="text-muted mb-1" style="font-size:.72rem">
+                            Role Tambahan <span class="text-secondary">(opsional — khusus Admin)</span>
+                        </label>
+                        <select name="secondary_role" class="form-select form-select-sm">
+                            <option value="">— Tidak Ada —</option>
+                            <option value="icl"     {{ $user->secondary_role === 'icl'     ? 'selected':'' }}>+ ICL (I Care Leader)</option>
+                            <option value="ctl"     {{ $user->secondary_role === 'ctl'     ? 'selected':'' }}>+ CTL (Co-Team Leader)</option>
+                            <option value="anggota" {{ $user->secondary_role === 'anggota' ? 'selected':'' }}>+ Anggota</option>
+                        </select>
+                    </div>
+                    <div class="align-self-end">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">
+                            <i class="fa-solid fa-layer-group me-1"></i>Simpan
+                        </button>
+                    </div>
+                </form>
+                @endif
+
                 @else
                 <div class="d-flex align-items-center justify-content-between">
                     <span class="text-muted"><i class="fa-solid fa-xmark me-1 text-danger"></i>Belum punya akun login</span>

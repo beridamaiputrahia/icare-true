@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class UserPoint extends Model
 {
+    use BelongsToTenant;
     protected $fillable = [
         'user_id', 'type', 'points', 'description',
         'pointable_type', 'pointable_id',
+        'tenant_id',
     ];
 
     // Point type constants

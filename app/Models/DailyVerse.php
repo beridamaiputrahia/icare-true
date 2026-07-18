@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class DailyVerse extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'ayat',
@@ -16,6 +17,7 @@ class DailyVerse extends Model
         'tanggal',
         'is_active',
         'created_by',
+        'tenant_id',
     ];
 
     protected $casts = [

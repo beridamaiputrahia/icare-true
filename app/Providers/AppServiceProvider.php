@@ -16,6 +16,7 @@ use App\Policies\MessagePolicy;
 use App\Policies\PhotoPolicy;
 use App\Services\AchievementService;
 use App\Services\BannerService;
+use App\Services\FeatureToggleService;
 use App\Services\LeaderboardService;
 use App\Services\PointService;
 use App\Services\QrCodeService;
@@ -38,6 +39,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(PointService::class);
         $this->app->singleton(LeaderboardService::class);
         $this->app->singleton(QrCodeService::class);
+        $this->app->singleton(FeatureToggleService::class);
 
         // Policies
         $this->app['Illuminate\Contracts\Auth\Access\Gate']->policy(Album::class, AlbumPolicy::class);
@@ -62,9 +64,13 @@ class AppServiceProvider extends ServiceProvider
             $view->with('_appName',  $settings->appName());
 
             if (auth()->check()) {
-                $view->with('_notifCount', app(NotificationManager::class)->unreadCount(auth()->user()));
+                $user = auth()->user();
+                $view->with('_notifCount', app(NotificationManager::class)->unreadCount($user));
+                // Hak akses fitur CRUD per modul untuk user saat ini
+                $view->with('_feat', app(FeatureToggleService::class)->userPermissions($user));
             } else {
                 $view->with('_notifCount', 0);
+                $view->with('_feat', array_fill_keys(array_keys(FeatureToggleService::FEATURES), false));
             }
         });
 

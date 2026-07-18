@@ -3,24 +3,39 @@
 namespace App\Managers;
 
 use App\Models\AppSetting;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
 class SettingsManager
 {
+    /**
+     * In-memory cache dikelompokkan per tenant_id.
+     * Format: [ tenantId => [ key => value ] ]
+     * Mencegah bocor antar request di lingkungan long-running (Octane/Queue).
+     */
     private static array $cache = [];
+
+    private function tenantId(): string
+    {
+        return (string) (Auth::check() ? Auth::user()->tenant_id : 'global');
+    }
 
     public function get(string $key, mixed $default = null): mixed
     {
-        if (!isset(self::$cache[$key])) {
-            self::$cache[$key] = AppSetting::get($key, $default);
+        $tid = $this->tenantId();
+
+        if (! isset(self::$cache[$tid][$key])) {
+            self::$cache[$tid][$key] = AppSetting::get($key, $default);
         }
-        return self::$cache[$key] ?? $default;
+
+        return self::$cache[$tid][$key] ?? $default;
     }
 
     public function set(string $key, mixed $value): void
     {
         AppSetting::set($key, $value);
-        self::$cache[$key] = $value;
+        $tid = $this->tenantId();
+        self::$cache[$tid][$key] = $value;
     }
 
     public function all(): array
@@ -101,7 +116,10 @@ class SettingsManager
 
     public function flush(): void
     {
-        self::$cache = [];
+        // Hapus in-memory cache hanya untuk tenant saat ini
+        $tid = $this->tenantId();
+        unset(self::$cache[$tid]);
+
         AppSetting::flushCache();
     }
 }

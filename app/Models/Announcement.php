@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Announcement extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'judul',
@@ -16,6 +17,7 @@ class Announcement extends Model
         'penulis',
         'is_published',
         'created_by',
+        'tenant_id',
     ];
 
     protected $casts = [

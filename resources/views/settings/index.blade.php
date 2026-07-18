@@ -30,9 +30,17 @@
                             'appearance'  => 'fa-palette',
                             'contact'     => 'fa-address-card',
                             'maintenance' => 'fa-tools',
+                            'features'    => 'fa-toggle-on',
                             default       => 'fa-cog'
                         } }} me-2"></i>
-                        {{ ucfirst($group) }}
+                        {{ match($group) {
+                            'general'     => 'Umum',
+                            'appearance'  => 'Tampilan',
+                            'contact'     => 'Kontak',
+                            'maintenance' => 'Maintenance',
+                            'features'    => 'Izin Fitur',
+                            default       => ucfirst($group)
+                        } }}
                     </a>
                     @endforeach
                 </nav>
@@ -61,9 +69,15 @@
                             'appearance'  => 'Tampilan',
                             'contact'     => 'Kontak & Lokasi',
                             'maintenance' => 'Mode Maintenance',
+                            'features'    => 'Izin Fitur untuk ICL & CTL',
                             default       => ucfirst($group)
                         } }}
                     </h6>
+                    @if($group === 'features')
+                    <span class="ms-auto badge bg-warning text-dark" style="font-size:.72rem">
+                        <i class="fa-solid fa-shield-halved me-1"></i>Hanya Admin
+                    </span>
+                    @endif
                     @if($group === 'maintenance')
                     <div class="ms-auto">
                         <form method="POST" action="{{ route('settings.maintenance-toggle') }}" class="d-inline">
@@ -78,6 +92,13 @@
                     @endif
                 </div>
                 <div class="card-body">
+                    @if($group === 'features')
+                    <div class="alert alert-info py-2 px-3 mb-3" style="font-size:.83rem">
+                        <i class="fa-solid fa-circle-info me-1"></i>
+                        Aktifkan fitur di bawah agar <strong>ICL & CTL</strong> dapat melakukan operasi CRUD pada modul tersebut.
+                        Admin selalu memiliki akses penuh tanpa tergantung toggle ini.
+                    </div>
+                    @endif
                     @foreach($settings as $setting)
                     <div class="mb-4 setting-group">
                         <label class="form-label fw-medium" style="font-size:.855rem">
@@ -90,7 +111,11 @@
                                    id="{{ $setting->key }}" value="1"
                                    {{ $setting->value ? 'checked' : '' }}>
                             <label class="form-check-label" for="{{ $setting->key }}" style="font-size:.84rem">
+                                @if($group === 'features')
+                                <span class="text-success fw-medium">Aktif</span> — ICL & CTL dapat mengakses
+                                @else
                                 Aktif
+                                @endif
                             </label>
                         </div>
 

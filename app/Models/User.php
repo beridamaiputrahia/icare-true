@@ -11,8 +11,9 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password', 'role', 'is_active',
+        'name', 'email', 'password', 'role', 'secondary_role', 'is_active',
         'total_points', 'level', 'is_online', 'last_seen', 'avatar',
+        'tenant_id',
     ];
 
     protected $hidden = [
@@ -32,7 +33,83 @@ class User extends Authenticatable
         ];
     }
 
-    public function isAdmin(): bool { return $this->role === 'admin'; }
+    // ── Role Constants ─────────────────────────────────────────────
+    const ROLE_ADMIN   = 'admin';
+    const ROLE_ICL     = 'icl';
+    const ROLE_CTL     = 'ctl';
+    const ROLE_ANGGOTA = 'anggota';
+
+    public function isAdmin(): bool   { return $this->role === self::ROLE_ADMIN; }
+    public function isICL(): bool     { return $this->role === self::ROLE_ICL; }
+    public function isCTL(): bool     { return $this->role === self::ROLE_CTL; }
+    public function isAnggota(): bool { return $this->role === self::ROLE_ANGGOTA; }
+
+    /** Apakah user punya akses setingkat leader ke atas (admin/ICL/CTL) */
+    public function isLeader(): bool  { return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_ICL, self::ROLE_CTL]); }
+
+    /**
+     * Cek apakah user memiliki role tertentu — mencakup primary DAN secondary role.
+     * Digunakan middleware & blade untuk cek akses gabungan.
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role || $this->secondary_role === $role;
+    }
+
+    /** Cek apakah user memiliki salah satu dari beberapa role */
+    public function hasAnyRole(string ...$roles): bool
+    {
+        return in_array($this->role, $roles) || in_array($this->secondary_role, $roles);
+    }
+
+    /** Semua role yang dimiliki user (array, max 2 elemen) */
+    public function allRoles(): array
+    {
+        $roles = [$this->role];
+        if ($this->secondary_role) {
+            $roles[] = $this->secondary_role;
+        }
+        return $roles;
+    }
+
+    /** Label secondary role, null jika tidak ada */
+    public function secondaryRoleLabel(): ?string
+    {
+        return match($this->secondary_role) {
+            self::ROLE_ICL     => 'ICL',
+            self::ROLE_CTL     => 'CTL',
+            self::ROLE_ANGGOTA => 'Anggota',
+            default            => null,
+        };
+    }
+
+    /** Label tampilan role utama */
+    public function roleLabel(): string
+    {
+        return match($this->role) {
+            self::ROLE_ADMIN   => 'Admin',
+            self::ROLE_ICL     => 'ICL',
+            self::ROLE_CTL     => 'CTL',
+            default            => 'Anggota',
+        };
+    }
+
+    /** Kelas Bootstrap badge untuk role utama */
+    public function roleColor(): string
+    {
+        return match($this->role) {
+            self::ROLE_ADMIN   => 'danger',
+            self::ROLE_ICL     => 'warning',
+            self::ROLE_CTL     => 'info',
+            default            => 'primary',
+        };
+    }
+
+    // ── Tenant ─────────────────────────────────────────────────────
+    public function tenant()
+    {
+        return $this->belongsTo(Tenant::class);
+    }
 
     // ── Core Relationships ─────────────────────────────────────────
     public function member()        { return $this->hasOne(Member::class); }

@@ -2,14 +2,27 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 
 class Conversation extends Model
 {
-    protected $fillable = ['type', 'name'];
+    use BelongsToTenant;
+    protected $fillable = ['type', 'name', 'tenant_id'];
 
-    public const GLOBAL_ID = 1;
-    public const LEADER_ID = 2;
+    public const TYPE_GLOBAL  = 'global';
+    public const TYPE_LEADER  = 'leader';
+    public const TYPE_PRIVATE = 'private';
+
+    public static function globalForTenant(): ?self
+    {
+        return static::where('type', self::TYPE_GLOBAL)->first();
+    }
+
+    public static function leaderForTenant(): ?self
+    {
+        return static::where('type', self::TYPE_LEADER)->first();
+    }
 
     public function participants()
     {

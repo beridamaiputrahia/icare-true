@@ -10,7 +10,7 @@
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
         <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-users text-primary me-2"></i>Daftar Anggota Komunitas</h6>
-        @if(auth()->user()->isAdmin())
+        @if($_feat['anggota'] ?? false)
         <a href="{{ route('members.create') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-user-plus me-1"></i>Tambah Anggota
         </a>
@@ -95,7 +95,7 @@
                             <a href="{{ route('members.show', $member) }}" class="btn btn-sm btn-outline-info" title="Detail">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            @if(auth()->user()->isAdmin())
+                            @if($_feat['anggota'] ?? false)
                             <a href="{{ route('members.edit', $member) }}" class="btn btn-sm btn-outline-warning" title="Edit">
                                 <i class="fa-solid fa-pen"></i>
                             </a>

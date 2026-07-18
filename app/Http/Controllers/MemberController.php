@@ -55,7 +55,7 @@ class MemberController extends Controller
             'create_account'   => 'nullable|boolean',
             'email'            => 'nullable|email|max:255|unique:users,email|required_if:create_account,1',
             'password'         => 'nullable|string|min:8|confirmed|required_if:create_account,1',
-            'role'             => 'nullable|in:admin,user',
+            'role'             => 'nullable|in:admin,icl,ctl,anggota',
         ]);
 
         $foto = null;
@@ -81,8 +81,9 @@ class MemberController extends Controller
                 'name'      => $member->nama_lengkap,
                 'email'     => $request->email,
                 'password'  => Hash::make($request->password),
-                'role'      => $request->role ?? 'user',
+                'role'      => $request->role ?? 'anggota',
                 'is_active' => true,
+                'tenant_id' => auth()->user()->tenant_id,
             ]);
             $member->update(['user_id' => $user->id]);
         }
@@ -130,7 +131,7 @@ class MemberController extends Controller
             'is_active'       => 'nullable|boolean',
             // Account fields
             'email'           => 'nullable|email|max:255|unique:users,email,' . $userId,
-            'role'            => 'nullable|in:admin,user',
+            'role'            => 'nullable|in:admin,icl,ctl,anggota',
             'new_password'    => 'nullable|string|min:8|confirmed',
             // Create new account if none exists
             'create_account'  => 'nullable|boolean',
@@ -173,8 +174,9 @@ class MemberController extends Controller
                 'name'      => $member->nama_lengkap,
                 'email'     => $request->email,
                 'password'  => Hash::make($request->password),
-                'role'      => $request->role ?? 'user',
+                'role'      => $request->role ?? 'anggota',
                 'is_active' => true,
+                'tenant_id' => auth()->user()->tenant_id,
             ]);
             $member->update(['user_id' => $user->id]);
         }
@@ -185,17 +187,55 @@ class MemberController extends Controller
 
     public function updateRole(Request $request, Member $member)
     {
-        abort_unless(auth()->user()->isAdmin(), 403);
+        $admin = auth()->user();
+        abort_unless($admin->isAdmin(), 403);
 
-        $request->validate(['role' => 'required|in:admin,user']);
+        $request->validate(['role' => 'required|in:admin,icl,ctl,anggota']);
 
         if (!$member->user) {
             return back()->with('error', 'Anggota ini belum memiliki akun yang terhubung.');
         }
 
-        $member->user->update(['role' => $request->role]);
+        // Pastikan target user ada di tenant yang sama — cegah admin cross-tenant
+        abort_unless($member->user->tenant_id === $admin->tenant_id, 403);
 
-        return back()->with('success', 'Role akun berhasil diubah menjadi ' . $request->role . '.');
+        // Hapus secondary_role jika role utama berubah dari admin
+        $updates = ['role' => $request->role];
+        if ($request->role !== 'admin') {
+            $updates['secondary_role'] = null;
+        }
+
+        $member->user->update($updates);
+
+        $label = \App\Models\User::make(['role' => $request->role])->roleLabel();
+        return back()->with('success', 'Role akun berhasil diubah menjadi ' . $label . '.');
+    }
+
+    public function updateSecondaryRole(Request $request, Member $member)
+    {
+        $admin = auth()->user();
+        abort_unless($admin->isAdmin(), 403);
+
+        $request->validate(['secondary_role' => 'nullable|in:icl,ctl,anggota']);
+
+        if (!$member->user) {
+            return back()->with('error', 'Anggota ini belum memiliki akun yang terhubung.');
+        }
+
+        // Pastikan target user ada di tenant yang sama
+        abort_unless($member->user->tenant_id === $admin->tenant_id, 403);
+
+        if (!$member->user->isAdmin()) {
+            return back()->with('error', 'Role tambahan hanya berlaku untuk akun Admin.');
+        }
+
+        $member->user->update(['secondary_role' => $request->secondary_role ?: null]);
+
+        $label = $request->secondary_role
+            ? \App\Models\User::make(['secondary_role' => $request->secondary_role])->secondaryRoleLabel()
+            : 'Tidak Ada';
+
+        return back()->with('success', 'Role tambahan berhasil diubah menjadi ' . $label . '.');
     }
 
     public function destroy(Member $member)
