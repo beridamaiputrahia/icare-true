@@ -1,0 +1,15 @@
+.git
+node_modules
+vendor
+.env
+.env.*.example
+deploy_infinityfree*
+public/build
+public/hot
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*.log
+tests
+.phpunit.cache
+.phpunit.result.cache

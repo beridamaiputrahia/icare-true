@@ -1,0 +1,69 @@
+services:
+  - type: web
+    name: icare-true
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: "I Care True"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_LOCALE
+        value: id
+      - key: APP_FALLBACK_LOCALE
+        value: id
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_LEVEL
+        value: error
+      - key: BCRYPT_ROUNDS
+        value: "12"
+      - key: APP_KEY
+        generateValue: true
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_LIFETIME
+        value: "120"
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SESSION_SAME_SITE
+        value: lax
+      - key: BROADCAST_CONNECTION
+        value: log
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: icare-true-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: icare-true-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: icare-true-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: icare-true-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: icare-true-db
+          property: password
+
+databases:
+  - name: icare-true-db
+    plan: free
+    databaseName: icare_true
+    user: icare_true_user
