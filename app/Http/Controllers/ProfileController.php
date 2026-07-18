@@ -58,9 +58,9 @@ class ProfileController extends Controller
         $fotoPath = null;
         if ($request->hasFile('foto')) {
             if ($user->member?->foto) {
-                Storage::disk('public')->delete($user->member->foto);
+                Storage::disk(config('filesystems.default'))->delete($user->member->foto);
             }
-            $fotoPath = $request->file('foto')->store('members', 'public');
+            $fotoPath = $request->file('foto')->store('members', config('filesystems.default'));
         }
 
         // Update or create Member

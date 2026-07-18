@@ -49,7 +49,7 @@ class DevotionController extends Controller
 
         if ($request->hasFile('gambar')) {
             $validated['gambar'] = $request->file('gambar')
-                ->store('devotions', 'public');
+                ->store('devotions', config('filesystems.default'));
         }
 
         $validated['user_id'] = auth()->id();
@@ -93,10 +93,10 @@ class DevotionController extends Controller
 
         if ($request->hasFile('gambar')) {
             if ($devotion->gambar) {
-                Storage::disk('public')->delete($devotion->gambar);
+                Storage::disk(config('filesystems.default'))->delete($devotion->gambar);
             }
             $validated['gambar'] = $request->file('gambar')
-                ->store('devotions', 'public');
+                ->store('devotions', config('filesystems.default'));
         }
 
         $validated['status'] = 'pending';
@@ -114,7 +114,7 @@ class DevotionController extends Controller
         }
 
         if ($devotion->gambar) {
-            Storage::disk('public')->delete($devotion->gambar);
+            Storage::disk(config('filesystems.default'))->delete($devotion->gambar);
         }
 
         $devotion->delete();

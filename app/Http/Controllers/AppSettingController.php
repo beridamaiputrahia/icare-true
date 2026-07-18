@@ -28,9 +28,9 @@ class AppSettingController extends Controller
             if ($setting->type === 'image') {
                 if ($request->hasFile($key)) {
                     if ($setting->value) {
-                        Storage::disk('public')->delete($setting->value);
+                        Storage::disk(config('filesystems.default'))->delete($setting->value);
                     }
-                    $path = $request->file($key)->store('settings', 'public');
+                    $path = $request->file($key)->store('settings', config('filesystems.default'));
                     // Update langsung di row yang sudah diketahui (hindari updateOrCreate ambiguity)
                     $setting->update(['value' => $path]);
                     $this->settings->set($key, $path);

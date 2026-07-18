@@ -26,7 +26,7 @@ class PhotoController extends Controller
             Photo::create([
                 'album_id'   => $album->id,
                 'user_id'    => auth()->id(),
-                'file_path'  => $file->store('albums/photos', 'public'),
+                'file_path'  => $file->store('albums/photos', config('filesystems.default')),
                 'caption'    => $request->input("captions.{$i}"),
                 'file_size'  => $file->getSize(),
                 'mime_type'  => $file->getMimeType(),
@@ -43,7 +43,7 @@ class PhotoController extends Controller
     {
         $this->authorize('delete', $photo);
 
-        Storage::disk('public')->delete($photo->file_path);
+        Storage::disk(config('filesystems.default'))->delete($photo->file_path);
         $photo->delete();
 
         return back()->with('success', 'Foto berhasil dihapus.');
@@ -51,10 +51,11 @@ class PhotoController extends Controller
 
     public function download(Photo $photo)
     {
-        // Use response()->download() to avoid calling on the Filesystem contract
-        $path = Storage::disk('public')->path($photo->file_path);
+        // Stream lewat disk agar tetap bekerja untuk disk remote (Cloudinary/S3)
+        // yang tidak punya path filesystem lokal.
+        $disk = Storage::disk(config('filesystems.default'));
 
-        return response()->download($path, basename($photo->file_path));
+        return $disk->response($photo->file_path, basename($photo->file_path));
     }
 
     public function updateCaption(Request $request, Photo $photo)

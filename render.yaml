@@ -38,7 +38,9 @@ services:
       - key: CACHE_STORE
         value: database
       - key: FILESYSTEM_DISK
-        value: local
+        value: cloudinary
+      - key: CLOUDINARY_URL
+        sync: false
       - key: DB_CONNECTION
         value: pgsql
       - key: DB_HOST

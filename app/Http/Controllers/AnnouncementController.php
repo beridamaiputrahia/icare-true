@@ -39,7 +39,7 @@ class AnnouncementController extends Controller
 
         if ($request->hasFile('gambar')) {
             $validated['gambar'] = $request->file('gambar')
-                ->store('announcements', 'public');
+                ->store('announcements', config('filesystems.default'));
         }
 
         $validated['is_published'] = $request->boolean('is_published', true);
@@ -73,10 +73,10 @@ class AnnouncementController extends Controller
 
         if ($request->hasFile('gambar')) {
             if ($announcement->gambar) {
-                Storage::disk('public')->delete($announcement->gambar);
+                Storage::disk(config('filesystems.default'))->delete($announcement->gambar);
             }
             $validated['gambar'] = $request->file('gambar')
-                ->store('announcements', 'public');
+                ->store('announcements', config('filesystems.default'));
         }
 
         $validated['is_published'] = $request->boolean('is_published', true);
@@ -90,7 +90,7 @@ class AnnouncementController extends Controller
     public function destroy(Announcement $announcement)
     {
         if ($announcement->gambar) {
-            Storage::disk('public')->delete($announcement->gambar);
+            Storage::disk(config('filesystems.default'))->delete($announcement->gambar);
         }
 
         $announcement->delete();

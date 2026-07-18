@@ -52,7 +52,7 @@ class AlbumController extends Controller
         ]);
 
         if ($request->hasFile('cover')) {
-            $album->update(['cover' => $request->file('cover')->store('albums/covers', 'public')]);
+            $album->update(['cover' => $request->file('cover')->store('albums/covers', config('filesystems.default'))]);
         }
 
         if ($request->hasFile('photos')) {
@@ -60,7 +60,7 @@ class AlbumController extends Controller
                 Photo::create([
                     'album_id'   => $album->id,
                     'user_id'    => auth()->id(),
-                    'file_path'  => $file->store('albums/photos', 'public'),
+                    'file_path'  => $file->store('albums/photos', config('filesystems.default')),
                     'caption'    => $data['captions'][$i] ?? null,
                     'file_size'  => $file->getSize(),
                     'mime_type'  => $file->getMimeType(),
@@ -108,8 +108,8 @@ class AlbumController extends Controller
         ]);
 
         if ($request->hasFile('cover')) {
-            if ($album->cover) Storage::disk('public')->delete($album->cover);
-            $data['cover'] = $request->file('cover')->store('albums/covers', 'public');
+            if ($album->cover) Storage::disk(config('filesystems.default'))->delete($album->cover);
+            $data['cover'] = $request->file('cover')->store('albums/covers', config('filesystems.default'));
         }
 
         $album->update(array_merge($data, ['is_published' => $request->boolean('is_published', true)]));
@@ -124,9 +124,9 @@ class AlbumController extends Controller
 
         // Delete all photos from storage
         foreach ($album->photos as $photo) {
-            Storage::disk('public')->delete($photo->file_path);
+            Storage::disk(config('filesystems.default'))->delete($photo->file_path);
         }
-        if ($album->cover) Storage::disk('public')->delete($album->cover);
+        if ($album->cover) Storage::disk(config('filesystems.default'))->delete($album->cover);
 
         $album->delete();
 

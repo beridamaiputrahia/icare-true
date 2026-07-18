@@ -60,7 +60,7 @@ class MemberController extends Controller
 
         $foto = null;
         if ($request->hasFile('foto')) {
-            $foto = $request->file('foto')->store('members', 'public');
+            $foto = $request->file('foto')->store('members', config('filesystems.default'));
         }
 
         $member = Member::create([
@@ -141,8 +141,8 @@ class MemberController extends Controller
         // Handle photo upload
         $foto = $member->foto;
         if ($request->hasFile('foto')) {
-            if ($foto) Storage::disk('public')->delete($foto);
-            $foto = $request->file('foto')->store('members', 'public');
+            if ($foto) Storage::disk(config('filesystems.default'))->delete($foto);
+            $foto = $request->file('foto')->store('members', config('filesystems.default'));
         }
 
         $member->update([
@@ -241,7 +241,7 @@ class MemberController extends Controller
     public function destroy(Member $member)
     {
         if ($member->foto) {
-            Storage::disk('public')->delete($member->foto);
+            Storage::disk(config('filesystems.default'))->delete($member->foto);
         }
 
         $member->delete();
