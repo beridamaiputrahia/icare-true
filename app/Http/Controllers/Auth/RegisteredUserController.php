@@ -28,7 +28,6 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
-            'nama_perusahaan'  => ['required', 'string', 'max:255'],
             'nama_lengkap'     => ['required', 'string', 'max:255'],
             'nama_panggilan'   => ['nullable', 'string', 'max:100'],
             'tanggal_lahir'    => ['nullable', 'date', 'before:today'],
@@ -43,9 +42,11 @@ class RegisteredUserController extends Controller
         // Buat tenant + user + member dalam satu transaksi agar tidak ada data setengah jadi
         try {
             $user = DB::transaction(function () use ($request) {
+                $namaPerusahaan = 'Komunitas ' . $request->nama_lengkap;
+
                 $tenant = Tenant::create([
-                    'nama_perusahaan' => $request->nama_perusahaan,
-                    'slug'            => $this->generateUniqueSlug($request->nama_perusahaan),
+                    'nama_perusahaan' => $namaPerusahaan,
+                    'slug'            => $this->generateUniqueSlug($namaPerusahaan),
                     'email'           => $request->email,
                     'is_active'       => true,
                 ]);
@@ -81,7 +82,7 @@ class RegisteredUserController extends Controller
             });
         } catch (UniqueConstraintViolationException) {
             return back()->withInput()->withErrors([
-                'nama_perusahaan' => 'Nama komunitas ini sudah terdaftar. Coba nama lain.',
+                'email' => 'Pendaftaran gagal, silakan coba lagi.',
             ]);
         }
 
