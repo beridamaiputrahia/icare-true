@@ -458,8 +458,8 @@
 use Illuminate\Support\Facades\Route as RouteFacade;
 
 $__authUser = auth()->user();
-$isAdmin    = $__authUser?->isAdmin();
-$isLeader   = $__authUser?->isLeader(); // admin + ICL + CTL
+$isAdmin    = $__authUser?->isAdmin();   // termasuk superadmin
+$isLeader   = $__authUser?->isLeader();  // admin + ICL + CTL + superadmin
 $notif      = $_notifCount ?? 0;
 
 $allItems = [
@@ -480,6 +480,8 @@ $allItems = [
     $isLeader ? ['icon' => 'fa-chart-pie', 'label' => 'Analytics',    'route' => 'analytics.index',    'pattern' => 'analytics.*']    : null,
     $isAdmin  ? ['icon' => 'fa-bible',     'label' => 'Ayat Harian',  'route' => 'daily-verses.index', 'pattern' => 'daily-verses.*'] : null,
     $isAdmin  ? ['icon' => 'fa-sliders',   'label' => 'Pengaturan',   'route' => 'settings.index',     'pattern' => 'settings.*']     : null,
+    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-building',    'label' => 'Kelola Tenant', 'route' => 'superadmin.tenants.index',  'pattern' => 'superadmin.tenants.index'] : null,
+    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-right-left',  'label' => 'Ganti Tenant',  'route' => 'superadmin.tenants.select', 'pattern' => 'superadmin.tenants.select'] : null,
 ];
 
 $navItems = array_values(array_filter($allItems));

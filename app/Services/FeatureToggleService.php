@@ -44,7 +44,7 @@ class FeatureToggleService
      */
     public function userCan(User $user, string $feature): bool
     {
-        // Admin selalu bisa
+        // Admin (termasuk superadmin) selalu bisa
         if ($user->isAdmin()) return true;
 
         // ICL/CTL: cek toggle

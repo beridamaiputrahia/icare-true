@@ -21,6 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature'     => \App\Http\Middleware\FeatureAccess::class,
             'maintenance' => \App\Http\Middleware\MaintenanceMiddleware::class,
             'birthday'    => \App\Http\Middleware\BirthdayMiddleware::class,
+            'tenant.selected' => \App\Http\Middleware\EnsureTenantSelected::class,
         ]);
         // Apply globally on all web routes
         $middleware->appendToGroup('web', \App\Http\Middleware\MaintenanceMiddleware::class);

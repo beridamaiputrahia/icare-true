@@ -34,18 +34,22 @@ class User extends Authenticatable
     }
 
     // ── Role Constants ─────────────────────────────────────────────
+    const ROLE_SUPERADMIN = 'superadmin';
     const ROLE_ADMIN   = 'admin';
     const ROLE_ICL     = 'icl';
     const ROLE_CTL     = 'ctl';
     const ROLE_ANGGOTA = 'anggota';
 
-    public function isAdmin(): bool   { return $this->role === self::ROLE_ADMIN; }
+    public function isSuperAdmin(): bool { return $this->role === self::ROLE_SUPERADMIN; }
+
+    /** Superadmin punya semua hak admin (plus akses lintas tenant), jadi ikut dianggap admin di sini. */
+    public function isAdmin(): bool   { return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPERADMIN]); }
     public function isICL(): bool     { return $this->role === self::ROLE_ICL; }
     public function isCTL(): bool     { return $this->role === self::ROLE_CTL; }
     public function isAnggota(): bool { return $this->role === self::ROLE_ANGGOTA; }
 
-    /** Apakah user punya akses setingkat leader ke atas (admin/ICL/CTL) */
-    public function isLeader(): bool  { return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_ICL, self::ROLE_CTL]); }
+    /** Apakah user punya akses setingkat leader ke atas (admin/ICL/CTL/superadmin) */
+    public function isLeader(): bool  { return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_ICL, self::ROLE_CTL, self::ROLE_SUPERADMIN]); }
 
     /**
      * Cek apakah user memiliki role tertentu — mencakup primary DAN secondary role.
@@ -87,6 +91,7 @@ class User extends Authenticatable
     public function roleLabel(): string
     {
         return match($this->role) {
+            self::ROLE_SUPERADMIN => 'Super Admin',
             self::ROLE_ADMIN   => 'Admin',
             self::ROLE_ICL     => 'ICL',
             self::ROLE_CTL     => 'CTL',
@@ -98,6 +103,7 @@ class User extends Authenticatable
     public function roleColor(): string
     {
         return match($this->role) {
+            self::ROLE_SUPERADMIN => 'dark',
             self::ROLE_ADMIN   => 'danger',
             self::ROLE_ICL     => 'warning',
             self::ROLE_CTL     => 'info',

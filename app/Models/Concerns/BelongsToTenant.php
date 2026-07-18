@@ -40,6 +40,11 @@ trait BelongsToTenant
     /**
      * Ambil tenant_id dari user yang sedang login.
      * Kembalikan null jika tidak ada (misal: seeder/artisan tanpa auth).
+     *
+     * Superadmin tidak terikat tenant manapun (tenant_id null di kolom users),
+     * jadi tenant aktifnya diambil dari session "active_tenant_id" — diisi saat
+     * superadmin memilih tenant lewat tenant switcher (lihat TenantSwitchController
+     * dan middleware EnsureTenantSelected).
      */
     protected static function resolveTenantId(): ?int
     {
@@ -47,7 +52,13 @@ trait BelongsToTenant
             return null;
         }
 
-        return Auth::user()->tenant_id;
+        $user = Auth::user();
+
+        if ($user->role === 'superadmin') {
+            return session('active_tenant_id');
+        }
+
+        return $user->tenant_id;
     }
 
     /**

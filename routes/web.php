@@ -70,8 +70,20 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
 })->name('manifest');
 Route::get('game/assets/feature-js', [\App\Http\Controllers\GameController::class, 'serveJsx'])->name('game.jsx');
 
+// ── Superadmin: kelola tenant & tenant switcher ─────────────────────────────
+// Di luar grup 'tenant.selected' di bawah, supaya superadmin bisa akses
+// halaman pilih tenant SEBELUM tenant aktif ter-set di session (menghindari
+// redirect loop).
+Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('superadmin.')->group(function () {
+    Route::get('tenants/select',  [\App\Http\Controllers\Superadmin\TenantController::class, 'select'])->name('tenants.select');
+    Route::post('tenants/switch', [\App\Http\Controllers\Superadmin\TenantController::class, 'switch'])->name('tenants.switch');
+
+    Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
+        ->except(['select', 'switch']);
+});
+
 // ── Authenticated ─────────────────────────────────────────────────────────
-Route::middleware(['auth', 'birthday'])->group(function () {
+Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
 
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

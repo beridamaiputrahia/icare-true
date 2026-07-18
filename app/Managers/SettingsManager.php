@@ -17,7 +17,16 @@ class SettingsManager
 
     private function tenantId(): string
     {
-        return (string) (Auth::check() ? Auth::user()->tenant_id : 'global');
+        if (! Auth::check()) {
+            return 'global';
+        }
+
+        $user = Auth::user();
+
+        // Superadmin tidak punya tenant_id sendiri; tenant aktifnya dari session switcher.
+        $tenantId = $user->role === 'superadmin' ? session('active_tenant_id') : $user->tenant_id;
+
+        return (string) ($tenantId ?? 'global');
     }
 
     public function get(string $key, mixed $default = null): mixed

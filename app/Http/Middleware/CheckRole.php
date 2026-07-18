@@ -14,9 +14,15 @@ class CheckRole
             return redirect()->route('login');
         }
 
-        $userRole = auth()->user()->role;
+        $user = auth()->user();
 
-        if (!in_array($userRole, $roles)) {
+        // Superadmin selalu lolos, terlepas dari daftar role yang diminta —
+        // aksesnya diatur lewat tenant switcher (EnsureTenantSelected), bukan role check.
+        if ($user->role === 'superadmin') {
+            return $next($request);
+        }
+
+        if (!in_array($user->role, $roles)) {
             abort(403, 'Akses ditolak. Anda tidak memiliki izin untuk halaman ini.');
         }
 

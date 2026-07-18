@@ -28,6 +28,10 @@ class FeatureAccess
             return redirect()->route('login');
         }
 
+        if ($user->role === 'superadmin') {
+            return $next($request);
+        }
+
         if (! $this->features->userCan($user, $feature)) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Fitur ini tidak aktif.'], 403);
