@@ -80,6 +80,9 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
 
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
+
+    Route::resource('superadmins', \App\Http\Controllers\Superadmin\SuperAdminController::class)
+        ->only(['index', 'create', 'store', 'destroy']);
 });
 
 // ── Authenticated ─────────────────────────────────────────────────────────
