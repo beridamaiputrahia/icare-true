@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Member;
 use App\Models\Tenant;
 use App\Models\User;
-use Database\Seeders\AppSettingSeeder;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -14,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 
@@ -39,23 +37,23 @@ class RegisteredUserController extends Controller
             'password'         => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        // Buat tenant + user + member dalam satu transaksi agar tidak ada data setengah jadi
+        // User baru bergabung ke tenant/komunitas yang sudah ada sebagai anggota biasa,
+        // bukan membuat tenant baru sendiri.
+        $tenant = Tenant::where('is_active', true)->oldest('id')->first();
+
+        if (! $tenant) {
+            return back()->withInput()->withErrors([
+                'email' => 'Pendaftaran belum bisa diproses, komunitas belum tersedia. Hubungi admin.',
+            ]);
+        }
+
         try {
-            $user = DB::transaction(function () use ($request) {
-                $namaPerusahaan = 'Komunitas ' . $request->nama_lengkap;
-
-                $tenant = Tenant::create([
-                    'nama_perusahaan' => $namaPerusahaan,
-                    'slug'            => $this->generateUniqueSlug($namaPerusahaan),
-                    'email'           => $request->email,
-                    'is_active'       => true,
-                ]);
-
+            $user = DB::transaction(function () use ($request, $tenant) {
                 $user = User::create([
                     'name'      => $request->nama_lengkap,
                     'email'     => $request->email,
                     'password'  => Hash::make($request->password),
-                    'role'      => User::ROLE_ADMIN,
+                    'role'      => User::ROLE_ANGGOTA,
                     'is_active' => true,
                     'tenant_id' => $tenant->id,
                 ]);
@@ -76,8 +74,6 @@ class RegisteredUserController extends Controller
                     'tenant_id'       => $tenant->id,
                 ]);
 
-                (new AppSettingSeeder)->run($tenant->id, $tenant->nama_perusahaan);
-
                 return $user;
             });
         } catch (UniqueConstraintViolationException) {
@@ -91,18 +87,5 @@ class RegisteredUserController extends Controller
         Auth::login($user);
 
         return redirect(route('dashboard', absolute: false));
-    }
-
-    private function generateUniqueSlug(string $name): string
-    {
-        $base = Str::slug($name);
-        $slug = $base;
-        $i    = 1;
-
-        while (Tenant::where('slug', $slug)->exists()) {
-            $slug = $base . '-' . $i++;
-        }
-
-        return $slug;
     }
 }
