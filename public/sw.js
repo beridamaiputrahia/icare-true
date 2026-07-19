@@ -50,7 +50,7 @@ self.addEventListener('fetch', event => {
                 if (response.ok && (
                     event.request.url.includes('cdn.jsdelivr.net') ||
                     event.request.url.includes('cdnjs.cloudflare.com') ||
-                    event.request.url.includes('/icons/')
+                    event.request.url.includes('/pwa-icons/')
                 )) {
                     const clone = response.clone();
                     caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
@@ -77,8 +77,8 @@ self.addEventListener('push', event => {
     event.waitUntil(
         self.registration.showNotification(data.title, {
             body:  data.body,
-            icon:  '/icons/icon-192.svg',
-            badge: '/icons/icon-72.svg',
+            icon:  '/pwa-icons/icon-192.svg',
+            badge: '/pwa-icons/icon-72.svg',
             data:  { url: data.url },
         })
     );

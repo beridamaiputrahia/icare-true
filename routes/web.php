@@ -28,76 +28,6 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
 
-// TEMP DEBUG: inspeksi config Apache di server produksi (404 investigation, round 2)
-Route::get('/_debug-apache', function () {
-    $files = [
-        'apache2.conf'        => '/etc/apache2/apache2.conf',
-        '000-default.conf'    => '/etc/apache2/sites-available/000-default.conf',
-        'ports.conf'          => '/etc/apache2/ports.conf',
-    ];
-    $out = [];
-    foreach ($files as $label => $path) {
-        $out[$label] = [
-            'exists'  => file_exists($path),
-            'content' => file_exists($path) ? file_get_contents($path) : null,
-        ];
-    }
-    $out['apache_modules'] = function_exists('apache_get_modules') ? apache_get_modules() : 'n/a (not mod_php)';
-    $out['direct_file_read'] = [
-        'path'    => public_path('icons/icon-192.svg'),
-        'readable' => is_readable(public_path('icons/icon-192.svg')),
-        'perms'   => substr(sprintf('%o', fileperms(public_path('icons/icon-192.svg'))), -4),
-    ];
-    $out['dir_perms'] = [
-        'public'       => substr(sprintf('%o', fileperms(public_path())), -4),
-        'icons'        => substr(sprintf('%o', fileperms(public_path('icons'))), -4),
-        'public_owner' => function_exists('posix_getpwuid') ? posix_getpwuid(fileowner(public_path()))['name'] ?? fileowner(public_path()) : fileowner(public_path()),
-        'icons_owner'  => function_exists('posix_getpwuid') ? posix_getpwuid(fileowner(public_path('icons')))['name'] ?? fileowner(public_path('icons')) : fileowner(public_path('icons')),
-        'whoami'       => function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] ?? posix_geteuid() : 'n/a',
-    ];
-    $errLog = '/var/log/apache2/error.log';
-    $out['apache_error_log_tail'] = null;
-    if (is_readable($errLog)) {
-        $lines = @file($errLog, FILE_IGNORE_NEW_LINES);
-        $out['apache_error_log_tail'] = $lines ? implode("\n", array_slice($lines, -40)) : 'file() returned false/empty';
-    } else {
-        $out['apache_error_log_tail'] = "not readable or missing at $errLog";
-    }
-    $out['document_root_env'] = getenv('DOCUMENT_ROOT') ?: ($_SERVER['DOCUMENT_ROOT'] ?? 'n/a (cli/route context)');
-
-    // Raw byte-level inspection: entry type, exact bytes of the name, symlink target.
-    $rawEntries = [];
-    foreach (scandir(public_path()) ?: [] as $entry) {
-        if ($entry === '.' || $entry === '..') continue;
-        $full = public_path($entry);
-        $rawEntries[] = [
-            'name'          => $entry,
-            'bytes_hex'     => bin2hex($entry),
-            'is_dir'        => is_dir($full),
-            'is_link'       => is_link($full),
-            'readlink'      => is_link($full) ? readlink($full) : null,
-            'realpath'      => realpath($full),
-        ];
-    }
-    $out['public_root_raw_entries'] = $rawEntries;
-
-    $iconsRaw = [];
-    $iconsPath = public_path('icons');
-    foreach (scandir($iconsPath) ?: [] as $entry) {
-        if ($entry === '.' || $entry === '..') continue;
-        $iconsRaw[] = $entry;
-    }
-    $out['icons_realpath'] = realpath($iconsPath);
-    $out['icons_is_link'] = is_link($iconsPath);
-    $out['icons_readlink'] = is_link($iconsPath) ? readlink($iconsPath) : null;
-    $out['icons_raw_entries'] = $iconsRaw;
-
-    $aliasConf = '/etc/apache2/mods-enabled/alias.conf';
-    $out['alias_conf'] = file_exists($aliasConf) ? file_get_contents($aliasConf) : 'not found';
-
-    return response()->json($out);
-});
-
 // ── Cron eksternal (cron-job.org) ────────────────────────────────────────
 // Render Cron Job butuh kartu kredit terdaftar, jadi Laravel Scheduler
 // dipicu lewat layanan ping gratis (cron-job.org dkk) yang memanggil route
@@ -128,7 +58,7 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
     $appName      = \App\Models\AppSetting::get('app_name', 'I Care True', $tenantId);
     $sidebarColor = \App\Models\AppSetting::get('sidebar_color', '#1e293b', $tenantId);
     $primaryColor = \App\Models\AppSetting::get('primary_color', '#2563eb', $tenantId);
-    $iconUrl      = \App\Support\FileUrl::of($logo) ?? '/icons/icon.svg';
+    $iconUrl      = \App\Support\FileUrl::of($logo) ?? '/pwa-icons/icon.svg';
 
     $iconExt  = strtolower(pathinfo(parse_url($iconUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
     $iconType = match ($iconExt) {
