@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Kelola Superadmin')
-@section('page-title', 'Kelola Superadmin')
+@section('title', 'Kelola Pengguna')
+@section('page-title', 'Kelola Pengguna')
 @section('breadcrumb')
-    <li class="breadcrumb-item active">Kelola Superadmin</li>
+    <li class="breadcrumb-item active">Kelola Pengguna</li>
 @endsection
 
 @section('content')
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-user-shield text-primary me-2"></i>Daftar Superadmin</h6>
+        <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-user-shield text-primary me-2"></i>Semua Pengguna (Lintas Tenant)</h6>
         <a href="{{ route('superadmin.superadmins.create') }}" class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-plus me-1"></i>Tambah Superadmin
+            <i class="fa-solid fa-plus me-1"></i>Tambah Pengguna
         </a>
     </div>
     <div class="table-responsive">
@@ -20,25 +20,39 @@
                 <tr>
                     <th>Nama</th>
                     <th>Email</th>
-                    <th>Terdaftar Sejak</th>
+                    <th>Tenant</th>
+                    <th>Role</th>
                     <th class="text-end">Aksi</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($superadmins as $superadmin)
+                @forelse($users as $user)
                 <tr>
                     <td class="fw-medium">
-                        {{ $superadmin->name }}
-                        @if($superadmin->id === auth()->id())
+                        {{ $user->name }}
+                        @if($user->id === auth()->id())
                             <span class="badge bg-primary ms-1" style="font-size:.68rem">Anda</span>
                         @endif
                     </td>
-                    <td>{{ $superadmin->email }}</td>
-                    <td>{{ $superadmin->created_at->format('d M Y') }}</td>
+                    <td>{{ $user->email }}</td>
+                    <td>{{ $user->tenant?->nama_perusahaan ?: '—' }}</td>
+                    <td>
+                        <form method="POST" action="{{ route('superadmin.superadmins.role', $user) }}" class="d-flex align-items-center gap-1">
+                            @csrf @method('PUT')
+                            <select name="role" class="form-select form-select-sm" style="width:auto"
+                                    onchange="this.form.submit()">
+                                @foreach($roles as $value => $label)
+                                <option value="{{ $value }}" {{ $user->role === $value ? 'selected' : '' }}>
+                                    {{ $label }}
+                                </option>
+                                @endforeach
+                            </select>
+                        </form>
+                    </td>
                     <td class="text-end">
-                        @if($superadmin->id !== auth()->id())
-                        <form method="POST" action="{{ route('superadmin.superadmins.destroy', $superadmin) }}" class="d-inline"
-                              onsubmit="return confirm('Hapus akun superadmin ini?')">
+                        @if($user->id !== auth()->id())
+                        <form method="POST" action="{{ route('superadmin.superadmins.destroy', $user) }}" class="d-inline"
+                              onsubmit="return confirm('Hapus pengguna ini?')">
                             @csrf @method('DELETE')
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="fa-solid fa-trash"></i>
@@ -48,7 +62,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="4" class="text-center text-muted py-4">Belum ada superadmin.</td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-4">Belum ada pengguna.</td></tr>
                 @endforelse
             </tbody>
         </table>

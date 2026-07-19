@@ -83,6 +83,8 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
 
     Route::resource('superadmins', \App\Http\Controllers\Superadmin\SuperAdminController::class)
         ->only(['index', 'create', 'store', 'destroy']);
+    Route::put('superadmins/{superadmin}/role', [\App\Http\Controllers\Superadmin\SuperAdminController::class, 'updateRole'])
+        ->name('superadmins.role');
 });
 
 // ── Authenticated ─────────────────────────────────────────────────────────

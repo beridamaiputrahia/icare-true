@@ -481,7 +481,7 @@ $allItems = [
     $isAdmin  ? ['icon' => 'fa-bible',     'label' => 'Ayat Harian',  'route' => 'daily-verses.index', 'pattern' => 'daily-verses.*'] : null,
     $isAdmin  ? ['icon' => 'fa-sliders',   'label' => 'Pengaturan',   'route' => 'settings.index',     'pattern' => 'settings.*']     : null,
     $__authUser?->isSuperAdmin() ? ['icon' => 'fa-building',    'label' => 'Kelola Tenant',     'route' => 'superadmin.tenants.index',     'pattern' => 'superadmin.tenants.index'] : null,
-    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-user-shield', 'label' => 'Kelola Superadmin', 'route' => 'superadmin.superadmins.index', 'pattern' => 'superadmin.superadmins.*'] : null,
+    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-user-shield', 'label' => 'Kelola Pengguna', 'route' => 'superadmin.superadmins.index', 'pattern' => 'superadmin.superadmins.*'] : null,
     $__authUser?->isSuperAdmin() ? ['icon' => 'fa-right-left',  'label' => 'Ganti Tenant',      'route' => 'superadmin.tenants.select',    'pattern' => 'superadmin.tenants.select'] : null,
 ];
 
