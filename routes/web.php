@@ -54,9 +54,20 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
         $tenantId = $tenant?->id;
     }
 
-    $logo    = \App\Models\AppSetting::get('logo', null, $tenantId);
-    $appName = \App\Models\AppSetting::get('app_name', 'I Care True', $tenantId);
-    $iconUrl = \App\Support\FileUrl::of($logo) ?? '/icons/icon.svg';
+    $logo         = \App\Models\AppSetting::get('logo', null, $tenantId);
+    $appName      = \App\Models\AppSetting::get('app_name', 'I Care True', $tenantId);
+    $sidebarColor = \App\Models\AppSetting::get('sidebar_color', '#1e293b', $tenantId);
+    $primaryColor = \App\Models\AppSetting::get('primary_color', '#2563eb', $tenantId);
+    $iconUrl      = \App\Support\FileUrl::of($logo) ?? '/icons/icon.svg';
+
+    $iconExt  = strtolower(pathinfo(parse_url($iconUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
+    $iconType = match ($iconExt) {
+        'png'  => 'image/png',
+        'jpg', 'jpeg' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'svg'  => 'image/svg+xml',
+        default => 'image/png',
+    };
 
     $manifest = [
         'name'             => $appName,
@@ -66,13 +77,13 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
         'scope'            => '/',
         'display'          => 'standalone',
         'orientation'      => 'portrait',
-        'background_color' => '#1e293b',
-        'theme_color'      => '#2563eb',
+        'background_color' => $sidebarColor,
+        'theme_color'      => $primaryColor,
         'categories'       => ['lifestyle', 'social'],
         'lang'             => 'id',
         'icons'            => [
-            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => 'image/png', 'purpose' => 'any maskable'],
-            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => 'image/png', 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => $iconType, 'purpose' => 'any maskable'],
+            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => $iconType, 'purpose' => 'any maskable'],
         ],
         'shortcuts' => [
             ['name' => 'Dashboard', 'url' => '/dashboard', 'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
