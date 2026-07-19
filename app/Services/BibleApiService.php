@@ -19,7 +19,9 @@ class BibleApiService
 {
     private const BASE_URL = 'https://api.scripture.api.bible/v1';
 
-    public function __construct(private readonly ?string $apiKey = null)
+    private readonly ?string $apiKey;
+
+    public function __construct(?string $apiKey = null)
     {
         $this->apiKey = $apiKey ?? config('services.bible_api.key');
     }
