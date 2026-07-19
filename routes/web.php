@@ -28,6 +28,18 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
 
+// TEMP DEBUG: cek isi public/icons di server produksi (404 investigation)
+Route::get('/_debug-icons', function () {
+    $dir = public_path('icons');
+    return response()->json([
+        'public_path'   => public_path(),
+        'icons_dir'     => $dir,
+        'dir_exists'    => is_dir($dir),
+        'files'         => is_dir($dir) ? array_values(array_diff(scandir($dir), ['.', '..'])) : null,
+        'public_listing'=> array_values(array_diff(scandir(public_path()), ['.', '..'])),
+    ]);
+});
+
 // ── Cron eksternal (cron-job.org) ────────────────────────────────────────
 // Render Cron Job butuh kartu kredit terdaftar, jadi Laravel Scheduler
 // dipicu lewat layanan ping gratis (cron-job.org dkk) yang memanggil route
