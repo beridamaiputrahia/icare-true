@@ -12,7 +12,7 @@
     <title>{{ $_appName }} — {{ $title ?? 'Masuk' }}</title>
 
     {{-- PWA --}}
-    <link rel="manifest" href="{{ route('manifest') }}">
+    <link rel="manifest" href="{{ route('manifest') }}" crossorigin="use-credentials">
     <link rel="apple-touch-icon" href="{{ $_settings->logoUrl() ?? '/pwa-icons/icon-192.svg' }}">
     @if($_settings->faviconUrl())
     <link rel="icon" href="{{ $_settings->faviconUrl() }}">
