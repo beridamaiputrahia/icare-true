@@ -41,16 +41,6 @@ Route::get('/cron/run-scheduler/{token}', function (string $token) {
     return response('OK', 200);
 })->name('cron.run-scheduler');
 
-// Diagnostik sementara — HAPUS setelah selesai debug verse:generate-daily.
-Route::get('/cron/debug-verse/{token}', function (string $token) {
-    abort_unless(hash_equals((string) config('app.cron_token'), $token), 403);
-
-    \Illuminate\Support\Facades\Artisan::call('verse:generate-daily');
-
-    return response()->json([
-        'output' => \Illuminate\Support\Facades\Artisan::output(),
-    ]);
-})->name('cron.debug-verse');
 Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
     // Identifikasi tenant: dari user login (jika ada) atau dari subdomain
     $tenantId = null;
