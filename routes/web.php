@@ -58,11 +58,12 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
     $appName      = \App\Models\AppSetting::get('app_name', 'I Care True', $tenantId);
     $sidebarColor = \App\Models\AppSetting::get('sidebar_color', '#1e293b', $tenantId);
     $primaryColor = \App\Models\AppSetting::get('primary_color', '#2563eb', $tenantId);
-    $iconUrl      = \App\Support\FileUrl::of($logo) ?? '/pwa-icons/icon.svg';
+    $fallbackIcon = '/pwa-icons/icon.svg';
+    $icon96       = \App\Support\FileUrl::square($logo, 96)  ?? $fallbackIcon;
+    $icon192      = \App\Support\FileUrl::square($logo, 192) ?? $fallbackIcon;
+    $icon512      = \App\Support\FileUrl::square($logo, 512) ?? $fallbackIcon;
 
-    $iconExt  = strtolower(pathinfo(parse_url($iconUrl, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION));
-    $iconType = match ($iconExt) {
-        'png'  => 'image/png',
+    $iconType = fn (string $url) => match (strtolower(pathinfo(parse_url($url, PHP_URL_PATH) ?? '', PATHINFO_EXTENSION))) {
         'jpg', 'jpeg' => 'image/jpeg',
         'webp' => 'image/webp',
         'svg'  => 'image/svg+xml',
@@ -82,13 +83,13 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
         'categories'       => ['lifestyle', 'social'],
         'lang'             => 'id',
         'icons'            => [
-            ['src' => $iconUrl, 'sizes' => '192x192', 'type' => $iconType, 'purpose' => 'any maskable'],
-            ['src' => $iconUrl, 'sizes' => '512x512', 'type' => $iconType, 'purpose' => 'any maskable'],
+            ['src' => $icon192, 'sizes' => '192x192', 'type' => $iconType($icon192), 'purpose' => 'any maskable'],
+            ['src' => $icon512, 'sizes' => '512x512', 'type' => $iconType($icon512), 'purpose' => 'any maskable'],
         ],
         'shortcuts' => [
-            ['name' => 'Dashboard', 'url' => '/dashboard', 'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
-            ['name' => 'Jadwal',    'url' => '/schedules', 'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
-            ['name' => 'Doa',       'url' => '/prayers',   'icons' => [['src' => $iconUrl, 'sizes' => '96x96']]],
+            ['name' => 'Dashboard', 'url' => '/dashboard', 'icons' => [['src' => $icon96, 'sizes' => '96x96']]],
+            ['name' => 'Jadwal',    'url' => '/schedules', 'icons' => [['src' => $icon96, 'sizes' => '96x96']]],
+            ['name' => 'Doa',       'url' => '/prayers',   'icons' => [['src' => $icon96, 'sizes' => '96x96']]],
         ],
     ];
     return response()->json($manifest)->header('Content-Type', 'application/manifest+json');

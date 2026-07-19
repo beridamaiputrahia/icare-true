@@ -13,7 +13,7 @@
 
     {{-- PWA --}}
     <link rel="manifest" href="{{ route('manifest') }}" crossorigin="use-credentials">
-    <link rel="apple-touch-icon" href="{{ $_settings->logoUrl() ?? '/pwa-icons/icon-192.svg' }}">
+    <link rel="apple-touch-icon" href="{{ $_settings->logoIconUrl() ?? '/pwa-icons/icon-192.svg' }}">
     @if($_settings->faviconUrl())
     <link rel="icon" href="{{ $_settings->faviconUrl() }}">
     @endif

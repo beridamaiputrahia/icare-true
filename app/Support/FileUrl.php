@@ -34,4 +34,26 @@ class FileUrl
             return null;
         }
     }
+
+    /**
+     * URL versi persegi (padded, background putih) dari sebuah gambar Cloudinary.
+     *
+     * PWA icon manifest mendeklarasikan dimensi persegi (192x192, 512x512) tapi
+     * logo yang di-upload admin bisa berukuran apa saja. Chrome desktop menolak
+     * icon yang rasionya tidak cocok dengan yang dideklarasikan dan fallback ke
+     * huruf inisial, sementara Chrome Android lebih toleran -- jadi ini perlu
+     * dipaksa persegi di sisi server, bukan cuma dideklarasikan begitu saja.
+     */
+    public static function square(?string $path, int $size): ?string
+    {
+        $url = static::of($path);
+
+        if (! $url || ! str_contains($url, '/upload/')) {
+            return $url;
+        }
+
+        $transform = "c_pad,b_white,w_{$size},h_{$size}";
+
+        return preg_replace('#/upload/#', "/upload/{$transform}/", $url, 1);
+    }
 }

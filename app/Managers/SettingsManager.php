@@ -85,6 +85,11 @@ class SettingsManager
         return \App\Support\FileUrl::of($this->get('logo'));
     }
 
+    public function logoIconUrl(int $size = 192): ?string
+    {
+        return \App\Support\FileUrl::square($this->get('logo'), $size);
+    }
+
     public function faviconUrl(): ?string
     {
         return \App\Support\FileUrl::of($this->get('favicon'));
