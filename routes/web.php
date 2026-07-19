@@ -118,6 +118,8 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         ->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::put('superadmins/{superadmin}/role', [\App\Http\Controllers\Superadmin\SuperAdminController::class, 'updateRole'])
         ->name('superadmins.role');
+    Route::put('superadmins/{superadmin}/group', [\App\Http\Controllers\Superadmin\SuperAdminController::class, 'updateGroup'])
+        ->name('superadmins.group');
 });
 
 // ── Authenticated ─────────────────────────────────────────────────────────

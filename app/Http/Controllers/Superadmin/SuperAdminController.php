@@ -34,9 +34,12 @@ class SuperAdminController extends Controller
             ->orderBy('name')
             ->get();
 
+        $tenants = Tenant::orderBy('nama_perusahaan')->get();
+
         return view('superadmin.superadmins.index', [
-            'users' => $users,
-            'roles' => self::ROLES,
+            'users'   => $users,
+            'roles'   => self::ROLES,
+            'tenants' => $tenants,
         ]);
     }
 
@@ -148,6 +151,23 @@ class SuperAdminController extends Controller
         }
 
         return back()->with('success', 'Role pengguna berhasil diperbarui.');
+    }
+
+    public function updateGroup(Request $request, User $superadmin): RedirectResponse
+    {
+        $user = $superadmin;
+
+        if ($user->role === User::ROLE_SUPERADMIN) {
+            return back()->with('error', 'Super Admin tidak terikat I Care Group manapun.');
+        }
+
+        $data = $request->validate([
+            'tenant_id' => ['required', 'exists:tenants,id'],
+        ]);
+
+        $user->update(['tenant_id' => $data['tenant_id']]);
+
+        return back()->with('success', 'I Care Group pengguna berhasil diperbarui.');
     }
 
     public function destroy(Request $request, User $superadmin): RedirectResponse

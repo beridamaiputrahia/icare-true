@@ -35,7 +35,23 @@
                         @endif
                     </td>
                     <td>{{ $user->email }}</td>
-                    <td>{{ $user->tenant?->nama_perusahaan ?: '—' }}</td>
+                    <td>
+                        @if($user->role === 'superadmin')
+                            <span class="text-muted">—</span>
+                        @else
+                        <form method="POST" action="{{ route('superadmin.superadmins.group', $user) }}" class="d-flex align-items-center gap-1">
+                            @csrf @method('PUT')
+                            <select name="tenant_id" class="form-select form-select-sm" style="width:auto"
+                                    onchange="this.form.submit()">
+                                @foreach($tenants as $tenant)
+                                <option value="{{ $tenant->id }}" {{ $user->tenant_id === $tenant->id ? 'selected' : '' }}>
+                                    {{ $tenant->nama_perusahaan }}
+                                </option>
+                                @endforeach
+                            </select>
+                        </form>
+                        @endif
+                    </td>
                     <td>
                         <form method="POST" action="{{ route('superadmin.superadmins.role', $user) }}" class="d-flex align-items-center gap-1">
                             @csrf @method('PUT')
