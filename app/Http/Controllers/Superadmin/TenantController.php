@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
 use App\Models\Tenant;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,7 +41,20 @@ class TenantController extends Controller
         $data['slug']      = $this->generateUniqueSlug($data['nama_perusahaan']);
         $data['is_active'] = $request->boolean('is_active', true);
 
-        Tenant::create($data);
+        $tenant = Tenant::create($data);
+
+        // Ruang chat global & leader dibutuhkan agar halaman Live Chat tidak
+        // kosong sejak awal -- dibuat eksplisit di sini karena Conversation
+        // pakai BelongsToTenant yang butuh user login untuk auto-isi tenant_id,
+        // sedangkan controller ini dijalankan oleh superadmin (tenant_id null).
+        Conversation::withoutTenantScope()->create([
+            'type'      => Conversation::TYPE_GLOBAL,
+            'tenant_id' => $tenant->id,
+        ]);
+        Conversation::withoutTenantScope()->create([
+            'type'      => Conversation::TYPE_LEADER,
+            'tenant_id' => $tenant->id,
+        ]);
 
         return redirect()->route('superadmin.tenants.index')->with('success', 'Tenant berhasil dibuat.');
     }

@@ -104,6 +104,13 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
     Route::get('tenants/select',  [\App\Http\Controllers\Superadmin\TenantController::class, 'select'])->name('tenants.select');
     Route::post('tenants/switch', [\App\Http\Controllers\Superadmin\TenantController::class, 'switch'])->name('tenants.switch');
 
+    // TEMP: backfill conversation global/leader untuk tenant lama yang dibuat
+    // sebelum TenantController::store() membuatnya otomatis. Hapus setelah dijalankan sekali.
+    Route::get('_backfill-conversations', function () {
+        \Illuminate\Support\Facades\Artisan::call('chat:backfill-conversations');
+        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+    });
+
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 
