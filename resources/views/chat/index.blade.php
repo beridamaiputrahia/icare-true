@@ -62,6 +62,36 @@
 .msg-row:hover .msg-delete-btn { opacity: 1; }
 .msg-delete-btn:hover { color: #dc3545; }
 
+/* Delete confirm modal */
+.confirm-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1050; opacity: 0; visibility: hidden; transition: opacity .18s;
+}
+.confirm-overlay.show { opacity: 1; visibility: visible; }
+.confirm-box {
+    background: #fff; border-radius: 16px; padding: 1.5rem 1.5rem 1.25rem;
+    width: 100%; max-width: 320px; text-align: center;
+    box-shadow: 0 20px 40px rgba(0,0,0,.2);
+    transform: translateY(-12px) scale(.96); transition: transform .18s;
+}
+.confirm-overlay.show .confirm-box { transform: translateY(0) scale(1); }
+.confirm-icon {
+    width: 52px; height: 52px; border-radius: 50%; background: #fee2e2; color: #dc3545;
+    display: flex; align-items: center; justify-content: center; margin: 0 auto .85rem;
+    font-size: 1.25rem;
+}
+.confirm-title { font-weight: 700; font-size: 1rem; color: #1e293b; margin-bottom: .35rem; }
+.confirm-text { font-size: .82rem; color: #64748b; margin-bottom: 1.25rem; }
+.confirm-actions { display: flex; gap: .6rem; }
+.confirm-actions button {
+    flex: 1; border: none; border-radius: 10px; padding: .55rem 1rem;
+    font-size: .85rem; font-weight: 600; cursor: pointer; transition: opacity .15s;
+}
+.confirm-actions button:hover { opacity: .85; }
+.confirm-cancel { background: #f1f5f9; color: #475569; }
+.confirm-delete { background: #dc3545; color: #fff; }
+
 @media (max-width: 767px) {
     .chat-sidebar { display: none; }
     .chat-sidebar.show { display: flex; position: absolute; z-index: 100; top: 0; left: 0; bottom: 0; width: 240px; }
@@ -286,6 +316,19 @@
         @endif
     </div>
 </div>
+
+{{-- Delete confirm modal --}}
+<div class="confirm-overlay" id="deleteConfirmOverlay">
+    <div class="confirm-box">
+        <div class="confirm-icon"><i class="fa-solid fa-trash"></i></div>
+        <div class="confirm-title">Hapus Pesan?</div>
+        <div class="confirm-text">Pesan yang dihapus tidak dapat dikembalikan.</div>
+        <div class="confirm-actions">
+            <button type="button" class="confirm-cancel" id="deleteConfirmCancel">Batal</button>
+            <button type="button" class="confirm-delete" id="deleteConfirmOk">Hapus</button>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
@@ -363,22 +406,45 @@ function appendMessage(msg, isMine) {
     container.scrollTop = container.scrollHeight;
 }
 
-// ── Delete message ─────────────────────────────────────────────
-container.addEventListener('click', async e => {
+// ── Delete message (custom modal, bukan confirm() bawaan browser) ─────
+const deleteOverlay = document.getElementById('deleteConfirmOverlay');
+const deleteOkBtn    = document.getElementById('deleteConfirmOk');
+const deleteCancelBtn = document.getElementById('deleteConfirmCancel');
+let pendingDeleteId = null;
+
+function openDeleteConfirm(msgId) {
+    pendingDeleteId = msgId;
+    deleteOverlay.classList.add('show');
+}
+function closeDeleteConfirm() {
+    pendingDeleteId = null;
+    deleteOverlay.classList.remove('show');
+}
+
+container.addEventListener('click', e => {
     const btn = e.target.closest('.msg-delete-btn');
     if (!btn) return;
-    if (!confirm('Hapus pesan ini?')) return;
+    openDeleteConfirm(btn.dataset.msgId);
+});
 
-    const msgId = btn.dataset.msgId;
+deleteCancelBtn.addEventListener('click', closeDeleteConfirm);
+deleteOverlay.addEventListener('click', e => { if (e.target === deleteOverlay) closeDeleteConfirm(); });
+
+deleteOkBtn.addEventListener('click', async () => {
+    if (!pendingDeleteId) return;
+    const msgId = pendingDeleteId;
+    closeDeleteConfirm();
+
     try {
         const r = await fetch(`{{ url('/chat/messages') }}/${msgId}/delete`, {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
         });
         if (r.ok) {
-            const bubble = document.getElementById('msg-' + msgId)?.querySelector('.msg-bubble');
+            const row = document.getElementById('msg-' + msgId);
+            const bubble = row?.querySelector('.msg-bubble');
             if (bubble) bubble.textContent = '[Pesan telah dihapus]';
-            btn.remove();
+            row?.querySelector('.msg-delete-btn')?.remove();
         }
     } catch (e) { console.error(e); }
 });
