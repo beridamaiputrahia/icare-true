@@ -73,8 +73,10 @@ class SuperAdminController extends Controller
             ->with('success', 'Pengguna baru berhasil ditambahkan.');
     }
 
-    public function updateRole(Request $request, User $user): RedirectResponse
+    public function updateRole(Request $request, User $superadmin): RedirectResponse
     {
+        $user = $superadmin;
+
         $data = $request->validate([
             'role' => ['required', Rule::in(array_keys(self::ROLES))],
         ]);
