@@ -48,6 +48,16 @@ Route::get('/_debug-apache', function () {
         'readable' => is_readable(public_path('icons/icon-192.svg')),
         'perms'   => substr(sprintf('%o', fileperms(public_path('icons/icon-192.svg'))), -4),
     ];
+    $out['dir_perms'] = [
+        'public'       => substr(sprintf('%o', fileperms(public_path())), -4),
+        'icons'        => substr(sprintf('%o', fileperms(public_path('icons'))), -4),
+        'public_owner' => function_exists('posix_getpwuid') ? posix_getpwuid(fileowner(public_path()))['name'] ?? fileowner(public_path()) : fileowner(public_path()),
+        'icons_owner'  => function_exists('posix_getpwuid') ? posix_getpwuid(fileowner(public_path('icons')))['name'] ?? fileowner(public_path('icons')) : fileowner(public_path('icons')),
+        'whoami'       => function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] ?? posix_geteuid() : 'n/a',
+    ];
+    $out['apache_error_log_tail'] = @shell_exec('tail -n 40 /var/log/apache2/error.log 2>&1');
+    $out['apache_processes'] = @shell_exec('ps aux 2>&1 | grep apache');
+    $out['document_root_env'] = getenv('DOCUMENT_ROOT') ?: ($_SERVER['DOCUMENT_ROOT'] ?? 'n/a (cli/route context)');
     return response()->json($out);
 });
 
