@@ -54,6 +54,13 @@
 .send-btn:disabled { opacity: .5; cursor: not-allowed; }
 .load-more-btn { text-align: center; }
 .empty-chat { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; color: #94a3b8; }
+.msg-delete-btn {
+    border: none; background: none; color: #94a3b8; cursor: pointer;
+    font-size: .7rem; padding: 0 .3rem; opacity: 0; transition: opacity .15s;
+    align-self: center;
+}
+.msg-row:hover .msg-delete-btn { opacity: 1; }
+.msg-delete-btn:hover { color: #dc3545; }
 
 @media (max-width: 767px) {
     .chat-sidebar { display: none; }
@@ -211,6 +218,7 @@
 
             @forelse($messages as $msg)
             @php $isMe = $msg->user_id === auth()->id(); @endphp
+            @php $canDelete = !$msg->is_deleted && auth()->user()->can('delete', $msg); @endphp
             <div class="msg-row {{ $isMe ? 'mine' : '' }}" id="msg-{{ $msg->id }}">
                 @if(!$isMe)
                 <div class="msg-avatar" style="background:var(--app-primary,#2563eb)">
@@ -220,6 +228,11 @@
                     {{ strtoupper(substr($msg->user?->name ?? 'U',0,1)) }}
                     @endif
                 </div>
+                @endif
+                @if($canDelete)
+                <button type="button" class="msg-delete-btn" data-msg-id="{{ $msg->id }}" title="Hapus pesan">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
                 @endif
                 <div>
                     @if(!$isMe && $activeConv->type !== 'private')
@@ -335,8 +348,9 @@ function appendMessage(msg, isMine) {
     const avatarHtml = `<div class="msg-avatar" style="background:var(--app-primary,#2563eb);width:30px;height:30px;font-size:.72rem">
         ${(msg.user_name || '?')[0].toUpperCase()}
     </div>`;
+    const deleteBtnHtml = isMine ? `<button type="button" class="msg-delete-btn" data-msg-id="${msg.id}" title="Hapus pesan"><i class="fa-solid fa-trash"></i></button>` : '';
 
-    row.innerHTML = (!isMine ? avatarHtml : '') + `
+    row.innerHTML = (!isMine ? avatarHtml : '') + deleteBtnHtml + `
         <div>
             <div class="msg-bubble ${isMine ? 'mine' : 'other'}">${escHtml(msg.body)}</div>
             <div class="msg-meta ${isMine ? 'text-end' : ''}">${msg.created_at_human}
@@ -348,6 +362,26 @@ function appendMessage(msg, isMine) {
     container.insertBefore(row, indicator);
     container.scrollTop = container.scrollHeight;
 }
+
+// ── Delete message ─────────────────────────────────────────────
+container.addEventListener('click', async e => {
+    const btn = e.target.closest('.msg-delete-btn');
+    if (!btn) return;
+    if (!confirm('Hapus pesan ini?')) return;
+
+    const msgId = btn.dataset.msgId;
+    try {
+        const r = await fetch(`{{ url('/chat/messages') }}/${msgId}/delete`, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+        });
+        if (r.ok) {
+            const bubble = document.getElementById('msg-' + msgId)?.querySelector('.msg-bubble');
+            if (bubble) bubble.textContent = '[Pesan telah dihapus]';
+            btn.remove();
+        }
+    } catch (e) { console.error(e); }
+});
 
 function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
