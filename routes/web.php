@@ -28,6 +28,29 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
 
+// TEMP DEBUG: inspeksi config Apache di server produksi (404 investigation, round 2)
+Route::get('/_debug-apache', function () {
+    $files = [
+        'apache2.conf'        => '/etc/apache2/apache2.conf',
+        '000-default.conf'    => '/etc/apache2/sites-available/000-default.conf',
+        'ports.conf'          => '/etc/apache2/ports.conf',
+    ];
+    $out = [];
+    foreach ($files as $label => $path) {
+        $out[$label] = [
+            'exists'  => file_exists($path),
+            'content' => file_exists($path) ? file_get_contents($path) : null,
+        ];
+    }
+    $out['apache_modules'] = function_exists('apache_get_modules') ? apache_get_modules() : 'n/a (not mod_php)';
+    $out['direct_file_read'] = [
+        'path'    => public_path('icons/icon-192.svg'),
+        'readable' => is_readable(public_path('icons/icon-192.svg')),
+        'perms'   => substr(sprintf('%o', fileperms(public_path('icons/icon-192.svg'))), -4),
+    ];
+    return response()->json($out);
+});
+
 // ── Cron eksternal (cron-job.org) ────────────────────────────────────────
 // Render Cron Job butuh kartu kredit terdaftar, jadi Laravel Scheduler
 // dipicu lewat layanan ping gratis (cron-job.org dkk) yang memanggil route
