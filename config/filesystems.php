@@ -62,7 +62,10 @@ return [
 
         'cloudinary' => [
             'driver' => 'cloudinary',
-            'url' => env('CLOUDINARY_URL'),
+            // trim() penting: beberapa platform hosting (mis. Render) menyimpan env var
+            // dengan trailing newline/whitespace, dan PHP parse_url() mengubah newline
+            // di akhir host jadi underscore literal — menyebabkan "Invalid cloud_name".
+            'url' => trim((string) env('CLOUDINARY_URL', '')),
         ],
 
     ],
