@@ -92,6 +92,9 @@ Route::get('/_debug-apache', function () {
     $out['icons_readlink'] = is_link($iconsPath) ? readlink($iconsPath) : null;
     $out['icons_raw_entries'] = $iconsRaw;
 
+    $aliasConf = '/etc/apache2/mods-enabled/alias.conf';
+    $out['alias_conf'] = file_exists($aliasConf) ? file_get_contents($aliasConf) : 'not found';
+
     return response()->json($out);
 });
 
