@@ -1,16 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Edit Tenant')
-@section('page-title', 'Edit Tenant')
+@section('title', 'Edit I Care Group')
+@section('page-title', 'Edit I Care Group')
 @section('breadcrumb')
-    <li class="breadcrumb-item"><a href="{{ route('superadmin.tenants.index') }}">Kelola Tenant</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('superadmin.tenants.index') }}">Kelola I Care Group</a></li>
     <li class="breadcrumb-item active">Edit</li>
 @endsection
 
 @section('content')
 <div class="card">
     <div class="card-header">
-        <h6 class="mb-0 fw-semibold">Edit Tenant: {{ $tenant->nama_perusahaan }}</h6>
+        <h6 class="mb-0 fw-semibold">Edit I Care Group: {{ $tenant->nama_perusahaan }}</h6>
     </div>
     <div class="card-body">
         <form method="POST" action="{{ route('superadmin.tenants.update', $tenant) }}">

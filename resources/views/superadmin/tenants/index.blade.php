@@ -1,17 +1,17 @@
 @extends('layouts.app')
 
-@section('title', 'Kelola Tenant')
-@section('page-title', 'Kelola Tenant')
+@section('title', 'Kelola I Care Group')
+@section('page-title', 'Kelola I Care Group')
 @section('breadcrumb')
-    <li class="breadcrumb-item active">Kelola Tenant</li>
+    <li class="breadcrumb-item active">Kelola I Care Group</li>
 @endsection
 
 @section('content')
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-building text-primary me-2"></i>Daftar Tenant</h6>
+        <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-building text-primary me-2"></i>Daftar I Care Group</h6>
         <a href="{{ route('superadmin.tenants.create') }}" class="btn btn-primary btn-sm">
-            <i class="fa-solid fa-plus me-1"></i>Tambah Tenant
+            <i class="fa-solid fa-plus me-1"></i>Tambah I Care Group
         </a>
     </div>
     <div class="table-responsive">
@@ -45,7 +45,7 @@
                             <i class="fa-solid fa-pen"></i>
                         </a>
                         <form method="POST" action="{{ route('superadmin.tenants.destroy', $tenant) }}" class="d-inline"
-                              onsubmit="return confirm('Hapus tenant ini?')">
+                              onsubmit="return confirm('Hapus I Care Group ini?')">
                             @csrf @method('DELETE')
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="fa-solid fa-trash"></i>
@@ -54,7 +54,7 @@
                     </td>
                 </tr>
                 @empty
-                <tr><td colspan="6" class="text-center text-muted py-4">Belum ada tenant.</td></tr>
+                <tr><td colspan="6" class="text-center text-muted py-4">Belum ada I Care Group.</td></tr>
                 @endforelse
             </tbody>
         </table>

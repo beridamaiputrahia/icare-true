@@ -115,7 +115,7 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         ->except(['select', 'switch']);
 
     Route::resource('superadmins', \App\Http\Controllers\Superadmin\SuperAdminController::class)
-        ->only(['index', 'create', 'store', 'destroy']);
+        ->only(['index', 'create', 'store', 'edit', 'update', 'destroy']);
     Route::put('superadmins/{superadmin}/role', [\App\Http\Controllers\Superadmin\SuperAdminController::class, 'updateRole'])
         ->name('superadmins.role');
 });

@@ -20,7 +20,9 @@ class RegisteredUserController extends Controller
 {
     public function create(): View
     {
-        return view('auth.register');
+        $tenants = Tenant::where('is_active', true)->orderBy('nama_perusahaan')->get();
+
+        return view('auth.register', compact('tenants'));
     }
 
     public function store(Request $request): RedirectResponse
@@ -35,15 +37,15 @@ class RegisteredUserController extends Controller
             'covenant_number'  => ['nullable', 'string', 'max:50', 'unique:members,covenant_number'],
             'email'            => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
             'password'         => ['required', 'confirmed', Rules\Password::defaults()],
+            'tenant_id'        => ['required', 'exists:tenants,id'],
         ]);
 
-        // User baru bergabung ke tenant/komunitas yang sudah ada sebagai anggota biasa,
-        // bukan membuat tenant baru sendiri.
-        $tenant = Tenant::where('is_active', true)->oldest('id')->first();
+        // User memilih I Care Group yang ingin dia ikuti saat mendaftar.
+        $tenant = Tenant::where('is_active', true)->find($request->tenant_id);
 
         if (! $tenant) {
             return back()->withInput()->withErrors([
-                'email' => 'Pendaftaran belum bisa diproses, komunitas belum tersedia. Hubungi admin.',
+                'tenant_id' => 'I Care Group yang dipilih tidak tersedia. Silakan pilih yang lain.',
             ]);
         }
 

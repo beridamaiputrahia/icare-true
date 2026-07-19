@@ -89,6 +89,27 @@
             </div>
         </div>
 
+        {{-- I Care Group --}}
+        <div class="mb-3">
+            <label for="tenant_id" class="form-label">I Care Group <span class="text-danger">*</span></label>
+            <div class="input-group">
+                <span class="input-group-text bg-light border-end-0"><i class="fa-solid fa-people-group text-muted"></i></span>
+                <select id="tenant_id" name="tenant_id"
+                        class="form-select border-start-0 ps-0 @error('tenant_id') is-invalid @enderror" required>
+                    <option value="">— Pilih I Care Group —</option>
+                    @foreach($tenants as $tenant)
+                    <option value="{{ $tenant->id }}" {{ (string) old('tenant_id') === (string) $tenant->id ? 'selected' : '' }}>
+                        {{ $tenant->nama_perusahaan }}
+                    </option>
+                    @endforeach
+                </select>
+                @error('tenant_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            @if($tenants->isEmpty())
+            <small class="text-danger">Belum ada I Care Group yang tersedia. Hubungi admin.</small>
+            @endif
+        </div>
+
         {{-- Email --}}
         <div class="mb-3">
             <label for="email" class="form-label">Alamat Email <span class="text-danger">*</span></label>

@@ -9,7 +9,7 @@
 @section('content')
 <div class="card">
     <div class="card-header d-flex align-items-center justify-content-between gap-2 flex-wrap">
-        <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-user-shield text-primary me-2"></i>Semua Pengguna (Lintas Tenant)</h6>
+        <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-user-shield text-primary me-2"></i>Semua Pengguna (Lintas I Care Group)</h6>
         <a href="{{ route('superadmin.superadmins.create') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-plus me-1"></i>Tambah Pengguna
         </a>
@@ -20,7 +20,7 @@
                 <tr>
                     <th>Nama</th>
                     <th>Email</th>
-                    <th>Tenant</th>
+                    <th>I Care Group</th>
                     <th>Role</th>
                     <th class="text-end">Aksi</th>
                 </tr>
@@ -50,6 +50,9 @@
                         </form>
                     </td>
                     <td class="text-end">
+                        <a href="{{ route('superadmin.superadmins.edit', $user) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
                         @if($user->id !== auth()->id())
                         <form method="POST" action="{{ route('superadmin.superadmins.destroy', $user) }}" class="d-inline"
                               onsubmit="return confirm('Hapus pengguna ini?')">

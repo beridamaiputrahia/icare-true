@@ -73,6 +73,51 @@ class SuperAdminController extends Controller
             ->with('success', 'Pengguna baru berhasil ditambahkan.');
     }
 
+    public function edit(User $superadmin): View
+    {
+        $tenants = Tenant::orderBy('nama_perusahaan')->get();
+
+        return view('superadmin.superadmins.edit', [
+            'user'    => $superadmin,
+            'roles'   => self::ROLES,
+            'tenants' => $tenants,
+        ]);
+    }
+
+    public function update(Request $request, User $superadmin): RedirectResponse
+    {
+        $user = $superadmin;
+
+        $data = $request->validate([
+            'name'      => ['required', 'string', 'max:255'],
+            'email'     => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)->ignore($user->id)],
+            'role'      => ['required', Rule::in(array_keys(self::ROLES))],
+            'tenant_id' => ['required_unless:role,superadmin', 'nullable', 'exists:tenants,id'],
+        ]);
+
+        if ($user->id === $request->user()->id && $data['role'] !== User::ROLE_SUPERADMIN) {
+            return back()->with('error', 'Anda tidak bisa menurunkan role akun sendiri.');
+        }
+
+        if (
+            $user->role === User::ROLE_SUPERADMIN
+            && $data['role'] !== User::ROLE_SUPERADMIN
+            && User::where('role', User::ROLE_SUPERADMIN)->count() <= 1
+        ) {
+            return back()->with('error', 'Tidak bisa mengubah role superadmin terakhir yang tersisa.');
+        }
+
+        $user->update([
+            'name'      => $data['name'],
+            'email'     => $data['email'],
+            'role'      => $data['role'],
+            'tenant_id' => $data['role'] === User::ROLE_SUPERADMIN ? null : $data['tenant_id'],
+        ]);
+
+        return redirect()->route('superadmin.superadmins.index')
+            ->with('success', 'Pengguna berhasil diperbarui.');
+    }
+
     public function updateRole(Request $request, User $superadmin): RedirectResponse
     {
         $user = $superadmin;

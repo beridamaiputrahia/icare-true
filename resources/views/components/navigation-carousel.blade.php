@@ -480,9 +480,9 @@ $allItems = [
     $isLeader ? ['icon' => 'fa-chart-pie', 'label' => 'Analytics',    'route' => 'analytics.index',    'pattern' => 'analytics.*']    : null,
     $isAdmin  ? ['icon' => 'fa-bible',     'label' => 'Ayat Harian',  'route' => 'daily-verses.index', 'pattern' => 'daily-verses.*'] : null,
     $isAdmin  ? ['icon' => 'fa-sliders',   'label' => 'Pengaturan',   'route' => 'settings.index',     'pattern' => 'settings.*']     : null,
-    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-building',    'label' => 'Kelola Tenant',     'route' => 'superadmin.tenants.index',     'pattern' => 'superadmin.tenants.index'] : null,
+    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-building',    'label' => 'Kelola I Care Group', 'route' => 'superadmin.tenants.index',     'pattern' => 'superadmin.tenants.index'] : null,
     $__authUser?->isSuperAdmin() ? ['icon' => 'fa-user-shield', 'label' => 'Kelola Pengguna', 'route' => 'superadmin.superadmins.index', 'pattern' => 'superadmin.superadmins.*'] : null,
-    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-right-left',  'label' => 'Ganti Tenant',      'route' => 'superadmin.tenants.select',    'pattern' => 'superadmin.tenants.select'] : null,
+    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-right-left',  'label' => 'Ganti I Care Group', 'route' => 'superadmin.tenants.select',    'pattern' => 'superadmin.tenants.select'] : null,
 ];
 
 $navItems = array_values(array_filter($allItems));

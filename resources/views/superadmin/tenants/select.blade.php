@@ -1,22 +1,22 @@
 @extends('layouts.app')
 
-@section('title', 'Pilih Tenant')
-@section('page-title', 'Pilih Tenant')
+@section('title', 'Pilih I Care Group')
+@section('page-title', 'Pilih I Care Group')
 @section('breadcrumb')
-    <li class="breadcrumb-item active">Pilih Tenant</li>
+    <li class="breadcrumb-item active">Pilih I Care Group</li>
 @endsection
 
 @section('content')
 <div class="card">
     <div class="card-header">
         <h6 class="mb-0 fw-semibold">
-            <i class="fa-solid fa-right-left text-primary me-2"></i>Masuk Sebagai Tenant
+            <i class="fa-solid fa-right-left text-primary me-2"></i>Masuk Sebagai I Care Group
         </h6>
     </div>
     <div class="card-body">
         <p class="text-muted" style="font-size:.875rem">
-            Sebagai Super Admin, pilih salah satu tenant untuk mengakses data (jadwal, anggota, renungan, dll)
-            milik tenant tersebut. Anda bisa berpindah tenant kapan saja lewat menu "Ganti Tenant".
+            Sebagai Super Admin, pilih salah satu I Care Group untuk mengakses data (jadwal, anggota, renungan, dll)
+            milik I Care Group tersebut. Anda bisa berpindah I Care Group kapan saja lewat menu "Ganti I Care Group".
         </p>
 
         @if(session('active_tenant_id'))
@@ -39,7 +39,7 @@
                 </form>
             </div>
             @empty
-            <div class="col-12 text-center text-muted py-4">Belum ada tenant aktif.</div>
+            <div class="col-12 text-center text-muted py-4">Belum ada I Care Group aktif.</div>
             @endforelse
         </div>
     </div>

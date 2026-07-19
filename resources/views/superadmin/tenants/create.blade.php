@@ -1,16 +1,16 @@
 @extends('layouts.app')
 
-@section('title', 'Tambah Tenant')
-@section('page-title', 'Tambah Tenant')
+@section('title', 'Tambah I Care Group')
+@section('page-title', 'Tambah I Care Group')
 @section('breadcrumb')
-    <li class="breadcrumb-item"><a href="{{ route('superadmin.tenants.index') }}">Kelola Tenant</a></li>
+    <li class="breadcrumb-item"><a href="{{ route('superadmin.tenants.index') }}">Kelola I Care Group</a></li>
     <li class="breadcrumb-item active">Tambah</li>
 @endsection
 
 @section('content')
 <div class="card">
     <div class="card-header">
-        <h6 class="mb-0 fw-semibold">Tambah Tenant Baru</h6>
+        <h6 class="mb-0 fw-semibold">Tambah I Care Group Baru</h6>
     </div>
     <div class="card-body">
         <form method="POST" action="{{ route('superadmin.tenants.store') }}">

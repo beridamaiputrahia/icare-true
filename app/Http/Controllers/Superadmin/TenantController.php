@@ -56,7 +56,7 @@ class TenantController extends Controller
             'tenant_id' => $tenant->id,
         ]);
 
-        return redirect()->route('superadmin.tenants.index')->with('success', 'Tenant berhasil dibuat.');
+        return redirect()->route('superadmin.tenants.index')->with('success', 'I Care Group berhasil dibuat.');
     }
 
     public function edit(Tenant $tenant): View
@@ -76,18 +76,18 @@ class TenantController extends Controller
 
         $tenant->update($data);
 
-        return redirect()->route('superadmin.tenants.index')->with('success', 'Tenant berhasil diperbarui.');
+        return redirect()->route('superadmin.tenants.index')->with('success', 'I Care Group berhasil diperbarui.');
     }
 
     public function destroy(Tenant $tenant): RedirectResponse
     {
         if ($tenant->users()->exists()) {
-            return back()->with('error', 'Tenant tidak bisa dihapus karena masih memiliki anggota.');
+            return back()->with('error', 'I Care Group tidak bisa dihapus karena masih memiliki anggota.');
         }
 
         $tenant->delete();
 
-        return redirect()->route('superadmin.tenants.index')->with('success', 'Tenant berhasil dihapus.');
+        return redirect()->route('superadmin.tenants.index')->with('success', 'I Care Group berhasil dihapus.');
     }
 
     // ── Tenant Switcher ──────────────────────────────────────────────
@@ -105,7 +105,7 @@ class TenantController extends Controller
 
         session(['active_tenant_id' => (int) $request->tenant_id]);
 
-        return redirect()->route('dashboard')->with('success', 'Berhasil masuk sebagai tenant terpilih.');
+        return redirect()->route('dashboard')->with('success', 'Berhasil masuk sebagai I Care Group terpilih.');
     }
 
     private function generateUniqueSlug(string $name): string
