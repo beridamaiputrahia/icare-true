@@ -17,12 +17,15 @@ class UserTyping implements ShouldBroadcast
     public function __construct(
         public User $user,
         public int  $conversationId,
-        public bool $isTyping
+        public bool $isTyping,
+        public string $conversationType = 'private'
     ) {}
 
     public function broadcastOn(): array
     {
-        return [new Channel("conversation.{$this->conversationId}")];
+        return $this->conversationType === 'global'
+            ? [new Channel("conversation.{$this->conversationId}")]
+            : [new PrivateChannel("conversation.{$this->conversationId}")];
     }
 
     public function broadcastWith(): array

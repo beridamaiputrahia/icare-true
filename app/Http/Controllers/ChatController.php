@@ -125,7 +125,9 @@ class ChatController extends Controller
             'is_typing'       => 'required|boolean',
         ]);
 
-        broadcast(new UserTyping(auth()->user(), $data['conversation_id'], $data['is_typing']))->toOthers();
+        $conversationType = Conversation::find($data['conversation_id'])->type ?? 'private';
+
+        broadcast(new UserTyping(auth()->user(), $data['conversation_id'], $data['is_typing'], $conversationType))->toOthers();
 
         return response()->json(['success' => true]);
     }

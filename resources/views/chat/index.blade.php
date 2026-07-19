@@ -280,6 +280,7 @@
 <script>
 @if($activeConv)
 const CONV_ID   = {{ $activeConv->id }};
+const CONV_TYPE = @json($activeConv->type);
 const MY_ID     = {{ auth()->id() }};
 const CSRF      = document.querySelector('meta[name="csrf-token"]').content;
 const container = document.getElementById('msgContainer');
@@ -380,23 +381,21 @@ document.getElementById('loadMoreBtn')?.addEventListener('click', async function
     }
 });
 
-// ── Reverb / Pusher real-time ─────────────────────────────────
-const REVERB_KEY  = '{{ config('broadcasting.connections.reverb.key') }}';
-const REVERB_HOST = '{{ config('broadcasting.connections.reverb.options.host', '127.0.0.1') }}';
-const REVERB_PORT = {{ config('broadcasting.connections.reverb.options.port', 8080) }};
+// ── Pusher real-time ───────────────────────────────────────────
+const PUSHER_KEY     = '{{ config('broadcasting.connections.pusher.key') }}';
+const PUSHER_CLUSTER = '{{ config('broadcasting.connections.pusher.options.cluster', 'ap1') }}';
 
-if (REVERB_KEY) {
+if (PUSHER_KEY) {
     try {
-        const pusher = new Pusher(REVERB_KEY, {
-            wsHost: REVERB_HOST,
-            wsPort: REVERB_PORT,
-            wssPort: REVERB_PORT,
-            forceTLS: false,
-            enabledTransports: ['ws'],
-            disableStats: true,
+        const pusher = new Pusher(PUSHER_KEY, {
+            cluster: PUSHER_CLUSTER,
+            authEndpoint: '/broadcasting/auth',
+            auth: { headers: { 'X-CSRF-TOKEN': CSRF } },
         });
 
-        const channel = pusher.subscribe('conversation.' + CONV_ID);
+        // Channel "global" bersifat publik; leader/private butuh otorisasi peserta.
+        const channelName = CONV_TYPE === 'global' ? 'conversation.' + CONV_ID : 'private-conversation.' + CONV_ID;
+        const channel = pusher.subscribe(channelName);
 
         channel.bind('message.sent', data => {
             if (data.user_id === MY_ID) return;
@@ -418,7 +417,7 @@ if (REVERB_KEY) {
                 ti.style.display = 'none';
             }
         });
-    } catch (e) { console.warn('Reverb not available:', e.message); }
+    } catch (e) { console.warn('Pusher not available:', e.message); }
 }
 
 // ── Typing throttle ───────────────────────────────────────────
