@@ -55,8 +55,14 @@ Route::get('/_debug-apache', function () {
         'icons_owner'  => function_exists('posix_getpwuid') ? posix_getpwuid(fileowner(public_path('icons')))['name'] ?? fileowner(public_path('icons')) : fileowner(public_path('icons')),
         'whoami'       => function_exists('posix_getpwuid') ? posix_getpwuid(posix_geteuid())['name'] ?? posix_geteuid() : 'n/a',
     ];
-    $out['apache_error_log_tail'] = @shell_exec('tail -n 40 /var/log/apache2/error.log 2>&1');
-    $out['apache_processes'] = @shell_exec('ps aux 2>&1 | grep apache');
+    $errLog = '/var/log/apache2/error.log';
+    $out['apache_error_log_tail'] = null;
+    if (is_readable($errLog)) {
+        $lines = @file($errLog, FILE_IGNORE_NEW_LINES);
+        $out['apache_error_log_tail'] = $lines ? implode("\n", array_slice($lines, -40)) : 'file() returned false/empty';
+    } else {
+        $out['apache_error_log_tail'] = "not readable or missing at $errLog";
+    }
     $out['document_root_env'] = getenv('DOCUMENT_ROOT') ?: ($_SERVER['DOCUMENT_ROOT'] ?? 'n/a (cli/route context)');
     return response()->json($out);
 });
