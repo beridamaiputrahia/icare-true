@@ -43,6 +43,8 @@ services:
         value: ap1
       - key: API_BIBLE_KEY
         sync: false
+      - key: CRON_TOKEN
+        sync: false
       - key: QUEUE_CONNECTION
         value: database
       - key: CACHE_STORE

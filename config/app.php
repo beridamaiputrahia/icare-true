@@ -123,4 +123,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cron Trigger Token
+    |--------------------------------------------------------------------------
+    |
+    | Token rahasia untuk melindungi route /cron/run-scheduler/{token} yang
+    | dipanggil layanan ping eksternal (cron-job.org) untuk memicu Laravel
+    | Scheduler tanpa perlu Render Cron Job berbayar.
+    |
+    */
+
+    'cron_token' => env('CRON_TOKEN'),
+
 ];

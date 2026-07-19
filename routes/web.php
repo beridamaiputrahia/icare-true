@@ -27,6 +27,19 @@ use Illuminate\Support\Facades\Route;
 // ── Public ────────────────────────────────────────────────────────────────
 Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
+
+// ── Cron eksternal (cron-job.org) ────────────────────────────────────────
+// Render Cron Job butuh kartu kredit terdaftar, jadi Laravel Scheduler
+// dipicu lewat layanan ping gratis (cron-job.org dkk) yang memanggil route
+// ini setiap menit. Dilindungi token rahasia di URL, bukan middleware auth,
+// karena dipanggil tanpa sesi login.
+Route::get('/cron/run-scheduler/{token}', function (string $token) {
+    abort_unless(hash_equals((string) config('app.cron_token'), $token), 403);
+
+    \Illuminate\Support\Facades\Artisan::call('schedule:run');
+
+    return response('OK', 200);
+})->name('cron.run-scheduler');
 Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
     // Identifikasi tenant: dari user login (jika ada) atau dari subdomain
     $tenantId = null;
