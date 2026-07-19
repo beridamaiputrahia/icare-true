@@ -64,6 +64,34 @@ Route::get('/_debug-apache', function () {
         $out['apache_error_log_tail'] = "not readable or missing at $errLog";
     }
     $out['document_root_env'] = getenv('DOCUMENT_ROOT') ?: ($_SERVER['DOCUMENT_ROOT'] ?? 'n/a (cli/route context)');
+
+    // Raw byte-level inspection: entry type, exact bytes of the name, symlink target.
+    $rawEntries = [];
+    foreach (scandir(public_path()) ?: [] as $entry) {
+        if ($entry === '.' || $entry === '..') continue;
+        $full = public_path($entry);
+        $rawEntries[] = [
+            'name'          => $entry,
+            'bytes_hex'     => bin2hex($entry),
+            'is_dir'        => is_dir($full),
+            'is_link'       => is_link($full),
+            'readlink'      => is_link($full) ? readlink($full) : null,
+            'realpath'      => realpath($full),
+        ];
+    }
+    $out['public_root_raw_entries'] = $rawEntries;
+
+    $iconsRaw = [];
+    $iconsPath = public_path('icons');
+    foreach (scandir($iconsPath) ?: [] as $entry) {
+        if ($entry === '.' || $entry === '..') continue;
+        $iconsRaw[] = $entry;
+    }
+    $out['icons_realpath'] = realpath($iconsPath);
+    $out['icons_is_link'] = is_link($iconsPath);
+    $out['icons_readlink'] = is_link($iconsPath) ? readlink($iconsPath) : null;
+    $out['icons_raw_entries'] = $iconsRaw;
+
     return response()->json($out);
 });
 
