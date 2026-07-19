@@ -72,18 +72,29 @@ plan untuk debugging):
    php artisan db:seed --force
    ```
 
-## 5. Cron job untuk notifikasi harian
+## 5. Trigger scheduler untuk notifikasi harian & ayat harian otomatis
 
-Render punya **Cron Job** asli (gratis, terpisah dari web service):
-1. Dashboard > **New** > **Cron Job**.
-2. Connect ke repo yang sama, gunakan Dockerfile yang sama.
-3. **Schedule**: `* * * * *`
-4. **Command**: `php artisan schedule:run`
-5. Isi environment variables yang sama dengan web service (terutama `DB_*`
-   dan `APP_KEY` — harus identik supaya bisa akses database yang sama).
+Render juga punya fitur **Cron Job**, tapi ternyata **butuh kartu kredit
+terdaftar** di akun (walau biaya instance-nya kecil) — tidak cocok kalau
+Anda mau tetap 100% gratis tanpa kartu. Solusinya: pakai layanan ping
+eksternal gratis yang memanggil route khusus di aplikasi untuk memicu
+Laravel Scheduler, persis seperti trik "anti-sleep" di bagian 7 di bawah.
 
-Ini akan menjalankan `notify:daily-verse` dan `notify:schedule-reminders`
-sesuai jadwal di `routes/console.php` secara otomatis, tanpa workaround.
+1. Set `CRON_TOKEN` di Environment Variables Render (generate token acak
+   panjang, contoh: `php -r "echo bin2hex(random_bytes(24));"` — jangan
+   pakai contoh di `.env.render.example`).
+2. Daftar gratis di **cron-job.org** (tanpa kartu kredit).
+3. Buat cronjob baru, isi URL:
+   ```
+   https://icare-true.onrender.com/cron/run-scheduler/TOKEN_ANDA
+   ```
+   (ganti `TOKEN_ANDA` dengan nilai `CRON_TOKEN` yang di-set di langkah 1).
+4. Set jadwal **setiap menit** (`* * * * *`), atau minimal setiap 5 menit
+   kalau layanan ping-nya membatasi frekuensi di free tier.
+
+Ini akan menjalankan `notify:daily-verse`, `notify:schedule-reminders`,
+dan `verse:generate-daily` sesuai jadwal di `routes/console.php` secara
+otomatis — tanpa perlu kartu kredit sama sekali.
 
 ## 6. Test aplikasi
 

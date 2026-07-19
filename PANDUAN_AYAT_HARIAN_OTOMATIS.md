@@ -38,19 +38,28 @@ API_BIBLE_KEY=<API Key dari langkah 1>
 
 Simpan — Render akan otomatis redeploy.
 
-### 3. WAJIB: pastikan Cron Job Render sudah aktif
+### 3. WAJIB: pastikan scheduler benar-benar terpicu tiap menit
 Fitur ini (dan notifikasi ayat harian, pengingat jadwal) **hanya berjalan**
 kalau Laravel Scheduler (`php artisan schedule:run`) benar-benar dipanggil
-tiap menit. Render **tidak** menjalankan ini otomatis dari service web biasa
-— perlu **Cron Job terpisah**:
+tiap menit. Render **Cron Job** bisa melakukan ini tapi **butuh kartu
+kredit terdaftar** di akun — kalau Anda tidak mau kasih kartu, pakai cara
+gratis tanpa kartu ini:
 
-1. Dashboard Render > **New** > **Cron Job**.
-2. Connect ke repo yang sama (`icare-true`), gunakan Dockerfile yang sama.
-3. **Schedule**: `* * * * *` (tiap menit).
-4. **Command**: `php artisan schedule:run`
-5. Isi environment variables yang SAMA PERSIS dengan service web (terutama
-   `DB_*`, `APP_KEY`, `API_BIBLE_KEY` — harus identik supaya akses ke
-   database dan API yang sama).
+1. Set `CRON_TOKEN` di Environment Variables Render (generate token acak
+   panjang, contoh: `php -r "echo bin2hex(random_bytes(24));"`).
+2. Daftar gratis di **cron-job.org** (tanpa kartu kredit).
+3. Buat cronjob baru, isi URL:
+   ```
+   https://icare-true.onrender.com/cron/run-scheduler/TOKEN_ANDA
+   ```
+4. Set jadwal setiap menit (`* * * * *`).
+
+Route ini (`/cron/run-scheduler/{token}`) sudah disiapkan di
+`routes/web.php` — dilindungi token rahasia, aman dipanggil publik tanpa
+login. Setiap kali dipanggil, ia menjalankan `php artisan schedule:run`,
+yang lalu menjalankan `verse:generate-daily`, `notify:daily-verse`, dan
+`notify:schedule-reminders` sesuai jadwal masing-masing di
+`routes/console.php`.
 
 > Kalau langkah ini belum pernah di-setup sebelumnya, fitur notifikasi
 > ayat harian dan pengingat jadwal juga belum pernah berjalan otomatis
