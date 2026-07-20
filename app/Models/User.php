@@ -13,7 +13,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name', 'email', 'password', 'role', 'secondary_role', 'is_active',
         'total_points', 'level', 'is_online', 'last_seen', 'avatar',
-        'tenant_id',
+        'uploads_seen_at', 'tenant_id',
     ];
 
     protected $hidden = [
@@ -28,6 +28,7 @@ class User extends Authenticatable
             'is_active'         => 'boolean',
             'is_online'         => 'boolean',
             'last_seen'         => 'datetime',
+            'uploads_seen_at'   => 'datetime',
             'total_points'      => 'integer',
             'level'             => 'integer',
         ];

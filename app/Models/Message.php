@@ -8,9 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class Message extends Model
 {
     use BelongsToTenant;
-    protected $fillable = ['conversation_id', 'user_id', 'body', 'is_deleted', 'tenant_id'];
-
-    protected $casts = ['is_deleted' => 'boolean'];
+    protected $fillable = ['conversation_id', 'user_id', 'body', 'tenant_id'];
 
     public function conversation()
     {
@@ -30,10 +28,5 @@ class Message extends Model
     public function isReadBy(User $user): bool
     {
         return $this->reads()->where('user_id', $user->id)->exists();
-    }
-
-    public function getDisplayBodyAttribute(): string
-    {
-        return $this->is_deleted ? '[Pesan telah dihapus]' : $this->body;
     }
 }

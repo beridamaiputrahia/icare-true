@@ -21,11 +21,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'feature'     => \App\Http\Middleware\FeatureAccess::class,
             'maintenance' => \App\Http\Middleware\MaintenanceMiddleware::class,
             'birthday'    => \App\Http\Middleware\BirthdayMiddleware::class,
+            'daily-verse-popup' => \App\Http\Middleware\DailyVersePopupMiddleware::class,
+            'new-upload-popup' => \App\Http\Middleware\NewUploadPopupMiddleware::class,
             'tenant.selected' => \App\Http\Middleware\EnsureTenantSelected::class,
         ]);
         // Apply globally on all web routes
         $middleware->appendToGroup('web', \App\Http\Middleware\MaintenanceMiddleware::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\BirthdayMiddleware::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\DailyVersePopupMiddleware::class);
+        $middleware->appendToGroup('web', \App\Http\Middleware\NewUploadPopupMiddleware::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

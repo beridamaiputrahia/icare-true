@@ -248,7 +248,7 @@
 
             @forelse($messages as $msg)
             @php $isMe = $msg->user_id === auth()->id(); @endphp
-            @php $canDelete = !$msg->is_deleted && auth()->user()->can('delete', $msg); @endphp
+            @php $canDelete = auth()->user()->can('delete', $msg); @endphp
             <div class="msg-row {{ $isMe ? 'mine' : '' }}" id="msg-{{ $msg->id }}">
                 @if(!$isMe)
                 <div class="msg-avatar" style="background:var(--app-primary,#2563eb)">
@@ -269,7 +269,7 @@
                     <div class="msg-name">{{ $msg->user?->name }}</div>
                     @endif
                     <div class="msg-bubble {{ $isMe ? 'mine' : 'other' }}">
-                        {{ $msg->display_body }}
+                        {{ $msg->body }}
                     </div>
                     <div class="msg-meta {{ $isMe ? 'text-end' : '' }}">
                         {{ $msg->created_at->diffForHumans() }}
@@ -441,10 +441,7 @@ deleteOkBtn.addEventListener('click', async () => {
             headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
         });
         if (r.ok) {
-            const row = document.getElementById('msg-' + msgId);
-            const bubble = row?.querySelector('.msg-bubble');
-            if (bubble) bubble.textContent = '[Pesan telah dihapus]';
-            row?.querySelector('.msg-delete-btn')?.remove();
+            document.getElementById('msg-' + msgId)?.remove();
         }
     } catch (e) { console.error(e); }
 });
@@ -503,6 +500,10 @@ if (PUSHER_KEY) {
                 id: data.id, user_id: data.user_id, user_name: data.user_name,
                 body: data.body, created_at_human: data.created_at_human
             }, false);
+        });
+
+        channel.bind('message.deleted', data => {
+            document.getElementById('msg-' + data.id)?.remove();
         });
 
         channel.bind('user.typing', data => {

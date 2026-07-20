@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageDeleted;
 use App\Events\MessageSent;
 use App\Events\UserTyping;
 use App\Models\Conversation;
@@ -154,7 +155,13 @@ class ChatController extends Controller
     {
         $this->authorize('delete', $message);
 
-        $message->update(['is_deleted' => true, 'body' => '']);
+        $messageId       = $message->id;
+        $conversationId  = $message->conversation_id;
+        $conversationType = $message->conversation->type ?? 'private';
+
+        $message->delete();
+
+        broadcast(new MessageDeleted($messageId, $conversationId, $conversationType))->toOthers();
 
         return response()->json(['success' => true]);
     }
@@ -185,8 +192,7 @@ class ChatController extends Controller
                 'id'               => $m->id,
                 'user_id'          => $m->user_id,
                 'user_name'        => $m->user->name,
-                'body'             => $m->display_body,
-                'is_deleted'       => $m->is_deleted,
+                'body'             => $m->body,
                 'created_at_human' => $m->created_at->diffForHumans(),
             ]),
             'has_more' => $conv->messages()->where('id', '<', $messages->first()?->id ?? 0)->exists(),

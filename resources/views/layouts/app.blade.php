@@ -522,6 +522,61 @@
     </div>
     @endif
 
+    {{-- Daily Verse Popup --}}
+    @if(session('show_daily_verse_popup'))
+    <div class="birthday-backdrop" id="dailyVerseBackdrop">
+        <div class="birthday-card">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,#dbeafe,#bfdbfe,#dbeafe);opacity:.4;border-radius:24px"></div>
+            <div style="position:relative;z-index:1">
+                <div style="font-size:4rem;line-height:1;margin-bottom:.5rem">📖</div>
+                <h2 class="fw-bold mb-3" style="color:#1e40af;font-size:1.5rem">Ayat Hari Ini</h2>
+                <div class="p-3 mb-3 rounded-3" style="background:rgba(255,255,255,.8)">
+                    <p class="mb-0" style="font-size:.9rem;line-height:1.7;color:#374151;font-style:italic">
+                        "{{ session('daily_verse_ayat') }}"
+                    </p>
+                    <p class="mb-0 mt-2 text-muted fw-semibold" style="font-size:.78rem">— {{ session('daily_verse_referensi') }}</p>
+                </div>
+                @if(session('daily_verse_renungan'))
+                <p class="text-muted mb-3" style="font-size:.82rem;line-height:1.6">
+                    {{ session('daily_verse_renungan') }}
+                </p>
+                @endif
+                <button class="btn btn-primary fw-semibold px-4" onclick="document.getElementById('dailyVerseBackdrop').style.display='none'">
+                    <i class="fa-solid fa-book-bible me-1"></i>Amin!
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
+    {{-- New Upload Popup --}}
+    @if(session('show_upload_popup'))
+    <div class="birthday-backdrop" id="uploadPopupBackdrop">
+        <div class="birthday-card">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,#dcfce7,#bbf7d0,#dcfce7);opacity:.4;border-radius:24px"></div>
+            <div style="position:relative;z-index:1">
+                <div style="font-size:4rem;line-height:1;margin-bottom:.5rem">📸</div>
+                <h2 class="fw-bold mb-1" style="color:#166534;font-size:1.4rem">Ada Foto Baru!</h2>
+                <p class="mb-3" style="color:#15803d;font-size:.9rem">
+                    {{ session('upload_popup_count') }} foto baru
+                    @if(session('upload_popup_album'))
+                        di album "<strong>{{ session('upload_popup_album') }}</strong>"
+                    @endif
+                    telah diunggah.
+                </p>
+                <div class="d-flex gap-2 justify-content-center">
+                    <a href="{{ route('albums.index') }}" class="btn btn-success fw-semibold px-4">
+                        <i class="fa-solid fa-images me-1"></i>Lihat Galeri
+                    </a>
+                    <button class="btn btn-outline-secondary fw-semibold" onclick="document.getElementById('uploadPopupBackdrop').style.display='none'">
+                        Nanti
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    @endif
+
     {{-- ══════════════════════════════════════════════════════
          CENTER FOCUS NAVIGATION CAROUSEL
          ══════════════════════════════════════════════════════ --}}
