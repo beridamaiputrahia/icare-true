@@ -111,6 +111,13 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP: backfill app_settings untuk tenant lama yang dibuat sebelum
+    // TenantController::store() membuatnya otomatis. Hapus setelah dijalankan sekali.
+    Route::get('_backfill-app-settings', function () {
+        \Illuminate\Support\Facades\Artisan::call('settings:backfill-tenants');
+        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+    });
+
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 

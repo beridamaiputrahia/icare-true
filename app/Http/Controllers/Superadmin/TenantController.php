@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Tenant;
+use Database\Seeders\AppSettingSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -42,6 +43,11 @@ class TenantController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
 
         $tenant = Tenant::create($data);
+
+        // Tanpa ini, halaman Pengaturan Aplikasi tampil kosong untuk tenant baru
+        // karena AppSetting di-scope per tenant (BelongsToTenant) dan tidak ada
+        // baris default yang otomatis dibuat selain lewat seeder ini.
+        (new AppSettingSeeder)->run($tenant->id, $tenant->nama_perusahaan);
 
         // Ruang chat global & leader dibutuhkan agar halaman Live Chat tidak
         // kosong sejak awal -- dibuat eksplisit di sini karena Conversation
