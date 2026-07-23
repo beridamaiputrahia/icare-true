@@ -17,22 +17,22 @@
 @push('styles')
 <style>
 .album-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1.1rem !important; }
-a.album-card {
+.album-card {
     display:flex !important; flex-direction:column !important;
     border-radius:14px !important; overflow:hidden !important;
     background:var(--surface,#fff) !important;
     border:1px solid var(--border,#e2e8f0) !important;
     box-shadow:0 1px 3px rgba(0,0,0,.08) !important;
     transition:transform .2s,box-shadow .2s; text-decoration:none !important; color:inherit;
-    margin:0 !important; padding:0 !important;
+    margin:0 !important; padding:0 !important; cursor:pointer;
 }
-a.album-card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,.12); color:inherit; }
+.album-card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,.12); color:inherit; }
 .album-cover {
     aspect-ratio:16/10; background:var(--surface-2,#e2e8f0);
     position:relative; overflow:hidden; flex-shrink:0; margin:0 !important;
 }
 .album-cover img { width:100%; height:100%; object-fit:cover; display:block; margin:0; transition:transform .3s; }
-a.album-card:hover .album-cover img { transform:scale(1.05); }
+.album-card:hover .album-cover img { transform:scale(1.05); }
 .cover-placeholder { display:flex; align-items:center; justify-content:center; height:100%; background:linear-gradient(135deg,var(--surface-2,#e2e8f0),var(--border,#cbd5e1)); }
 .photo-count {
     position:absolute; bottom:.5rem; right:.5rem;
@@ -81,7 +81,7 @@ p.album-title {
 @else
 <div class="album-grid">
     @foreach($albums as $album)
-    <a href="{{ route('albums.show', $album) }}" class="album-card">
+    <div class="album-card" onclick="if(!event.target.closest('.album-actions')) window.location='{{ route('albums.show', $album) }}'">
         <div class="album-cover">
             @if($album->cover_url)
             <img src="{{ $album->cover_url }}" alt="{{ $album->judul }}" loading="lazy">
@@ -100,7 +100,7 @@ p.album-title {
                     {{ $album->tanggal_kegiatan?->translatedFormat('d M Y') ?? $album->created_at->translatedFormat('d M Y') }}
                 </span>
                 @if(auth()->user()->isAdmin())
-                <div class="album-actions" onclick="event.preventDefault()">
+                <div class="album-actions">
                     <a href="{{ route('albums.edit', $album) }}" class="btn btn-outline-secondary" title="Edit">
                         <i class="fa-solid fa-pen"></i>
                     </a>
@@ -114,7 +114,7 @@ p.album-title {
                 @endif
             </div>
         </div>
-    </a>
+    </div>
     @endforeach
 </div>
 
