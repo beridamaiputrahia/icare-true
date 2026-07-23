@@ -118,6 +118,26 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP DEBUG: lihat isi app_settings per tenant untuk diagnosa. Hapus setelah selesai.
+    Route::get('_debug-app-settings', function () {
+        $out = '';
+        foreach (\App\Models\Tenant::all() as $tenant) {
+            $rows = \App\Models\AppSetting::withoutTenantScope()
+                ->where('tenant_id', $tenant->id)
+                ->orderBy('group')->orderBy('sort_order')
+                ->get(['id', 'key', 'group', 'sort_order']);
+            $out .= "=== Tenant #{$tenant->id}: {$tenant->nama_perusahaan} ({$rows->count()} rows) ===\n";
+            foreach ($rows as $r) {
+                $out .= "  [{$r->id}] {$r->group} / {$r->key}\n";
+            }
+            $out .= "\n";
+        }
+        $out .= "active_tenant_id in session: " . var_export(session('active_tenant_id'), true) . "\n";
+        $out .= "auth user tenant_id: " . var_export(auth()->user()->tenant_id, true) . "\n";
+        $out .= "auth user role: " . var_export(auth()->user()->role, true) . "\n";
+        return response('<pre>' . e($out) . '</pre>');
+    });
+
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 
