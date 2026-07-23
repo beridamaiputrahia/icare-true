@@ -14,6 +14,9 @@ RUN { \
     echo "upload_max_filesize = 10M"; \
     echo "post_max_size = 260M"; \
     echo "max_file_uploads = 30"; \
+    echo "max_execution_time = 120"; \
+    echo "max_input_time = 120"; \
+    echo "memory_limit = 256M"; \
     } > /usr/local/etc/php/conf.d/uploads.ini
 
 WORKDIR /var/www/html

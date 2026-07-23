@@ -31,6 +31,19 @@ class AlbumController extends Controller
     {
         $this->authorize('create', Album::class);
 
+        // Jika ukuran total request melebihi post_max_size PHP, PHP mengosongkan
+        // seluruh $_POST/$_FILES sebelum sampai ke Laravel -- termasuk field
+        // "judul" yang wajib diisi -- sehingga tampak seperti reload tanpa
+        // error yang jelas. Deteksi kasus ini dan beri pesan yang spesifik.
+        if ($request->missing('judul') && (int) $request->server('CONTENT_LENGTH') > 0) {
+            $postMaxBytes = static::iniSizeToBytes(ini_get('post_max_size'));
+            if ($postMaxBytes > 0 && (int) $request->server('CONTENT_LENGTH') > $postMaxBytes) {
+                return back()->withInput()->withErrors([
+                    'photos' => 'Total ukuran foto yang diupload terlalu besar untuk sekali kirim. Buat album dulu tanpa foto, lalu upload foto lewat halaman album.',
+                ]);
+            }
+        }
+
         $data = $request->validate([
             'judul'            => 'required|string|max:200',
             'deskripsi'        => 'nullable|string|max:1000',
@@ -132,5 +145,19 @@ class AlbumController extends Controller
 
         return redirect()->route('albums.index')
             ->with('success', 'Album berhasil dihapus.');
+    }
+
+    private static function iniSizeToBytes(string $value): int
+    {
+        $value = trim($value);
+        $unit  = strtolower(substr($value, -1));
+        $num   = (int) $value;
+
+        return match ($unit) {
+            'g' => $num * 1024 * 1024 * 1024,
+            'm' => $num * 1024 * 1024,
+            'k' => $num * 1024,
+            default => $num,
+        };
     }
 }

@@ -51,6 +51,7 @@
                             <input type="file" name="photos[]" id="photos" multiple accept="image/*" class="d-none">
                         </div>
                         <div id="previewGrid" class="row g-2 mt-2"></div>
+                        @error('photos')<div class="text-danger mt-2" style="font-size:.85rem">{{ $message }}</div>@enderror
                     </div>
 
                     <div class="mb-4">
