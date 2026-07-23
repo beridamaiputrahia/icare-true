@@ -20,6 +20,24 @@
 @endif
 @endsection
 
+@if($errors->has('photos') || $errors->has('photos.*'))
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-3">
+    <i class="fa-solid fa-triangle-exclamation"></i>
+    <div>
+        @foreach($errors->get('photos') as $messages)
+            @foreach($messages as $message)
+                <div>{{ $message }}</div>
+            @endforeach
+        @endforeach
+        @foreach($errors->get('photos.*') as $messages)
+            @foreach($messages as $message)
+                <div>{{ $message }}</div>
+            @endforeach
+        @endforeach
+    </div>
+</div>
+@endif
+
 @push('styles')
 <style>
 /* Masonry grid */
@@ -222,6 +240,16 @@ document.addEventListener('keydown', e => {
 document.getElementById('lightbox').addEventListener('click', e => {
     if (e.target === document.getElementById('lightbox')) closeLightbox();
 });
+
+// ── Re-buka modal upload otomatis jika ada error validasi ──────
+@if($errors->has('photos') || $errors->has('photos.*'))
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('uploadModal');
+    if (modalEl && window.bootstrap) {
+        new bootstrap.Modal(modalEl).show();
+    }
+});
+@endif
 
 // ── Upload preview ────────────────────────────────────────────
 document.getElementById('photoFiles')?.addEventListener('change', function() {

@@ -5,6 +5,17 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip \
     && a2enmod rewrite
 
+# Default PHP upload_max_filesize (2M) & post_max_size (8M) lebih kecil dari
+# validasi upload foto album (max:8192 KB per foto, hingga 30 foto sekaligus).
+# Tanpa ini, PHP mengosongkan file yang terlalu besar dari $_FILES sebelum
+# sampai ke Laravel, sehingga upload tampak "berhasil" tapi foto tidak
+# tersimpan -- tidak ada error yang terlihat oleh user.
+RUN { \
+    echo "upload_max_filesize = 10M"; \
+    echo "post_max_size = 260M"; \
+    echo "max_file_uploads = 30"; \
+    } > /usr/local/etc/php/conf.d/uploads.ini
+
 WORKDIR /var/www/html
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
