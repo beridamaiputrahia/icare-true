@@ -49,7 +49,6 @@ class AlbumController extends Controller
             'deskripsi'        => 'nullable|string|max:1000',
             'cover'            => 'nullable|image|max:5120',
             'tanggal_kegiatan' => 'nullable|date',
-            'is_published'     => 'boolean',
             'photos'           => 'nullable|array|max:30',
             'photos.*'         => 'image|max:8192',
             'captions'         => 'nullable|array',
@@ -130,7 +129,6 @@ class AlbumController extends Controller
             'deskripsi'        => 'nullable|string|max:1000',
             'cover'            => 'nullable|image|max:5120',
             'tanggal_kegiatan' => 'nullable|date',
-            'is_published'     => 'boolean',
         ]);
 
         if ($request->hasFile('cover')) {

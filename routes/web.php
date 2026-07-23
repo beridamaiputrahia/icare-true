@@ -111,17 +111,6 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
-    // TEMP DEBUG: lihat isi laravel.log terbaru untuk diagnosa bug album. Hapus setelah selesai.
-    Route::get('_debug-log', function () {
-        $path = storage_path('logs/laravel.log');
-        if (!file_exists($path)) {
-            return response('<pre>Belum ada file log.</pre>');
-        }
-        $content = file_get_contents($path);
-        $tail = substr($content, -20000);
-        return response('<pre>' . e($tail) . '</pre>');
-    });
-
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 
