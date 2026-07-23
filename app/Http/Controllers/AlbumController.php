@@ -56,36 +56,47 @@ class AlbumController extends Controller
             'captions.*'       => 'nullable|string|max:255',
         ]);
 
-        $album = Album::create([
-            'user_id'          => auth()->id(),
-            'judul'            => $data['judul'],
-            'deskripsi'        => $data['deskripsi'] ?? null,
-            'tanggal_kegiatan' => $data['tanggal_kegiatan'] ?? null,
-            'is_published'     => $request->boolean('is_published', true),
-        ]);
+        try {
+            $album = Album::create([
+                'user_id'          => auth()->id(),
+                'judul'            => $data['judul'],
+                'deskripsi'        => $data['deskripsi'] ?? null,
+                'tanggal_kegiatan' => $data['tanggal_kegiatan'] ?? null,
+                'is_published'     => $request->boolean('is_published', true),
+            ]);
 
-        if ($request->hasFile('cover')) {
-            $album->update(['cover' => $request->file('cover')->store('albums/covers', config('filesystems.default'))]);
-        }
-
-        if ($request->hasFile('photos')) {
-            foreach ($request->file('photos') as $i => $file) {
-                Photo::create([
-                    'album_id'   => $album->id,
-                    'user_id'    => auth()->id(),
-                    'file_path'  => $file->store('albums/photos', config('filesystems.default')),
-                    'caption'    => $data['captions'][$i] ?? null,
-                    'file_size'  => $file->getSize(),
-                    'mime_type'  => $file->getMimeType(),
-                    'sort_order' => $i,
-                ]);
+            if ($request->hasFile('cover')) {
+                $album->update(['cover' => $request->file('cover')->store('albums/covers', config('filesystems.default'))]);
             }
 
-            // Auto-set first photo as cover if none given
-            if (!$request->hasFile('cover')) {
-                $first = $album->photos()->first();
-                if ($first) $album->update(['cover' => $first->file_path]);
+            if ($request->hasFile('photos')) {
+                foreach ($request->file('photos') as $i => $file) {
+                    Photo::create([
+                        'album_id'   => $album->id,
+                        'user_id'    => auth()->id(),
+                        'file_path'  => $file->store('albums/photos', config('filesystems.default')),
+                        'caption'    => $data['captions'][$i] ?? null,
+                        'file_size'  => $file->getSize(),
+                        'mime_type'  => $file->getMimeType(),
+                        'sort_order' => $i,
+                    ]);
+                }
+
+                // Auto-set first photo as cover if none given
+                if (!$request->hasFile('cover')) {
+                    $first = $album->photos()->first();
+                    if ($first) $album->update(['cover' => $first->file_path]);
+                }
             }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('AlbumController::store gagal', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+
+            return back()->withInput()->withErrors([
+                'photos' => 'Gagal menyimpan album: ' . $e->getMessage(),
+            ]);
         }
 
         $message = $album->is_published ? 'Album berhasil diposting.' : 'Album berhasil disimpan sebagai draft.';
