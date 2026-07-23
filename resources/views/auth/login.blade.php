@@ -1,5 +1,5 @@
 <x-guest-layout>
-    <h5 class="auth-title">Masuk ke I Care True</h5>
+    <h5 class="auth-title">Masuk ke I Care</h5>
     <p class="auth-sub">Pusat Informasi Komunitas Rohani Kristen</p>
 
     @if(session('status'))

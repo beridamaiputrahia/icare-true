@@ -1,6 +1,6 @@
 <x-guest-layout>
     <h5 class="auth-title">Daftar Akun Baru</h5>
-    <p class="auth-sub">Bergabung dengan komunitas I Care True</p>
+    <p class="auth-sub">Bergabung dengan komunitas I Care IFGF Ungaran</p>
 
     <form method="POST" action="{{ route('register') }}">
         @csrf
