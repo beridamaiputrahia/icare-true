@@ -9,7 +9,7 @@
 @section('page-actions')
 @if(auth()->user()->isAdmin())
 <a href="{{ route('albums.create') }}" class="btn btn-sm btn-primary">
-    <i class="fa-solid fa-plus me-1"></i>Buat Album
+    <i class="fa-solid fa-plus me-1"></i>Posting Album
 </a>
 @endif
 @endsection
@@ -43,7 +43,7 @@
     <p class="small">Belum ada galeri kegiatan yang dibagikan.</p>
     @if(auth()->user()->isAdmin())
     <a href="{{ route('albums.create') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus me-1"></i>Buat Album Pertama
+        <i class="fa-solid fa-plus me-1"></i>Posting Album Pertama
     </a>
     @endif
 </div>

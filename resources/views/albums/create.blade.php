@@ -1,10 +1,10 @@
 @extends('layouts.app')
 
-@section('title', 'Buat Album')
-@section('page-title', 'Buat Album Baru')
+@section('title', 'Posting Album')
+@section('page-title', 'Posting Album Baru')
 @section('breadcrumb')
     <li class="breadcrumb-item"><a href="{{ route('albums.index') }}" class="text-decoration-none text-muted">Galeri</a></li>
-    <li class="breadcrumb-item active">Buat Album</li>
+    <li class="breadcrumb-item active">Posting Album</li>
 @endsection
 
 @section('content')
@@ -64,7 +64,7 @@
 
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">
-                            <i class="fa-solid fa-plus me-1"></i>Buat Album
+                            <i class="fa-solid fa-plus me-1"></i>Posting Album
                         </button>
                         <a href="{{ route('albums.index') }}" class="btn btn-outline-secondary">Batal</a>
                     </div>

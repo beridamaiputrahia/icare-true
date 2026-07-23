@@ -88,8 +88,10 @@ class AlbumController extends Controller
             }
         }
 
+        $message = $album->is_published ? 'Album berhasil diposting.' : 'Album berhasil disimpan sebagai draft.';
+
         return redirect()->route('albums.show', $album)
-            ->with('success', 'Album berhasil dibuat.');
+            ->with('success', $message);
     }
 
     public function show(Album $album)
