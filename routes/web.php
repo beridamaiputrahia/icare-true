@@ -111,6 +111,31 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP DEBUG: cek langsung apakah foto tersimpan & bisa diakses di Cloudinary.
+    Route::get('_debug-photo/{photo}', function (\App\Models\Photo $photo) {
+        $out = "Photo #{$photo->id}\n";
+        $out .= "file_path (di DB): {$photo->file_path}\n";
+        $out .= "FILESYSTEM_DISK aktif: " . config('filesystems.default') . "\n\n";
+
+        $disk = \Illuminate\Support\Facades\Storage::disk(config('filesystems.default'));
+
+        try {
+            $exists = $disk->exists($photo->file_path);
+            $out .= "exists(): " . var_export($exists, true) . "\n";
+        } catch (\Throwable $e) {
+            $out .= "exists() ERROR: " . get_class($e) . ': ' . $e->getMessage() . "\n";
+        }
+
+        try {
+            $url = $disk->url($photo->file_path);
+            $out .= "url(): {$url}\n";
+        } catch (\Throwable $e) {
+            $out .= "url() ERROR: " . get_class($e) . ': ' . $e->getMessage() . "\n";
+        }
+
+        return response('<pre>' . e($out) . '</pre>');
+    });
+
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 
