@@ -664,7 +664,55 @@
     @endif
 
     /* PWA */
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(reg => window.__icareSwRegistration = reg)
+            .catch(()=>{});
+    }
+
+    /* Push notification subscribe (dipanggil dari tombol "Aktifkan Notifikasi") */
+    window.icareEnablePushNotifications = async function () {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            alert('Browser ini tidak mendukung notifikasi push.');
+            return false;
+        }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return false;
+
+        try {
+            const reg = window.__icareSwRegistration || await navigator.serviceWorker.ready;
+            const vapidKey = '{{ config('webpush.vapid.public_key') }}';
+            if (!vapidKey) return false;
+
+            let subscription = await reg.pushManager.getSubscription();
+            if (!subscription) {
+                subscription = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(vapidKey),
+                });
+            }
+
+            const csrf = document.querySelector('meta[name="csrf-token"]').content;
+            await fetch('{{ route('push-subscriptions.store') }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                body: JSON.stringify(subscription.toJSON()),
+            });
+
+            return true;
+        } catch (e) {
+            console.error('Gagal subscribe push notification:', e);
+            return false;
+        }
+    };
+
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+    }
     let deferredPrompt;
     const pwaBanner  = document.getElementById('pwa-banner');
     const installBtn = document.getElementById('pwa-install-btn');

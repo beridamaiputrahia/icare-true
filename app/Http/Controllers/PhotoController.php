@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Managers\NotificationManager;
 use App\Models\Album;
 use App\Models\Photo;
 use Illuminate\Http\Request;
@@ -59,6 +60,8 @@ class PhotoController extends Controller
         }
 
         $uploaded = count($request->file('photos'));
+
+        app(NotificationManager::class)->sendNewPhotosUploaded($album, $uploaded, auth()->id());
 
         return back()->with('success', "{$uploaded} foto berhasil diupload.");
     }

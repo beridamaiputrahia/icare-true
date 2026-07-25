@@ -70,16 +70,16 @@ self.addEventListener('fetch', event => {
     );
 });
 
-// Push notification handler (future enhancement)
+// Push notification handler
 self.addEventListener('push', event => {
     if (!event.data) return;
     const data = event.data.json();
     event.waitUntil(
         self.registration.showNotification(data.title, {
             body:  data.body,
-            icon:  '/pwa-icons/icon-192.svg',
-            badge: '/pwa-icons/icon-72.svg',
-            data:  { url: data.url },
+            icon:  data.icon  || '/pwa-icons/icon-192.svg',
+            badge: data.badge || '/pwa-icons/icon-72.svg',
+            data:  data.data || {},
         })
     );
 });

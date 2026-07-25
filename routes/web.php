@@ -154,6 +154,10 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::put('/profile/password',    [ProfileController::class, 'updatePassword'])->name('profile.password');
     Route::delete('/profile',          [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Push notification subscription (browser/HP)
+    Route::post('/push-subscriptions',   [\App\Http\Controllers\PushSubscriptionController::class, 'store'])->name('push-subscriptions.store');
+    Route::delete('/push-subscriptions', [\App\Http\Controllers\PushSubscriptionController::class, 'destroy'])->name('push-subscriptions.destroy');
+
     // ── Jadwal ──────────────────────────────────────────────────────────
     Route::get('schedules', [ScheduleController::class, 'index'])->name('schedules.index');
     Route::get('schedules/create', [ScheduleController::class, 'create'])->name('schedules.create')

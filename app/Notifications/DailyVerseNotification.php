@@ -5,6 +5,8 @@ namespace App\Notifications;
 use App\Models\DailyVerse;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class DailyVerseNotification extends Notification
 {
@@ -14,7 +16,15 @@ class DailyVerseNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', WebPushChannel::class];
+    }
+
+    public function toWebPush(object $notifiable, $notification): WebPushMessage
+    {
+        return (new WebPushMessage)
+            ->title('Ayat Harian Hari Ini')
+            ->body("{$this->verse->ayat} — {$this->verse->referensi}")
+            ->data(['url' => route('daily-verses.show', $this->verse)]);
     }
 
     public function toArray(object $notifiable): array

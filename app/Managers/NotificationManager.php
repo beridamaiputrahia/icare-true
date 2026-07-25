@@ -2,12 +2,14 @@
 
 namespace App\Managers;
 
+use App\Models\Album;
 use App\Models\Announcement;
 use App\Models\DailyVerse;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Notifications\DailyVerseNotification;
 use App\Notifications\NewAnnouncementNotification;
+use App\Notifications\NewPhotosUploadedNotification;
 use App\Notifications\ScheduleReminderNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -35,6 +37,16 @@ class NotificationManager
     {
         $users = User::where('is_active', true)->get();
         Notification::send($users, new NewAnnouncementNotification($announcement));
+    }
+
+    /** Send new photos uploaded notification, excluding the uploader. */
+    public function sendNewPhotosUploaded(Album $album, int $count, ?int $excludeUserId = null): void
+    {
+        $users = User::where('is_active', true)
+            ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
+            ->get();
+
+        Notification::send($users, new NewPhotosUploadedNotification($album, $count));
     }
 
     /** Get unread count for user. */

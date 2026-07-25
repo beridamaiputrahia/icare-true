@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Managers\NotificationManager;
 use App\Models\Album;
 use App\Models\Photo;
 use Illuminate\Http\Request;
@@ -68,6 +69,8 @@ class AlbumController extends Controller
                 $album->update(['cover' => $request->file('cover')->store('albums/covers', config('filesystems.default'))]);
             }
 
+            $uploadedCount = 0;
+
             if ($request->hasFile('photos')) {
                 foreach ($request->file('photos') as $i => $file) {
                     Photo::create([
@@ -81,11 +84,17 @@ class AlbumController extends Controller
                     ]);
                 }
 
+                $uploadedCount = count($request->file('photos'));
+
                 // Auto-set first photo as cover if none given
                 if (!$request->hasFile('cover')) {
                     $first = $album->photos()->first();
                     if ($first) $album->update(['cover' => $first->file_path]);
                 }
+            }
+
+            if ($uploadedCount > 0 && $album->is_published) {
+                app(NotificationManager::class)->sendNewPhotosUploaded($album, $uploadedCount, auth()->id());
             }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('AlbumController::store gagal', [

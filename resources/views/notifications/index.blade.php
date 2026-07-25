@@ -9,6 +9,24 @@
 @section('content')
 <div class="row justify-content-center">
     <div class="col-12 col-lg-8">
+
+        {{-- Push Notification Opt-in --}}
+        <div class="card mb-3" id="pushOptInCard" style="display:none">
+            <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-circle d-flex align-items-center justify-content-center bg-primary bg-opacity-15 flex-shrink-0"
+                     style="width:44px;height:44px">
+                    <i class="fa-solid fa-mobile-screen-button text-primary"></i>
+                </div>
+                <div class="flex-grow-1">
+                    <p class="mb-0 fw-semibold" style="font-size:.875rem">Aktifkan Notifikasi HP</p>
+                    <p class="mb-0 text-muted" style="font-size:.8rem">Dapatkan pemberitahuan langsung di HP saat ada foto, pengumuman, atau ayat harian baru — walau aplikasi tertutup.</p>
+                </div>
+                <button type="button" class="btn btn-primary btn-sm flex-shrink-0" id="pushOptInBtn">
+                    Aktifkan
+                </button>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header d-flex align-items-center justify-content-between">
                 <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-bell text-warning me-2"></i>Semua Notifikasi</h6>
@@ -61,3 +79,36 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+(function () {
+    if (!('Notification' in window)) return;
+
+    const card = document.getElementById('pushOptInCard');
+    const btn  = document.getElementById('pushOptInBtn');
+
+    // Tampilkan kartu hanya kalau belum diberi izin/ditolak permanen
+    if (Notification.permission === 'default') {
+        card.style.display = '';
+    }
+
+    btn?.addEventListener('click', async () => {
+        btn.disabled = true;
+        btn.textContent = 'Memproses...';
+
+        const ok = await window.icareEnablePushNotifications();
+
+        if (ok) {
+            card.style.display = 'none';
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Aktifkan';
+            if (Notification.permission === 'denied') {
+                card.style.display = 'none';
+            }
+        }
+    });
+})();
+</script>
+@endpush

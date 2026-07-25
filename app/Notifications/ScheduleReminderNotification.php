@@ -5,6 +5,8 @@ namespace App\Notifications;
 use App\Models\Schedule;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use NotificationChannels\WebPush\WebPushChannel;
+use NotificationChannels\WebPush\WebPushMessage;
 
 class ScheduleReminderNotification extends Notification
 {
@@ -17,7 +19,17 @@ class ScheduleReminderNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['database', WebPushChannel::class];
+    }
+
+    public function toWebPush(object $notifiable, $notification): WebPushMessage
+    {
+        $when = $this->type === 'day' ? 'besok' : '1 jam lagi';
+
+        return (new WebPushMessage)
+            ->title("Pengingat: {$this->schedule->nama_kegiatan}")
+            ->body("Berlangsung {$when} pukul {$this->schedule->formatted_time} di {$this->schedule->lokasi}.")
+            ->data(['url' => route('schedules.show', $this->schedule)]);
     }
 
     public function toArray(object $notifiable): array
