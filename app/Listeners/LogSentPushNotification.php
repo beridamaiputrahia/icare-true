@@ -10,8 +10,9 @@ class LogSentPushNotification
     public function handle(NotificationSent $event): void
     {
         Log::error('Push notification BERHASIL dikirim ke layanan push', [
-            'endpoint' => substr($event->subscription->endpoint, 0, 80),
-            'status'   => $event->report->getResponse()?->getStatusCode(),
+            'subscribable_id' => $event->subscription->subscribable_id,
+            'endpoint_full'   => $event->subscription->endpoint,
+            'status'          => $event->report->getResponse()?->getStatusCode(),
         ]);
     }
 }

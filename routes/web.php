@@ -121,6 +121,25 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(substr(file_get_contents($logPath), -12000)) . '</pre>');
     });
 
+    // TEMP DEBUG: lihat SEMUA push subscription per user (untuk cek apakah
+    // HP & laptop tersimpan sebagai 2 endpoint terpisah yang benar).
+    Route::get('_debug-subscriptions', function () {
+        $out = '';
+        foreach (\App\Models\User::where('is_active', true)->get() as $u) {
+            $subs = \Illuminate\Support\Facades\DB::table('push_subscriptions')
+                ->where('subscribable_id', $u->id)
+                ->where('subscribable_type', \App\Models\User::class)
+                ->get();
+            if ($subs->isEmpty()) continue;
+            $out .= "User #{$u->id} ({$u->name}):\n";
+            foreach ($subs as $s) {
+                $out .= "  - {$s->endpoint}\n    created_at={$s->created_at}\n";
+            }
+            $out .= "\n";
+        }
+        return response('<pre>' . e($out) . '</pre>');
+    });
+
     // TEMP DEBUG: cek langsung apakah foto tersimpan & bisa diakses di Cloudinary.
     Route::get('_debug-photo/{photo}', function (\App\Models\Photo $photo) {
         $out = "Photo #{$photo->id}\n";
