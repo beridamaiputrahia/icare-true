@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
 class AppSetting extends Model
@@ -21,7 +20,7 @@ class AppSetting extends Model
      */
     private static function cacheKey(string $key, ?int $tenantId = null): string
     {
-        $tid = $tenantId ?? (Auth::check() ? Auth::user()->tenant_id : 'global');
+        $tid = $tenantId ?? static::resolveTenantId() ?? 'global';
         return "setting_{$tid}_{$key}";
     }
 
@@ -49,9 +48,16 @@ class AppSetting extends Model
         });
     }
 
+    /**
+     * Set value untuk SATU tenant (tenant user yang sedang login/aktif).
+     * Pakai resolveTenantId() dari BelongsToTenant -- ini juga menangani
+     * superadmin yang sedang "masuk sebagai" tenant tertentu lewat tenant
+     * switcher (session active_tenant_id), bukan cuma kolom users.tenant_id
+     * yang untuk superadmin memang selalu null by design.
+     */
     public static function set(string $key, mixed $value): void
     {
-        $tenantId = Auth::check() ? Auth::user()->tenant_id : null;
+        $tenantId = static::resolveTenantId();
 
         if ($tenantId) {
             static::withoutTenantScope()->updateOrCreate(
@@ -59,12 +65,26 @@ class AppSetting extends Model
                 ['value' => $value]
             );
             Cache::forget(static::cacheKey($key, $tenantId));
-        } else {
-            // Konteks non-auth (CLI/queue): update semua tenant untuk key ini
-            static::withoutTenantScope()->where('key', $key)->update(['value' => $value]);
-            static::withoutTenantScope()->where('key', $key)
-                ->each(fn ($s) => Cache::forget(static::cacheKey($s->key, $s->tenant_id)));
+
+            return;
         }
+
+        // Tidak ada tenant aktif yang bisa ditentukan (mis. superadmin belum
+        // pilih tenant, atau dipanggil tanpa auth) -- jangan mass-update semua
+        // tenant secara diam-diam. Pemanggil CLI/queue yang sungguh perlu
+        // update lintas tenant harus pakai setForAllTenants() secara eksplisit.
+    }
+
+    /**
+     * Update value untuk SEMUA tenant sekaligus. Hanya untuk dipakai secara
+     * SENGAJA oleh job CLI/queue (mis. broadcast pengumuman sistem) -- jangan
+     * dipanggil dari alur request web biasa.
+     */
+    public static function setForAllTenants(string $key, mixed $value): void
+    {
+        static::withoutTenantScope()->where('key', $key)->update(['value' => $value]);
+        static::withoutTenantScope()->where('key', $key)
+            ->each(fn ($s) => Cache::forget(static::cacheKey($key, $s->tenant_id)));
     }
 
     public static function allByGroup(): array
@@ -76,7 +96,7 @@ class AppSetting extends Model
 
     public static function flushCache(?int $tenantId = null): void
     {
-        $tid = $tenantId ?? (Auth::check() ? Auth::user()->tenant_id : null);
+        $tid = $tenantId ?? static::resolveTenantId();
 
         if ($tid) {
             // Flush hanya cache tenant ini

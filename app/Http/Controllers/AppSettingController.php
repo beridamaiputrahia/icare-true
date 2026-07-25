@@ -31,9 +31,12 @@ class AppSettingController extends Controller
                         Storage::disk(config('filesystems.default'))->delete($setting->value);
                     }
                     $path = $request->file($key)->store('settings', config('filesystems.default'));
-                    // Update langsung di row yang sudah diketahui (hindari updateOrCreate ambiguity)
+                    // Update langsung di row yang sudah diketahui & tenant-scoped
+                    // (BelongsToTenant) -- JANGAN panggil SettingsManager::set()/
+                    // AppSetting::set() di sini, itu re-resolve tenant secara
+                    // terpisah dan pernah menyebabkan update bocor ke semua tenant
+                    // saat dipanggil superadmin (lihat commit fix cross-tenant leak).
                     $setting->update(['value' => $path]);
-                    $this->settings->set($key, $path);
                 }
                 continue;
             }
@@ -41,14 +44,12 @@ class AppSettingController extends Controller
             if ($setting->type === 'boolean') {
                 $value = $request->boolean($key) ? '1' : '0';
                 $setting->update(['value' => $value]);
-                $this->settings->set($key, $value);
                 continue;
             }
 
             if ($request->has($key)) {
                 $value = $request->input($key);
                 $setting->update(['value' => $value]);
-                $this->settings->set($key, $value);
             }
         }
 
