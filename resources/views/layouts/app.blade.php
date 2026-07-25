@@ -387,11 +387,9 @@
 
             {{-- Notification Bell --}}
             <div class="position-relative">
-                <a href="{{ route('notifications.index') }}" class="btn btn-sm btn-light position-relative" title="Notifikasi">
+                <a href="{{ route('notifications.index') }}" class="btn btn-sm btn-light position-relative" title="Notifikasi" id="notifBellLink">
                     <i class="fa-solid fa-bell"></i>
-                    @if($_notifCount > 0)
-                    <span class="notif-badge">{{ $_notifCount > 9 ? '9+' : $_notifCount }}</span>
-                    @endif
+                    <span class="notif-badge" id="notifBellBadge" style="{{ $_notifCount > 0 ? '' : 'display:none' }}">{{ $_notifCount > 9 ? '9+' : $_notifCount }}</span>
                 </a>
             </div>
 
@@ -729,6 +727,32 @@
         pwaBanner.classList.remove('show');
         sessionStorage.setItem('pwa-dismissed','1');
     });
+
+    /* Poll jumlah notifikasi belum dibaca supaya badge lonceng update tanpa
+       perlu refresh halaman manual. */
+    (function () {
+        const badge = document.getElementById('notifBellBadge');
+        if (!badge) return;
+
+        async function refreshCount() {
+            try {
+                const r = await fetch('{{ route('notifications.count') }}', { headers: { 'Accept': 'application/json' } });
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data.count > 0) {
+                    badge.textContent = data.count > 9 ? '9+' : data.count;
+                    badge.style.display = '';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (e) { /* diam-diam abaikan, coba lagi di interval berikutnya */ }
+        }
+
+        setInterval(refreshCount, 20000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') refreshCount();
+        });
+    })();
     </script>
     @stack('scripts')
 </body>

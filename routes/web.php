@@ -111,6 +111,16 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP DEBUG: baca tail laravel.log untuk diagnosa kenapa push notification
+    // tidak muncul sebagai pop-up sistem. Hapus setelah selesai.
+    Route::get('_debug-log', function () {
+        $logPath = storage_path('logs/laravel.log');
+        if (!file_exists($logPath)) {
+            return response('<pre>(belum ada file log)</pre>');
+        }
+        return response('<pre>' . e(substr(file_get_contents($logPath), -12000)) . '</pre>');
+    });
+
     // TEMP DEBUG: cek langsung apakah foto tersimpan & bisa diakses di Cloudinary.
     Route::get('_debug-photo/{photo}', function (\App\Models\Photo $photo) {
         $out = "Photo #{$photo->id}\n";
