@@ -111,6 +111,13 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP: backfill cover album dari foto pertama untuk album yang belum
+    // punya cover. Hapus setelah dijalankan sekali.
+    Route::get('_backfill-album-covers', function () {
+        \Illuminate\Support\Facades\Artisan::call('albums:backfill-covers');
+        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+    });
+
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 

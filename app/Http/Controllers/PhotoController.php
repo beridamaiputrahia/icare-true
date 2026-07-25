@@ -34,16 +34,28 @@ class PhotoController extends Controller
 
         $lastOrder = $album->photos()->max('sort_order') ?? -1;
 
+        $firstStoredPath = null;
+
         foreach ($request->file('photos') as $i => $file) {
+            $path = $file->store('albums/photos', config('filesystems.default'));
+            $firstStoredPath ??= $path;
+
             Photo::create([
                 'album_id'   => $album->id,
                 'user_id'    => auth()->id(),
-                'file_path'  => $file->store('albums/photos', config('filesystems.default')),
+                'file_path'  => $path,
                 'caption'    => $request->input("captions.{$i}"),
                 'file_size'  => $file->getSize(),
                 'mime_type'  => $file->getMimeType(),
                 'sort_order' => $lastOrder + $i + 1,
             ]);
+        }
+
+        // Album tanpa cover (mis. dibuat tanpa foto lalu foto diupload belakangan
+        // lewat halaman ini) tidak pernah dapat cover -- set otomatis dari foto
+        // pertama yang baru diupload supaya kartu album di Galeri tidak kosong.
+        if (! $album->cover && $firstStoredPath) {
+            $album->update(['cover' => $firstStoredPath]);
         }
 
         $uploaded = count($request->file('photos'));
