@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Managers\NotificationManager;
 use App\Models\Announcement;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -45,7 +46,17 @@ class AnnouncementController extends Controller
         $validated['is_published'] = $request->boolean('is_published', true);
         $validated['created_by']   = auth()->id();
 
-        Announcement::create($validated);
+        $announcement = Announcement::create($validated);
+
+        if ($announcement->is_published) {
+            try {
+                app(NotificationManager::class)->sendNewAnnouncement($announcement);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi pengumuman baru', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return redirect()->route('announcements.index')
             ->with('success', 'Pengumuman berhasil ditambahkan.');

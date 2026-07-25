@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\DevotionApproved;
 use App\Events\DevotionCreated;
+use App\Managers\NotificationManager;
 use App\Models\Devotion;
 use App\Models\UserPoint;
 use App\Services\PointService;
@@ -61,6 +62,14 @@ class DevotionController extends Controller
 
         // Award points for uploading devotion
         app(PointService::class)->award(auth()->user(), UserPoint::TYPE_DEVOTION_UPLOAD, $devotion);
+
+        try {
+            app(NotificationManager::class)->sendNewDevotionSubmitted($devotion);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi renungan baru', [
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return redirect()->route('devotions.index')
             ->with('success', 'Renungan berhasil dikirim dan menunggu persetujuan admin.');

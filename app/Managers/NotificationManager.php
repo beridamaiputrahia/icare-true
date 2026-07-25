@@ -5,11 +5,16 @@ namespace App\Managers;
 use App\Models\Album;
 use App\Models\Announcement;
 use App\Models\DailyVerse;
+use App\Models\Devotion;
+use App\Models\Prayer;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Notifications\DailyVerseNotification;
 use App\Notifications\NewAnnouncementNotification;
+use App\Notifications\NewDevotionSubmittedNotification;
 use App\Notifications\NewPhotosUploadedNotification;
+use App\Notifications\NewPrayerRequestNotification;
+use App\Notifications\NewScheduleNotification;
 use App\Notifications\ScheduleReminderNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -48,6 +53,35 @@ class NotificationManager
             ->get();
 
         Notification::send($users, new NewPhotosUploadedNotification($album, $count));
+    }
+
+    /** Send new prayer request notification to admin/ICL/CTL of the prayer's own tenant. */
+    public function sendNewPrayerRequest(Prayer $prayer): void
+    {
+        $users = User::where('is_active', true)
+            ->where('tenant_id', $prayer->tenant_id)
+            ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_ICL, User::ROLE_CTL])
+            ->get();
+
+        Notification::send($users, new NewPrayerRequestNotification($prayer));
+    }
+
+    /** Send new devotion submitted notification to admin/ICL/CTL of the devotion's own tenant. */
+    public function sendNewDevotionSubmitted(Devotion $devotion): void
+    {
+        $users = User::where('is_active', true)
+            ->where('tenant_id', $devotion->tenant_id)
+            ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_ICL, User::ROLE_CTL])
+            ->get();
+
+        Notification::send($users, new NewDevotionSubmittedNotification($devotion));
+    }
+
+    /** Send new schedule notification to all users in the schedule's own tenant. */
+    public function sendNewSchedule(Schedule $schedule): void
+    {
+        $users = User::where('is_active', true)->where('tenant_id', $schedule->tenant_id)->get();
+        Notification::send($users, new NewScheduleNotification($schedule));
     }
 
     /** Get unread count for user. */

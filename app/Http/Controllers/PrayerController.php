@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Managers\NotificationManager;
 use App\Models\ActivityLog;
 use App\Models\Prayer;
 use App\Models\UserPoint;
@@ -72,6 +73,14 @@ class PrayerController extends Controller
 
         // Award points for prayer request
         app(PointService::class)->award(auth()->user(), UserPoint::TYPE_PRAYER_REQUEST, $prayer);
+
+        try {
+            app(NotificationManager::class)->sendNewPrayerRequest($prayer);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi doa baru', [
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return redirect()->route('prayers.index')
             ->with('success', 'Doa berhasil dikirim dan menunggu persetujuan admin.');

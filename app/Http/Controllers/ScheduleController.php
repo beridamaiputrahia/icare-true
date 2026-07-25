@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Managers\NotificationManager;
 use App\Models\Schedule;
 use Illuminate\Http\Request;
 
@@ -46,7 +47,15 @@ class ScheduleController extends Controller
 
         $validated['created_by'] = auth()->id();
 
-        Schedule::create($validated);
+        $schedule = Schedule::create($validated);
+
+        try {
+            app(NotificationManager::class)->sendNewSchedule($schedule);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi jadwal baru', [
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         return redirect()->route('schedules.index')
             ->with('success', 'Jadwal berhasil ditambahkan.');
