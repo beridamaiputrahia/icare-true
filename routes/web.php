@@ -111,13 +111,6 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
-    // TEMP: backfill ayat harian pertama untuk tenant lama yang belum punya
-    // sama sekali. Hapus setelah dijalankan sekali.
-    Route::get('_backfill-daily-verses', function () {
-        \Illuminate\Support\Facades\Artisan::call('verse:backfill-tenants');
-        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
-    });
-
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 
