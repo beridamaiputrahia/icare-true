@@ -20,31 +20,46 @@ use Illuminate\Support\Facades\Notification;
 
 class NotificationManager
 {
-    /** Send schedule reminder to all users in the schedule's own tenant. */
+    /**
+     * Tambahkan semua superadmin aktif ke daftar penerima, tanpa duplikat.
+     * Superadmin butuh visibilitas lintas semua I Care Group, jadi mereka
+     * selalu ikut menerima notifikasi apa pun yang dikirim ke tenant manapun.
+     */
+    private function withSuperadmins(\Illuminate\Support\Collection $users, ?int $excludeUserId = null): \Illuminate\Support\Collection
+    {
+        $superadmins = User::where('is_active', true)
+            ->where('role', User::ROLE_SUPERADMIN)
+            ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
+            ->get();
+
+        return $users->concat($superadmins)->unique('id');
+    }
+
+    /** Send schedule reminder to all users in the schedule's own tenant (+ superadmins). */
     public function sendScheduleReminder(Schedule $schedule, string $type = 'day'): void
     {
         $users = User::where('is_active', true)->where('tenant_id', $schedule->tenant_id)->get();
-        Notification::send($users, new ScheduleReminderNotification($schedule, $type));
+        Notification::send($this->withSuperadmins($users), new ScheduleReminderNotification($schedule, $type));
     }
 
-    /** Send daily verse notification to all active users of the verse's own tenant at 07:00. */
+    /** Send daily verse notification to all active users of the verse's own tenant at 07:00 (+ superadmins). */
     public function sendDailyVerse(): void
     {
         $verse = DailyVerse::getToday();
         if (!$verse) return;
 
         $users = User::where('is_active', true)->where('tenant_id', $verse->tenant_id)->get();
-        Notification::send($users, new DailyVerseNotification($verse));
+        Notification::send($this->withSuperadmins($users), new DailyVerseNotification($verse));
     }
 
-    /** Send new announcement notification, scoped to the announcement's own tenant. */
+    /** Send new announcement notification, scoped to the announcement's own tenant (+ superadmins). */
     public function sendNewAnnouncement(Announcement $announcement): void
     {
         $users = User::where('is_active', true)->where('tenant_id', $announcement->tenant_id)->get();
-        Notification::send($users, new NewAnnouncementNotification($announcement));
+        Notification::send($this->withSuperadmins($users), new NewAnnouncementNotification($announcement));
     }
 
-    /** Send new photos uploaded notification, excluding the uploader. Scoped to the album's own tenant. */
+    /** Send new photos uploaded notification, excluding the uploader. Scoped to the album's own tenant (+ superadmins). */
     public function sendNewPhotosUploaded(Album $album, int $count, ?int $excludeUserId = null): void
     {
         $users = User::where('is_active', true)
@@ -52,10 +67,10 @@ class NotificationManager
             ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
             ->get();
 
-        Notification::send($users, new NewPhotosUploadedNotification($album, $count));
+        Notification::send($this->withSuperadmins($users, $excludeUserId), new NewPhotosUploadedNotification($album, $count));
     }
 
-    /** Send new prayer request notification to admin/ICL/CTL of the prayer's own tenant. */
+    /** Send new prayer request notification to admin/ICL/CTL of the prayer's own tenant (+ superadmins). */
     public function sendNewPrayerRequest(Prayer $prayer): void
     {
         $users = User::where('is_active', true)
@@ -63,10 +78,10 @@ class NotificationManager
             ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_ICL, User::ROLE_CTL])
             ->get();
 
-        Notification::send($users, new NewPrayerRequestNotification($prayer));
+        Notification::send($this->withSuperadmins($users), new NewPrayerRequestNotification($prayer));
     }
 
-    /** Send new devotion submitted notification to admin/ICL/CTL of the devotion's own tenant. */
+    /** Send new devotion submitted notification to admin/ICL/CTL of the devotion's own tenant (+ superadmins). */
     public function sendNewDevotionSubmitted(Devotion $devotion): void
     {
         $users = User::where('is_active', true)
@@ -74,14 +89,14 @@ class NotificationManager
             ->whereIn('role', [User::ROLE_ADMIN, User::ROLE_ICL, User::ROLE_CTL])
             ->get();
 
-        Notification::send($users, new NewDevotionSubmittedNotification($devotion));
+        Notification::send($this->withSuperadmins($users), new NewDevotionSubmittedNotification($devotion));
     }
 
-    /** Send new schedule notification to all users in the schedule's own tenant. */
+    /** Send new schedule notification to all users in the schedule's own tenant (+ superadmins). */
     public function sendNewSchedule(Schedule $schedule): void
     {
         $users = User::where('is_active', true)->where('tenant_id', $schedule->tenant_id)->get();
-        Notification::send($users, new NewScheduleNotification($schedule));
+        Notification::send($this->withSuperadmins($users), new NewScheduleNotification($schedule));
     }
 
     /** Get unread count for user. */
