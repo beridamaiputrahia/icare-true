@@ -114,25 +114,29 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
     // TEMP DEBUG: cek isi tabel notifications & push_subscriptions untuk diagnosa
     // kenapa notifikasi upload foto tidak sampai. Hapus setelah selesai.
     Route::get('_debug-notifications', function () {
-        $out = "=== push_subscriptions (10 terbaru) ===\n";
-        foreach (\NotificationChannels\WebPush\PushSubscription::withoutTenantScope()->latest()->take(10)->get() as $s) {
-            $out .= "  user #{$s->subscribable_id}, endpoint: " . substr($s->endpoint, 0, 60) . "...\n";
-        }
+        try {
+            $out = "=== push_subscriptions (10 terbaru) ===\n";
+            foreach (\Illuminate\Support\Facades\DB::table('push_subscriptions')->latest()->take(10)->get() as $s) {
+                $out .= "  subscribable_id={$s->subscribable_id} type={$s->subscribable_type} endpoint=" . substr($s->endpoint, 0, 60) . "... created_at={$s->created_at}\n";
+            }
 
-        $out .= "\n=== notifications (10 terbaru) ===\n";
-        foreach (\Illuminate\Support\Facades\DB::table('notifications')->latest()->take(10)->get() as $n) {
-            $out .= "  #{$n->id} type={$n->type} notifiable_id={$n->notifiable_id} read_at=" . ($n->read_at ?? 'NULL') . " created_at={$n->created_at}\n";
-        }
+            $out .= "\n=== notifications (10 terbaru) ===\n";
+            foreach (\Illuminate\Support\Facades\DB::table('notifications')->latest()->take(10)->get() as $n) {
+                $out .= "  #{$n->id} type={$n->type} notifiable_id={$n->notifiable_id} read_at=" . ($n->read_at ?? 'NULL') . " created_at={$n->created_at}\n";
+            }
 
-        $out .= "\n=== laravel.log tail ===\n";
-        $logPath = storage_path('logs/laravel.log');
-        if (file_exists($logPath)) {
-            $out .= substr(file_get_contents($logPath), -8000);
-        } else {
-            $out .= "(belum ada file log)\n";
-        }
+            $out .= "\n=== laravel.log tail ===\n";
+            $logPath = storage_path('logs/laravel.log');
+            if (file_exists($logPath)) {
+                $out .= substr(file_get_contents($logPath), -8000);
+            } else {
+                $out .= "(belum ada file log)\n";
+            }
 
-        return response('<pre>' . e($out) . '</pre>');
+            return response('<pre>' . e($out) . '</pre>');
+        } catch (\Throwable $e) {
+            return response('<pre>' . e(get_class($e) . ': ' . $e->getMessage() . "\n\n" . $e->getTraceAsString()) . '</pre>', 500);
+        }
     });
 
     // TEMP DEBUG: cek langsung apakah foto tersimpan & bisa diakses di Cloudinary.
