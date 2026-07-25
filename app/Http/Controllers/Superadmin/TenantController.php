@@ -4,12 +4,15 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
+use App\Models\DailyVerse;
 use App\Models\Tenant;
+use App\Services\BibleApiService;
 use Database\Seeders\AppSettingSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Throwable;
 
 /**
  * CRUD daftar tenant + halaman "pilih tenant" (tenant switcher) untuk superadmin.
@@ -61,6 +64,24 @@ class TenantController extends Controller
             'type'      => Conversation::TYPE_LEADER,
             'tenant_id' => $tenant->id,
         ]);
+
+        // Tanpa ini, ayat harian kosong untuk tenant baru sampai giliran
+        // verse:generate-daily berikutnya jam 06:00 -- bisa lewat berhari-hari.
+        // Gagal-aman: kalau API.Bible down/key belum diset, tenant tetap
+        // berhasil dibuat, cuma ayat harian pertamanya menyusul di jadwal.
+        try {
+            $verse = app(BibleApiService::class)->randomVerse();
+
+            DailyVerse::withoutTenantScope()->create([
+                'ayat'      => $verse['ayat'],
+                'referensi' => $verse['referensi'],
+                'tanggal'   => today(),
+                'is_active' => true,
+                'tenant_id' => $tenant->id,
+            ]);
+        } catch (Throwable $e) {
+            report($e);
+        }
 
         return redirect()->route('superadmin.tenants.index')->with('success', 'I Care Group berhasil dibuat.');
     }
