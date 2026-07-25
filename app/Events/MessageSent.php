@@ -6,11 +6,16 @@ use App\Models\Message;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageSent implements ShouldBroadcast
+// ShouldBroadcastNow (bukan ShouldBroadcast) -- QUEUE_CONNECTION=database di
+// production tapi tidak ada queue worker (php artisan queue:work) yang jalan
+// terus-menerus, jadi broadcast ShouldBroadcast biasa cuma menumpuk di tabel
+// jobs dan tidak pernah benar-benar terkirim ke Pusher. ShouldBroadcastNow
+// mengirim langsung secara sinkron di dalam request, tanpa perlu worker.
+class MessageSent implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
