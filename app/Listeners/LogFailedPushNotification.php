@@ -9,7 +9,7 @@ class LogFailedPushNotification
 {
     public function handle(NotificationFailed $event): void
     {
-        Log::error('Push notification gagal terkirim', [
+        Log::error('Push notification GAGAL terkirim', [
             'endpoint' => $event->subscription->endpoint,
             'reason'   => $event->report->getReason(),
             'status'   => $event->report->getResponse()?->getStatusCode(),
