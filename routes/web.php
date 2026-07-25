@@ -118,6 +118,20 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP: cek foto yang filenya tidak ada di storage (upload gagal diam-diam
+    // sebelum perbaikan limit upload). Mode dry-run: hanya tampilkan, tidak hapus.
+    Route::get('_cleanup-broken-photos-dry-run', function () {
+        \Illuminate\Support\Facades\Artisan::call('photos:cleanup-broken', ['--dry-run' => true]);
+        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+    });
+
+    // TEMP: hapus sungguhan baris Photo/cover Album yang rusak. Hapus route
+    // ini (dan yang dry-run di atas) setelah selesai dijalankan.
+    Route::get('_cleanup-broken-photos', function () {
+        \Illuminate\Support\Facades\Artisan::call('photos:cleanup-broken');
+        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+    });
+
     Route::resource('tenants', \App\Http\Controllers\Superadmin\TenantController::class)
         ->except(['select', 'switch']);
 
