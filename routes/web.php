@@ -126,12 +126,7 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
             $out .= "exists() ERROR: " . get_class($e) . ': ' . $e->getMessage() . "\n";
         }
 
-        try {
-            $url = $disk->url($photo->file_path);
-            $out .= "url(): {$url}\n";
-        } catch (\Throwable $e) {
-            $out .= "url() ERROR: " . get_class($e) . ': ' . $e->getMessage() . "\n";
-        }
+        $out .= "FileUrl::of() (dipakai app, tidak lewat Admin API): " . (\App\Support\FileUrl::of($photo->file_path) ?? 'null') . "\n";
 
         return response('<pre>' . e($out) . '</pre>');
     });
