@@ -93,9 +93,6 @@ class AlbumController extends Controller
                 }
             }
 
-            if ($uploadedCount > 0 && $album->is_published) {
-                app(NotificationManager::class)->sendNewPhotosUploaded($album, $uploadedCount, auth()->id());
-            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('AlbumController::store gagal', [
                 'message' => $e->getMessage(),
@@ -105,6 +102,17 @@ class AlbumController extends Controller
             return back()->withInput()->withErrors([
                 'photos' => 'Gagal menyimpan album: ' . $e->getMessage(),
             ]);
+        }
+
+        if ($uploadedCount > 0 && $album->is_published) {
+            try {
+                app(NotificationManager::class)->sendNewPhotosUploaded($album, $uploadedCount, auth()->id());
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi foto baru', [
+                    'message' => $e->getMessage(),
+                    'trace'   => $e->getTraceAsString(),
+                ]);
+            }
         }
 
         $message = $album->is_published ? 'Album berhasil diposting.' : 'Album berhasil disimpan sebagai draft.';

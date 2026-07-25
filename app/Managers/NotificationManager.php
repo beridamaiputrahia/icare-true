@@ -15,34 +15,35 @@ use Illuminate\Support\Facades\Notification;
 
 class NotificationManager
 {
-    /** Send schedule reminder to all users. */
+    /** Send schedule reminder to all users in the schedule's own tenant. */
     public function sendScheduleReminder(Schedule $schedule, string $type = 'day'): void
     {
-        $users = User::where('is_active', true)->get();
+        $users = User::where('is_active', true)->where('tenant_id', $schedule->tenant_id)->get();
         Notification::send($users, new ScheduleReminderNotification($schedule, $type));
     }
 
-    /** Send daily verse notification to all active users at 07:00. */
+    /** Send daily verse notification to all active users of the verse's own tenant at 07:00. */
     public function sendDailyVerse(): void
     {
         $verse = DailyVerse::getToday();
         if (!$verse) return;
 
-        $users = User::where('is_active', true)->get();
+        $users = User::where('is_active', true)->where('tenant_id', $verse->tenant_id)->get();
         Notification::send($users, new DailyVerseNotification($verse));
     }
 
-    /** Send new announcement notification. */
+    /** Send new announcement notification, scoped to the announcement's own tenant. */
     public function sendNewAnnouncement(Announcement $announcement): void
     {
-        $users = User::where('is_active', true)->get();
+        $users = User::where('is_active', true)->where('tenant_id', $announcement->tenant_id)->get();
         Notification::send($users, new NewAnnouncementNotification($announcement));
     }
 
-    /** Send new photos uploaded notification, excluding the uploader. */
+    /** Send new photos uploaded notification, excluding the uploader. Scoped to the album's own tenant. */
     public function sendNewPhotosUploaded(Album $album, int $count, ?int $excludeUserId = null): void
     {
         $users = User::where('is_active', true)
+            ->where('tenant_id', $album->tenant_id)
             ->when($excludeUserId, fn ($q) => $q->where('id', '!=', $excludeUserId))
             ->get();
 

@@ -61,7 +61,14 @@ class PhotoController extends Controller
 
         $uploaded = count($request->file('photos'));
 
-        app(NotificationManager::class)->sendNewPhotosUploaded($album, $uploaded, auth()->id());
+        try {
+            app(NotificationManager::class)->sendNewPhotosUploaded($album, $uploaded, auth()->id());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi foto baru', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+        }
 
         return back()->with('success', "{$uploaded} foto berhasil diupload.");
     }
