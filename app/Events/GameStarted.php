@@ -30,8 +30,10 @@ class GameStarted implements ShouldBroadcastNow
             'session_code' => $this->session->code,
             'game_type'    => $this->session->game_type,
             'seed'         => $this->session->seed,
-            'challenger'   => ['id' => $this->session->challenger_id, 'name' => $this->session->challenger->name],
-            'opponent'     => ['id' => $this->session->opponent_id,   'name' => $this->session->opponent->name],
+            'players'      => $this->session->participants
+                ->where('status', 'accepted')
+                ->map(fn ($p) => ['id' => $p->user_id, 'nama' => $p->user->name])
+                ->values(),
         ];
     }
 }

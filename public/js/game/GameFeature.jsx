@@ -264,9 +264,13 @@ function Hasil({judul,skor,baris,custom,accent,onExit}){return(<div style={{padd
 /* ── SHARED SCREENS ─────────────────────────────────────────── */
 function PilihCara({game,onBack,onPick}){return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Cara Bermain"subtitle={`${game.judul} — pilih mode`}/><div style={{display:"grid",gap:12,marginTop:20}}>{[{id:"solo",ikon:"👤",judul:"Main Solo",desc:"Lawan waktu, kejar skor & streak"},{id:"tatap",ikon:"📱",judul:"Hadap-hadapan",desc:"Satu HP berdua, layar terbagi 2"},{id:"online",ikon:"🌐",judul:"HP Masing-masing",desc:"Beda HP, main bareng secara online"}].map((m,i)=>{const [h,setH]=useState(false);return(<button key={m.id}onClick={()=>onPick(m.id)}onMouseEnter={()=>setH(true)}onMouseLeave={()=>setH(false)}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:14,padding:18,borderRadius:20,border:`1px solid ${h?game.warna:"rgba(255,255,255,0.1)"}`,background:h?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.03)",cursor:"pointer",textAlign:"left",color:P.cream,animationDelay:`${i*.06}s`}}><div style={{width:50,height:50,borderRadius:16,background:`${game.warna}22`,display:"grid",placeItems:"center",fontSize:22,flexShrink:0}}>{m.ikon}</div><div style={{flex:1}}><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17}}>{m.judul}</div><div style={{color:P.muted,fontSize:13,fontWeight:600,marginTop:2}}>{m.desc}</div></div><span style={{color:game.warna,fontSize:18}}>›</span></button>);})}</div></div>);}
 
+/* Untuk mode "tatap" (satu HP, 2 pemain) tetap pilih 1 lawan seperti biasa
+   (klik langsung). Untuk mode "online" bisa pilih 1-3 lawan sekaligus
+   (checkbox + tombol lanjut), supaya total sampai 4 pemain per sesi. */
 function PilihLawan({game,mode,onBack,onPick}){
   const [cari,setCari]=useState("");
   const [members,setMembers]=useState(getMembers());
+  const [dipilih,setDipilih]=useState([]);
   useEffect(()=>{
     let batal=false;
     const muat=()=>apiGet("/game/members").then(data=>{if(!batal)setMembers(data);}).catch(()=>{});
@@ -274,7 +278,18 @@ function PilihLawan({game,mode,onBack,onPick}){
     return()=>{batal=true;clearInterval(id);};
   },[]);
   const list=members.filter(m=>m.nama.toLowerCase().includes(cari.toLowerCase())).sort((a,b)=>b.online-a.online);
-  return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Pilih Lawan"subtitle={mode==="online"?"Hanya anggota online bisa ditantang":"Pilih lawan bermain"}/><div style={{position:"relative",marginTop:14,marginBottom:12}}><span style={{position:"absolute",left:14,top:14,fontSize:16}}>🔍</span><input value={cari}onChange={e=>setCari(e.target.value)}placeholder="Cari anggota…"style={{width:"100%",boxSizing:"border-box",padding:"12px 14px 12px 40px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.04)",color:P.cream,fontFamily:"inherit",fontWeight:600,fontSize:14.5,outline:"none"}}/></div><div style={{display:"grid",gap:8}}>{list.map((m,i)=>{const bisa=mode!=="online"||m.online;return(<button key={m.id||i}disabled={!bisa}onClick={()=>bisa&&onPick(m)}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:13,borderRadius:16,border:"1px solid rgba(255,255,255,0.09)",background:"rgba(255,255,255,0.03)",cursor:bisa?"pointer":"default",color:P.cream,textAlign:"left",opacity:bisa?1:.4,animationDelay:`${i*.04}s`}}><div style={{position:"relative"}}><Avatar nama={m.nama}/><span style={{position:"absolute",right:-1,bottom:-1,width:11,height:11,borderRadius:99,background:m.online?P.green:"#6B6391",border:`2px solid ${P.night}`}}/></div><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15}}>{m.nama}</div><div style={{color:P.muted,fontSize:12,fontWeight:600}}>{m.online?"Online":"Offline"} · {m.menang||0}M/{m.kalah||0}K</div></div>{bisa&&<span style={{fontSize:12,fontWeight:800,color:"#1A1340",background:game.warna,padding:"6px 14px",borderRadius:99}}>Pilih</span>}</button>);})}{!list.length&&<div style={{textAlign:"center",color:P.muted,fontWeight:600,padding:30}}>Tidak ada anggota ditemukan.</div>}</div></div>);
+  const multi=mode==="online";
+  const toggle=m=>{
+    setDipilih(d=>d.some(x=>x.id===m.id)?d.filter(x=>x.id!==m.id):d.length<3?[...d,m]:d);
+  };
+  return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto",paddingBottom:multi?96:24}}><TopBar onBack={onBack}title="Pilih Lawan"subtitle={multi?"Hanya anggota online bisa ditantang · maks 3 lawan":"Pilih lawan bermain"}/><div style={{position:"relative",marginTop:14,marginBottom:12}}><span style={{position:"absolute",left:14,top:14,fontSize:16}}>🔍</span><input value={cari}onChange={e=>setCari(e.target.value)}placeholder="Cari anggota…"style={{width:"100%",boxSizing:"border-box",padding:"12px 14px 12px 40px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.04)",color:P.cream,fontFamily:"inherit",fontWeight:600,fontSize:14.5,outline:"none"}}/></div><div style={{display:"grid",gap:8}}>{list.map((m,i)=>{
+    const bisa=mode!=="online"||m.online;
+    const aktif=dipilih.some(x=>x.id===m.id);
+    const handleClick=()=>{
+      if(!bisa)return;
+      if(multi)toggle(m);else onPick(m);
+    };
+    return(<button key={m.id||i}disabled={!bisa}onClick={handleClick}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:13,borderRadius:16,border:`1px solid ${aktif?game.warna:"rgba(255,255,255,0.09)"}`,background:aktif?`${game.warna}14`:"rgba(255,255,255,0.03)",cursor:bisa?"pointer":"default",color:P.cream,textAlign:"left",opacity:bisa?1:.4,animationDelay:`${i*.04}s`}}><div style={{position:"relative"}}><Avatar nama={m.nama}/><span style={{position:"absolute",right:-1,bottom:-1,width:11,height:11,borderRadius:99,background:m.online?P.green:"#6B6391",border:`2px solid ${P.night}`}}/></div><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15}}>{m.nama}</div><div style={{color:P.muted,fontSize:12,fontWeight:600}}>{m.online?"Online":"Offline"} · {m.menang||0}M/{m.kalah||0}K</div></div>{bisa&&(multi?<span style={{width:24,height:24,borderRadius:8,border:`1.5px solid ${aktif?game.warna:"rgba(255,255,255,0.25)"}`,background:aktif?game.warna:"transparent",display:"grid",placeItems:"center",fontSize:13,fontWeight:800,color:"#1A1340",flexShrink:0}}>{aktif?"✓":""}</span>:<span style={{fontSize:12,fontWeight:800,color:"#1A1340",background:game.warna,padding:"6px 14px",borderRadius:99}}>Pilih</span>)}</button>);})}{!list.length&&<div style={{textAlign:"center",color:P.muted,fontWeight:600,padding:30}}>Tidak ada anggota ditemukan.</div>}</div>{multi&&<div style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:50}}><button onClick={()=>dipilih.length&&onPick(dipilih)}disabled={!dipilih.length}className="gf-btn"style={{width:"100%",padding:"14px",borderRadius:16,border:"none",background:dipilih.length?game.warna:"rgba(255,255,255,0.1)",color:dipilih.length?"#1A1340":P.muted,fontWeight:800,fontSize:15,cursor:dipilih.length?"pointer":"default",boxShadow:dipilih.length?"0 8px 24px rgba(0,0,0,0.4)":"none"}}>{dipilih.length?`Tantang ${dipilih.length} orang →`:"Pilih minimal 1 lawan"}</button></div>}</div>);
 }
 
 /* ── PUSHER HELPER ───────────────────────────────────────────── */
@@ -306,13 +321,16 @@ async function apiGet(url){
   return r.json();
 }
 
-/* ── LOBI ONLINE (realtime via Pusher) ──────────────────────── */
-function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
+/* ── LOBI ONLINE (realtime via Pusher, sampai 3 lawan sekaligus) ────────── */
+function LobiOnline({lawanList,game,sessionCode,onBack,onMulai,onDeclined}){
   const [fase,setFase]=useState(sessionCode?"tunggu":"kirim");
   const [kode,setKode]=useState(sessionCode||null);
+  const [players,setPlayers]=useState([]); // dari GET /game/session/{code}: [{id,nama,status,...}]
+  const [memulai,setMemulai]=useState(false);
   const pusherRef=useRef(null);
   const channelRef=useRef(null);
   const pollRef=useRef(null);
+  const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
 
   useEffect(()=>{
     let cancelled=false;
@@ -322,30 +340,27 @@ function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
       try{
         let kodeAktif=sessionCode;
         if(!kodeAktif){
-          const res=await apiPost("/game/challenge",{opponent_id:lawan.id,game_type:game.id});
+          const res=await apiPost("/game/challenge",{opponent_ids:lawanList.map(l=>l.id),game_type:game.id});
           if(cancelled)return;
           kodeAktif=res.session_code;
           setKode(kodeAktif);
           setFase("tunggu");
         }
-        // Dengarkan channel sesi untuk event started/declined (kalau Pusher tersedia)
         if(pusher){
           const ch=pusher.subscribe("private-game-session."+kodeAktif);
           channelRef.current=ch;
           ch.bind("started",()=>{if(!cancelled){setFase("diterima");setTimeout(()=>onMulai(kodeAktif),1000);}});
-          ch.bind("move",(d)=>{if(d?.payload?.type==="declined"&&!cancelled){setFase("ditolak");setTimeout(onDeclined,2000);}});
         }
-        // Fallback polling — kalau event Pusher "started" terlewat (race antara
-        // subscribe & lawan menerima), status sesi tetap kedeteksi lewat polling.
+        // Polling status semua peserta — juga fallback kalau event Pusher terlewat.
         pollRef.current=setInterval(async()=>{
           if(cancelled)return;
           try{
             const s=await apiGet("/game/session/"+kodeAktif);
             if(cancelled)return;
+            setPlayers(s.players||[]);
             if(s.status==="active"){clearInterval(pollRef.current);setFase("diterima");setTimeout(()=>onMulai(kodeAktif),800);}
-            else if(s.status==="declined"){clearInterval(pollRef.current);setFase("ditolak");setTimeout(onDeclined,2000);}
           }catch(e){/* abaikan, coba lagi di polling berikutnya */}
-        },2500);
+        },2000);
       }catch(e){
         if(!cancelled)setFase("error");
       }
@@ -359,21 +374,36 @@ function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
     };
   },[]);
 
-  const teks={kirim:"Mengirim tantangan…",tunggu:`Menunggu ${lawan.nama} menerima…`,diterima:"Tantangan diterima! 🎉",ditolak:"Tantangan ditolak.",error:"Gagal mengirim tantangan."};
-  const warna={diterima:P.green,ditolak:P.red,error:P.red};
+  const myId=window.__GAME_USER__?.id;
+  const lawanStatus=players.filter(p=>p.id!==myId);
+  const acceptedCount=lawanStatus.filter(p=>p.status==="accepted").length;
+  const bisaMulai=acceptedCount>=1&&!memulai;
+
+  const mulaiSekarang=async()=>{
+    if(!bisaMulai)return;
+    setMemulai(true);
+    try{await apiPost("/game/start",{session_code:kode});}
+    catch(e){setMemulai(false);}
+  };
+
+  const teks={kirim:"Mengirim tantangan…",tunggu:"Menunggu lawan menerima…",diterima:"Sesi dimulai! 🎉",error:"Gagal mengirim tantangan."};
 
   return(
     <div style={{padding:"24px 20px",minHeight:400,maxWidth:460,margin:"0 auto",display:"flex",flexDirection:"column"}}>
       <TopBar onBack={onBack}title="Menghubungkan…"/>
-      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:24}}>
-        <div style={{display:"flex",alignItems:"center",gap:20}}>
-          <div style={{textAlign:"center"}}><Avatar nama={(window.__GAME_USER__||{nama:"Kamu"}).nama}size={60}ring={P.gold}/><div style={{marginTop:8,fontWeight:800,fontSize:13,color:P.cream}}>Kamu</div></div>
-          <div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:20,color:P.muted}}>VS</div>
-          <div style={{textAlign:"center"}}><Avatar nama={lawan.nama}size={60}ring={fase==="diterima"?P.green:game.warna}/><div style={{marginTop:8,fontWeight:800,fontSize:13,color:P.cream}}>{lawan.nama}</div></div>
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
+        <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:16}}>
+          <div style={{textAlign:"center"}}><Avatar nama={namaSaya}size={54}ring={P.gold}/><div style={{marginTop:6,fontWeight:800,fontSize:12,color:P.cream}}>Kamu</div></div>
+          {lawanList.map(l=>{
+            const st=lawanStatus.find(p=>p.id===l.id)?.status||"invited";
+            const ring=st==="accepted"?P.green:st==="declined"?P.red:game.warna;
+            return(<div key={l.id}style={{textAlign:"center",opacity:st==="declined"?.45:1}}><Avatar nama={l.nama}size={54}ring={ring}/><div style={{marginTop:6,fontWeight:800,fontSize:12,color:P.cream}}>{l.nama}</div><div style={{fontSize:10,fontWeight:700,color:ring}}>{st==="accepted"?"Siap ✓":st==="declined"?"Menolak":"Menunggu…"}</div></div>);
+          })}
         </div>
-        <div key={fase}className="gf-pop"style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:warna[fase]||P.cream}}>{teks[fase]}</div>
+        <div key={fase}className="gf-pop"style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17,textAlign:"center",color:fase==="diterima"?P.green:fase==="error"?P.red:P.cream}}>{teks[fase]}</div>
         {(fase==="kirim"||fase==="tunggu")&&<div style={{display:"flex",gap:6}}>{[0,1,2].map(i=><div key={i}style={{width:8,height:8,borderRadius:99,background:P.gold,animation:`gf-blink 1.2s ${i*.4}s ease infinite`}}/>)}</div>}
         {kode&&fase==="tunggu"&&<div style={{fontSize:11,color:P.muted,fontWeight:600}}>Kode sesi: {kode}</div>}
+        {fase==="tunggu"&&<button onClick={mulaiSekarang}disabled={!bisaMulai}className="gf-btn"style={{marginTop:8,padding:"12px 28px",borderRadius:14,border:"none",background:bisaMulai?game.warna:"rgba(255,255,255,0.08)",color:bisaMulai?"#1A1340":P.muted,fontWeight:800,fontSize:14,cursor:bisaMulai?"pointer":"default"}}>{memulai?"Memulai…":acceptedCount>0?`Mulai Sekarang (${acceptedCount+1} pemain)`:"Menunggu ada yang siap…"}</button>}
       </div>
     </div>
   );
@@ -384,7 +414,7 @@ function NotifTantangan({notif,onTerima,onTolak}){
   return(
     <div className="gf-pop"style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999,padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
       <div style={{fontWeight:800,fontSize:14,color:P.gold,marginBottom:4}}>🎮 Tantangan Masuk!</div>
-      <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.challenger_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
+      <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.host_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
       <div style={{display:"flex",gap:10}}>
         <button onClick={onTerima}className="gf-btn"style={{flex:1,padding:"10px",borderRadius:12,border:"none",background:P.green,color:"#1A1340",fontWeight:800,fontSize:14,cursor:"pointer"}}>✓ Terima</button>
         <button onClick={onTolak}className="gf-btn"style={{flex:1,padding:"10px",borderRadius:12,border:`1px solid ${P.red}`,background:"transparent",color:P.red,fontWeight:800,fontSize:14,cursor:"pointer"}}>✗ Tolak</button>
@@ -435,16 +465,6 @@ function KuisTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,padding:"8px 16px",background:"rgba(0,0,0,0.3)",position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"5px 10px",position:"absolute",left:10}}>←</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={50}/><div style={{position:"absolute",fontWeight:800,fontSize:15,fontFamily:"'Bricolage Grotesque',sans-serif",color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>ADU CEPAT</span></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-/* d.score_challenger/d.score_opponent dari event GameEnded selalu berupa skor
-   challenger vs opponent — BUKAN "skor saya vs skor lawan". Kalau saya adalah
-   opponent, itu harus dibalik, kalau tidak skor saya & lawan akan tertukar
-   di layar hasil (menang/kalah jadi salah, atau seolah tidak ada hasil). */
-function skorDariGameEnded(d,myRole){
-  return myRole==="opponent"
-    ? {you:d.score_opponent,op:d.score_challenger}
-    : {you:d.score_challenger,op:d.score_opponent};
-}
-
 /* ── HOOK: SINKRONISASI GAME ONLINE VIA PUSHER ──────────────── */
 function useOnlineGame(sessionCode,onMove,onEnded){
   const pusherRef=useRef(null);
@@ -482,26 +502,57 @@ function useOnlineGame(sessionCode,onMove,onEnded){
   return{sendMove,sendFinished};
 }
 
-/* ── SKOR BAR ONLINE ────────────────────────────────────────── */
-function SkorBarOnline({namaSaya,namaLawan,skorSaya,skorLawan,tengah}){
+/* ── PAPAN SKOR N-PEMAIN (2-4 orang) ─────────────────────────── */
+// players: [{id, nama}] SEMUA peserta termasuk diri sendiri.
+// scores: {[id]: number}. tengah: elemen opsional (mis. timer) di antara kartu skor.
+const PEMAIN_WARNA=[P.gold,P.p2,P.purple,P.orange];
+function warnaPemain(idx){return PEMAIN_WARNA[idx%PEMAIN_WARNA.length];}
+function PapanSkorN({players,scores,myId,tengah}){
+  const urut=[...players].sort((a,b)=>a.id===myId?-1:b.id===myId?1:0);
   return(
-    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:14,gap:10}}>
-      <div style={{display:"flex",alignItems:"center",gap:9,flex:1}}><Avatar nama={namaSaya}size={38}ring={P.gold}/><div><div style={{fontWeight:800,fontSize:13,color:P.gold}}>{namaSaya}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:20,color:P.cream}}>{skorSaya}</div></div></div>
+    <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginTop:14,gap:8,flexWrap:"wrap"}}>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",flex:1}}>
+        {urut.map((p,i)=>{
+          const warna=p.id===myId?P.gold:warnaPemain(i);
+          return(<div key={p.id}style={{display:"flex",alignItems:"center",gap:6,padding:"5px 9px 5px 5px",borderRadius:99,background:p.id===myId?`${P.gold}14`:"rgba(255,255,255,0.04)"}}><Avatar nama={p.nama}size={26}ring={warna}/><div><div style={{fontWeight:700,fontSize:10.5,color:warna,maxWidth:70,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.id===myId?"Kamu":p.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:15,color:P.cream,lineHeight:1}}>{scores[p.id]??0}</div></div></div>);
+        })}
+      </div>
       {tengah}
-      <div style={{display:"flex",alignItems:"center",gap:9,flex:1,justifyContent:"flex-end"}}><div style={{textAlign:"right"}}><div style={{fontWeight:800,fontSize:13,color:P.p2}}>{namaLawan}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:20,color:P.cream}}>{skorLawan}</div></div><Avatar nama={namaLawan}size={38}ring={P.p2}/></div>
     </div>
   );
 }
 
-function KuisOnline({lawan,sessionCode,myRole,onExit}){
-  const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
+/* ── HASIL AKHIR N-PEMAIN (leaderboard ronde, bukan cuma kamu vs 1 lawan) ── */
+function HasilN({players,scores,myId,accent,onExit}){
+  const urut=[...players].sort((a,b)=>(scores[b.id]??0)-(scores[a.id]??0));
+  const topScore=scores[urut[0]?.id]??0;
+  const skorSaya=scores[myId]??0;
+  const menang=skorSaya===topScore;
+  const medals=["🥇","🥈","🥉","4️⃣"];
+  return(<div style={{padding:"40px 24px",maxWidth:460,margin:"0 auto",textAlign:"center",display:"flex",flexDirection:"column",minHeight:480,justifyContent:"center"}}>
+    <div className="gf-pop"><div style={{width:72,height:72,margin:"0 auto",borderRadius:24,background:`linear-gradient(135deg,${accent},${accent}99)`,display:"grid",placeItems:"center",boxShadow:`0 12px 40px ${accent}55`}}><span style={{fontSize:32}}>{menang?"🏆":"⭐"}</span></div><h1 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:24,margin:"18px 0 4px",color:P.cream}}>{menang?"Kamu Menang! 🏆":"Permainan Selesai"}</h1></div>
+    <div style={{display:"grid",gap:9,marginTop:20}}>
+      {urut.map((p,i)=>(
+        <div key={p.id}className="gf-rise"style={{display:"flex",alignItems:"center",gap:10,padding:"12px 16px",borderRadius:14,background:p.id===myId?`${accent}14`:"rgba(255,255,255,0.04)",border:`1px solid ${p.id===myId?accent:"rgba(255,255,255,0.08)"}`,animationDelay:`${i*.05}s`}}>
+          <span style={{fontSize:18,width:24,flexShrink:0}}>{medals[i]||`#${i+1}`}</span>
+          <Avatar nama={p.nama}size={32}/>
+          <span style={{flex:1,textAlign:"left",fontWeight:800,fontSize:14,color:P.cream}}>{p.id===myId?"Kamu":p.nama}</span>
+          <span style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:p.id===myId?accent:P.cream}}>{scores[p.id]??0}</span>
+        </div>
+      ))}
+    </div>
+    <button onClick={onExit}className="gf-btn"style={{marginTop:28,padding:16,borderRadius:16,border:"none",background:`linear-gradient(135deg,${accent},${accent}cc)`,color:"#1A1340",fontWeight:800,fontSize:16,cursor:"pointer",fontFamily:"'Bricolage Grotesque',sans-serif"}}>Kembali ke Menu</button>
+  </div>);
+}
+
+function KuisOnline({players,sessionCode,onExit}){
+  const myId=window.__GAME_USER__?.id;
   const [soal]=useState(()=>siapkanSoalSeed(7,sessionCode+":kuis"));
   const [idx,setIdx]=useState(0);
-  const [skor,setSkor]=useState({you:0,op:0});
+  const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
   const [pilih,setPilih]=useState(null);
   const [youLock,setYouLock]=useState(false);
-  const [opStatus,setOpStatus]=useState("thinking");
-  const [hasil,setHasil]=useState(null);
+  const [pemenangRonde,setPemenangRonde]=useState(null); // {id,nama} atau "seri" atau null
   const [waktu,setWaktu]=useState(12);
   const [selesai,setSelesai]=useState(false);
   const timerRef=useRef();
@@ -512,39 +563,39 @@ function KuisOnline({lawan,sessionCode,myRole,onExit}){
 
   const lanjut=useCallback(()=>{
     if(idx+1>=soal.length)setSelesai(true);
-    else{setIdx(i=>i+1);setPilih(null);setYouLock(false);setOpStatus("thinking");setHasil(null);setWaktu(12);}
+    else{setIdx(i=>i+1);setPilih(null);setYouLock(false);setPemenangRonde(null);setWaktu(12);}
   },[idx,soal.length]);
 
-  const resolve=useCallback((w,youSkor)=>{
-    if(resolvedRef.current)return;
-    resolvedRef.current=true;
-    clearInterval(timerRef.current);
-    setHasil(w);
-    if(w==="you"){setSkor(s=>({...s,you:s.you+youSkor}));}
-    setTimeout(lanjut,1700);
-  },[lanjut]);
-
   const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
-    if(d.role==="opponent"||d.user_id!==window.__GAME_USER__?.id){
-      const p=d.payload||{};
-      if(p.type==="answer_correct"){setOpStatus("answered");resolve("op",0);setSkor(s=>({...s,op:p.score??s.op+100}));}
-      else if(p.type==="answer_wrong"){setOpStatus("wrong");}
+    const p=d.payload||{};
+    if(p.type==="answer_correct"&&!resolvedRef.current){
+      resolvedRef.current=true;
+      clearInterval(timerRef.current);
+      const pemain=players.find(pl=>pl.id===d.user_id);
+      setPemenangRonde(pemain||{id:d.user_id,nama:"?"});
+      if(d.scores)setSkor(d.scores);
+      setTimeout(lanjut,1700);
     }
-  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
+  },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
 
   const jawab=useCallback(i=>{
     if(resolvedRef.current||pilih!==null||youLockRef.current)return;
     setPilih(i);
-    const poin=100+Math.round((waktuRef.current/12)*50);
     if(i===s.benar){
-      sendMove({type:"answer_correct",ronde:idx,score:skor.you+poin});
-      resolve("you",poin);
+      const poin=100+Math.round((waktuRef.current/12)*50);
+      resolvedRef.current=true;
+      clearInterval(timerRef.current);
+      setPemenangRonde({id:myId,nama:"Kamu"});
+      const skorBaru=(skor[myId]||0)+poin;
+      setSkor(sk=>({...sk,[myId]:skorBaru}));
+      sendMove({type:"answer_correct",ronde:idx,score:skorBaru});
+      setTimeout(lanjut,1700);
     }else{
       youLockRef.current=true;
       setYouLock(true);
-      sendMove({type:"answer_wrong",ronde:idx,score:skor.you});
+      sendMove({type:"answer_wrong",ronde:idx});
     }
-  },[pilih,s,resolve,idx,skor.you,sendMove]);
+  },[pilih,s,idx,skor,myId,sendMove,lanjut]);
 
   useEffect(()=>{
     resolvedRef.current=false;youLockRef.current=false;waktuRef.current=12;
@@ -552,15 +603,16 @@ function KuisOnline({lawan,sessionCode,myRole,onExit}){
 
   useEffect(()=>{
     if(selesai)return;
-    timerRef.current=setInterval(()=>{setWaktu(w=>{const n=w<=0.1?0:+(w-.1).toFixed(1);waktuRef.current=n;if(n===0&&!resolvedRef.current)resolve("seri",0);return n;});},100);
+    timerRef.current=setInterval(()=>{setWaktu(w=>{const n=w<=0.1?0:+(w-.1).toFixed(1);waktuRef.current=n;if(n===0&&!resolvedRef.current){resolvedRef.current=true;setPemenangRonde("seri");setTimeout(lanjut,1700);}return n;});},100);
     return()=>clearInterval(timerRef.current);
-  },[idx,selesai,resolve]);
+  },[idx,selesai,lanjut]);
 
-  useEffect(()=>{if(selesai)sendFinished(skor.you);},[selesai]);
+  useEffect(()=>{if(selesai)sendFinished(skor[myId]||0);},[selesai]);
 
-  if(selesai){const w=skor.you===skor.op?"Seri!":skor.you>skor.op?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.you>=skor.op?P.gold:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name={namaSaya}val={skor.you}color={P.gold}win={skor.you>=skor.op}/><ScorePill name={lawan.nama}val={skor.op}color={P.p2}win={skor.op>=skor.you}/></div>}/>;}
+  if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.gold}onExit={onExit}/>;
   const ratio=waktu/12;
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span></div><SkorBarOnline namaSaya={namaSaya}namaLawan={lawan.nama}skorSaya={skor.you}skorLawan={skor.op}tengah={<div style={{position:"relative",display:"grid",placeItems:"center",flexShrink:0}}><TimerRing ratio={ratio}danger={ratio<.3}size={48}/><div style={{position:"absolute",fontWeight:800,fontSize:14,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div>}/><div style={{marginTop:10,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",display:"flex",alignItems:"center",gap:9,fontSize:13,fontWeight:700}}><span style={{width:8,height:8,borderRadius:99,background:P.p2,animation:opStatus==="thinking"?"gf-blink 1s ease infinite":"none",display:"inline-block"}}/>{hasil?<span style={{color:hasil==="op"?P.p2:P.muted}}>{hasil==="op"?`${lawan.nama} lebih cepat`:hasil==="you"?`${lawan.nama} keduluan kamu`:"Ronde seri"}</span>:opStatus==="thinking"?<span style={{color:P.muted}}>{lawan.nama} sedang menjawab…</span>:<span style={{color:P.red}}>{lawan.nama} salah — peluangmu!</span>}</div><div key={idx}className="gf-pop"style={{marginTop:18}}><div style={{fontSize:12,fontWeight:700,color:P.gold,letterSpacing:1,textTransform:"uppercase"}}>Pertanyaan</div><h2 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:21,lineHeight:1.25,margin:"7px 0 0",color:P.cream}}>{s.q}</h2></div><div style={{display:"grid",gap:9,marginTop:16}}>{s.opsi.map((op,i)=>{let st="idle";if(hasil){st=i===s.benar?"benar":i===pilih?"salah":"redup";}else if(pilih===i)st="salah";else if(youLock)st="redup";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={hasil!==null||youLock||pilih!==null}delay={i*.04}/>;})}</div><div style={{minHeight:26,marginTop:10,textAlign:"center"}}>{hasil&&<div className="gf-pop"style={{fontWeight:800,fontSize:15,color:hasil==="you"?P.green:hasil==="op"?P.red:P.muted}}>{hasil==="you"?"Kamu tercepat! ⚡":hasil==="op"?"Keduluan lawan…":"Ronde seri"}</div>}{youLock&&!hasil&&<div className="gf-shake"style={{fontWeight:700,fontSize:13,color:P.red}}>Jawabanmu salah — terkunci ronde ini ✗</div>}</div></div>);
+  const statusTeks=pemenangRonde==="seri"?"Waktu habis — ronde seri":pemenangRonde?(pemenangRonde.id===myId?"Kamu tercepat! ⚡":`${pemenangRonde.nama} lebih cepat`):youLock?"Jawabanmu salah — tunggu pemain lain…":"Jawab secepat mungkin!";
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span></div><PapanSkorN players={players}scores={skor}myId={myId}tengah={<div style={{position:"relative",display:"grid",placeItems:"center",flexShrink:0}}><TimerRing ratio={ratio}danger={ratio<.3}size={48}/><div style={{position:"absolute",fontWeight:800,fontSize:14,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div>}/><div style={{marginTop:10,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div key={idx}className="gf-pop"style={{marginTop:18}}><div style={{fontSize:12,fontWeight:700,color:P.gold,letterSpacing:1,textTransform:"uppercase"}}>Pertanyaan</div><h2 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:21,lineHeight:1.25,margin:"7px 0 0",color:P.cream}}>{s.q}</h2></div><div style={{display:"grid",gap:9,marginTop:16}}>{s.opsi.map((op,i)=>{let st="idle";if(pemenangRonde){st=i===s.benar?"benar":i===pilih?"salah":"redup";}else if(pilih===i)st="salah";else if(youLock)st="redup";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{marginTop:10,textAlign:"center",fontWeight:700,fontSize:13,color:P.red}}>Jawabanmu salah — terkunci ronde ini ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -599,16 +651,16 @@ function SusunTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{padding:"7px 14px",background:"rgba(0,0,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center",gap:12,position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"4px 10px",position:"absolute",left:8}}>←</button><span style={{fontSize:11,fontWeight:800,color:P.muted}}>RONDE {idx+1}/{ayat.length}</span><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={44}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-function SusunOnline({lawan,sessionCode,myRole,onExit}){
-  const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
+function SusunOnline({players,sessionCode,onExit}){
+  const myId=window.__GAME_USER__?.id;
   const [ayat]=useState(()=>siapkanAyatSeed(5,sessionCode+":susun"));
   const [idx,setIdx]=useState(0);
-  const [skor,setSkor]=useState({you:0,op:0});
-  const skorRef=useRef({you:0,op:0});
+  const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
+  const skorRef=useRef(skor);
   const [disusun,setDisusun]=useState([]);
   const [bank,setBank]=useState([]);
   const [waktu,setWaktu]=useState(90);
-  const [hasil,setHasil]=useState(null);
+  const [pemenangRonde,setPemenangRonde]=useState(null); // {id,nama} atau "seri" atau null
   const [selesai,setSelesai]=useState(false);
   const timerRef=useRef();
   const resolvedRef=useRef(false);
@@ -619,22 +671,20 @@ function SusunOnline({lawan,sessionCode,myRole,onExit}){
 
   const lanjutKe=useCallback((nextIdx)=>{
     if(nextIdx>=ayat.length)setSelesai(true);
-    else{setIdx(nextIdx);setHasil(null);setWaktu(90);}
+    else{setIdx(nextIdx);setPemenangRonde(null);setWaktu(90);}
   },[ayat.length]);
 
   const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
-    if(d.user_id!==window.__GAME_USER__?.id){
-      const p=d.payload||{};
-      if(p.type==="ronde_selesai"&&!resolvedRef.current){
-        resolvedRef.current=true;
-        clearInterval(timerRef.current);
-        const newOp=p.score??skorRef.current.op+100;
-        setSkor(s=>{const ns={...s,op:newOp};skorRef.current=ns;return ns;});
-        setHasil("op");
-        setTimeout(()=>lanjutKe(p.ronde+1),1600);
-      }
+    const p=d.payload||{};
+    if(p.type==="ronde_selesai"&&!resolvedRef.current){
+      resolvedRef.current=true;
+      clearInterval(timerRef.current);
+      const pemain=players.find(pl=>pl.id===d.user_id);
+      setPemenangRonde(pemain||{id:d.user_id,nama:"?"});
+      if(d.scores)setSkor(d.scores);
+      setTimeout(()=>lanjutKe(idx+1),1600);
     }
-  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
+  },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
 
   useEffect(()=>{
     setBank(a.acak.map((k,i)=>({kata:k,origIdx:i})));
@@ -644,25 +694,25 @@ function SusunOnline({lawan,sessionCode,myRole,onExit}){
   },[idx]);
 
   useEffect(()=>{
-    if(selesai||hasil)return;
+    if(selesai||pemenangRonde)return;
     timerRef.current=setInterval(()=>{
       setWaktu(w=>{
         const n=w<=0.1?0:+(w-.1).toFixed(1);
         waktuRef.current=n;
         if(n===0&&!resolvedRef.current){
           resolvedRef.current=true;
-          setHasil("seri");
-          sendMove({type:"ronde_selesai",ronde:idx,score:skorRef.current.you});
+          setPemenangRonde("seri");
+          sendMove({type:"ronde_selesai",ronde:idx});
           setTimeout(()=>lanjutKe(idx+1),1600);
         }
         return n;
       });
     },100);
     return()=>clearInterval(timerRef.current);
-  },[idx,selesai,hasil,lanjutKe,sendMove]);
+  },[idx,selesai,pemenangRonde,lanjutKe,sendMove]);
 
   const tambah=i=>{
-    if(hasil)return;
+    if(pemenangRonde)return;
     const item=bank[i];
     const nd=[...disusun,item];
     setDisusun(nd);
@@ -672,26 +722,27 @@ function SusunOnline({lawan,sessionCode,myRole,onExit}){
         resolvedRef.current=true;
         clearInterval(timerRef.current);
         const p=100+Math.round((waktuRef.current/90)*150);
-        const newYou=skorRef.current.you+p;
-        setSkor(s=>{const ns={...s,you:newYou};skorRef.current=ns;return ns;});
-        setHasil("you");
-        sendMove({type:"ronde_selesai",ronde:idx,score:newYou});
+        const skorBaru=(skorRef.current[myId]||0)+p;
+        setSkor(s=>({...s,[myId]:skorBaru}));
+        setPemenangRonde({id:myId,nama:"Kamu"});
+        sendMove({type:"ronde_selesai",ronde:idx,score:skorBaru});
         setTimeout(()=>lanjutKe(idx+1),1600);
       }
     }
   };
   const hapus=i=>{
-    if(hasil)return;
+    if(pemenangRonde)return;
     const item=disusun[i];
     setDisusun(d=>d.filter((_,j)=>j!==i));
     setBank(b=>[...b,item]);
   };
 
-  useEffect(()=>{if(selesai)sendFinished(skorRef.current.you);},[selesai]);
+  useEffect(()=>{if(selesai)sendFinished(skorRef.current[myId]||0);},[selesai]);
 
-  if(selesai){const w=skor.you===skor.op?"Seri!":skor.you>skor.op?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.you>=skor.op?P.p2:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name={namaSaya}val={skor.you}color={P.gold}win={skor.you>=skor.op}/><ScorePill name={lawan.nama}val={skor.op}color={P.p2}win={skor.op>=skor.you}/></div>}/>;}
+  if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.p2}onExit={onExit}/>;
   const ratio=waktu/90;
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{display:"flex",alignItems:"center",gap:12}}><Avatar nama={namaSaya}size={32}ring={P.gold}/><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div><Avatar nama={lawan.nama}size={32}ring={P.p2}/></div></div><div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:800,margin:"10px 0"}}><span style={{color:P.gold}}>{namaSaya}: {skor.you}</span><span style={{color:P.p2}}>{lawan.nama}: {skor.op}</span></div><div style={{marginTop:4,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:P.muted}}>{hasil?<span style={{color:hasil==="you"?P.green:hasil==="op"?P.red:P.muted}}>{hasil==="you"?"Kamu berhasil duluan! 🎉":hasil==="op"?`${lawan.nama} lebih cepat…`:"Ronde seri"}</span>:<span>{lawan.nama} sedang menyusun…</span>}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!hasil}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!hasil}accent={P.muted}/></div></div>);
+  const statusTeks=pemenangRonde==="seri"?"Waktu habis — ronde seri":pemenangRonde?(pemenangRonde.id===myId?"Kamu berhasil duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Susun secepat mungkin!";
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><PapanSkorN players={players}scores={skor}myId={myId}/><div style={{marginTop:10,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!pemenangRonde}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!pemenangRonde}accent={P.muted}/></div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -723,16 +774,16 @@ function TebakTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{background:"rgba(0,0,0,0.3)",padding:"8px 14px"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"4px 10px",position:"absolute",left:0}}>←</button><div style={{textAlign:"center"}}><div style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>TOKOH {idx+1}/{tokoh.length}</div></div></div><div style={{marginTop:8,padding:"10px 12px",borderRadius:14,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:11,fontWeight:700,color:P.purple,marginBottom:6}}>Clue terlihat semua pemain:</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{fontSize:13,color:P.cream,fontWeight:600,marginBottom:4}}>#{i+1} {c}</div>)}{clueIdx<t.clues.length-1&&!winner&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:8,width:"100%",padding:"8px",borderRadius:10,border:`1px solid ${P.purple}44`,background:`${P.purple}10`,color:P.purple,fontWeight:700,fontSize:12}}>Buka Clue Berikutnya</button>}</div></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-function TebakOnline({lawan,sessionCode,myRole,onExit}){
-  const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
+function TebakOnline({players,sessionCode,onExit}){
+  const myId=window.__GAME_USER__?.id;
   const [tokoh]=useState(()=>siapkanTokohSeed(10,sessionCode+":tebak"));
   const [idx,setIdx]=useState(0);
-  const [skor,setSkor]=useState({you:0,op:0});
-  const skorRef=useRef({you:0,op:0});
+  const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
+  const skorRef=useRef(skor);
   const [clueIdx,setClueIdx]=useState(0);
   const [pilih,setPilih]=useState(null);
   const [youLock,setYouLock]=useState(false);
-  const [hasil,setHasil]=useState(null);
+  const [pemenangRonde,setPemenangRonde]=useState(null); // {id,nama} atau null
   const [selesai,setSelesai]=useState(false);
   const resolvedRef=useRef(false);
   const t=tokoh[idx];
@@ -741,21 +792,19 @@ function TebakOnline({lawan,sessionCode,myRole,onExit}){
 
   const lanjut=useCallback(()=>{
     if(idx+1>=tokoh.length)setSelesai(true);
-    else{setIdx(i=>i+1);setClueIdx(0);setPilih(null);setYouLock(false);setHasil(null);}
+    else{setIdx(i=>i+1);setClueIdx(0);setPilih(null);setYouLock(false);setPemenangRonde(null);}
   },[idx,tokoh.length]);
 
   const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
-    if(d.user_id!==window.__GAME_USER__?.id){
-      const p=d.payload||{};
-      if(p.type==="answered_correct"&&!resolvedRef.current){
-        resolvedRef.current=true;
-        const newOp=p.score??skorRef.current.op+TEBAK_POIN[Math.min(clueIdx,3)];
-        setSkor(s=>{const ns={...s,op:newOp};skorRef.current=ns;return ns;});
-        setHasil("op");
-        setTimeout(lanjut,1600);
-      }
+    const p=d.payload||{};
+    if(p.type==="answered_correct"&&!resolvedRef.current){
+      resolvedRef.current=true;
+      const pemain=players.find(pl=>pl.id===d.user_id);
+      setPemenangRonde(pemain||{id:d.user_id,nama:"?"});
+      if(d.scores)setSkor(d.scores);
+      setTimeout(lanjut,1600);
     }
-  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
+  },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
 
   useEffect(()=>{resolvedRef.current=false;},[idx]);
 
@@ -765,21 +814,22 @@ function TebakOnline({lawan,sessionCode,myRole,onExit}){
     if(t.opsi[i]===t.jawaban){
       resolvedRef.current=true;
       const p=TEBAK_POIN[Math.min(clueIdx,3)];
-      const newYou=skorRef.current.you+p;
-      setSkor(s=>{const ns={...s,you:newYou};skorRef.current=ns;return ns;});
-      setHasil("you");
-      sendMove({type:"answered_correct",ronde:idx,score:newYou});
+      const skorBaru=(skorRef.current[myId]||0)+p;
+      setSkor(s=>({...s,[myId]:skorBaru}));
+      setPemenangRonde({id:myId,nama:"Kamu"});
+      sendMove({type:"answered_correct",ronde:idx,score:skorBaru});
       setTimeout(lanjut,1600);
     }else{
       setYouLock(true);
-      sendMove({type:"answered_wrong",ronde:idx,score:skorRef.current.you});
+      sendMove({type:"answered_wrong",ronde:idx});
     }
   };
 
-  useEffect(()=>{if(selesai)sendFinished(skorRef.current.you);},[selesai]);
+  useEffect(()=>{if(selesai)sendFinished(skorRef.current[myId]||0);},[selesai]);
 
-  if(selesai){const w=skor.you===skor.op?"Seri!":skor.you>skor.op?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.you>=skor.op?P.purple:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name={namaSaya}val={skor.you}color={P.gold}win={skor.you>=skor.op}/><ScorePill name={lawan.nama}val={skor.op}color={P.p2}win={skor.op>=skor.you}/></div>}/>;}
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{display:"flex",gap:10}}><span style={{fontWeight:800,fontSize:15,color:P.gold}}>{skor.you}</span><span style={{color:P.muted}}>vs</span><span style={{fontWeight:800,fontSize:15,color:P.p2}}>{skor.op}</span></div></div><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!hasil&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700}}>{hasil?<span style={{color:hasil==="you"?P.green:P.red}}>{hasil==="you"?"Kamu benar duluan! 🎉":hasil==="op"?`${lawan.nama} lebih cepat…`:"Ronde seri"}</span>:<span style={{color:P.muted}}>{lawan.nama} sedang menebak…</span>}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(hasil||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!hasil||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!hasil&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
+  if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.purple}onExit={onExit}/>;
+  const statusTeks=pemenangRonde?(pemenangRonde.id===myId?"Kamu benar duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Siapa yang jawab duluan?";
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button></div><PapanSkorN players={players}scores={skor}myId={myId}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -809,41 +859,42 @@ function MemoryTatap({lawan,onExit}){
   return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:P.muted,letterSpacing:1}}>MEMORY MATCH</div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:12,padding:"10px 14px",borderRadius:14,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar nama="Kamu"size={28}ring={giliranP==="p1"?P.orange:undefined}/><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p1"?P.orange:P.cream}}>Kamu {giliranP==="p1"?"← giliran":""}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.orange}}>{skor.p1} pasang</div></div></div><div style={{textAlign:"right",display:"flex",alignItems:"center",gap:8}}><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p2"?P.p2:P.cream}}>{giliranP==="p2"?"giliran →":""} {lawan.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.p2}}>{skor.p2} pasang</div></div><Avatar nama={lawan.nama}size={28}ring={giliranP==="p2"?P.p2:undefined}/></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={terbuka.length===2&&!terbuka.includes(i)}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:700,color:P.muted}}>{langkah} langkah · {matched.length/2}/8 pasang ditemukan</div></div>);
 }
 
-function MemoryOnline({lawan,sessionCode,myRole,onExit}){
-  const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
+function MemoryOnline({players,sessionCode,onExit}){
+  const myId=window.__GAME_USER__?.id;
   const [cards]=useState(()=>siapkanKartuSeed(8,sessionCode+":memory"));
   const [terbuka,setTerbuka]=useState([]);
   const [matched,setMatched]=useState([]);
-  const [giliranKamu,setGiliranKamu]=useState(true);
-  const [skor,setSkor]=useState({you:0,op:0});
+  const [giliranIdx,setGiliranIdx]=useState(0); // index ke players — sama urutannya di semua klien
+  const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
   const [selesai,setSelesai]=useState(false);
   const checkRef=useRef(false);
   const matchedRef=useRef([]);
-  const skorRef=useRef({you:0,op:0});
+  const skorRef=useRef(skor);
+  const giliranId=players[giliranIdx%players.length]?.id;
+  const giliranKamu=giliranId===myId;
 
   useEffect(()=>{matchedRef.current=matched;},[matched]);
   useEffect(()=>{skorRef.current=skor;},[skor]);
 
   const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
-    if(d.user_id!==window.__GAME_USER__?.id){
-      const p=d.payload||{};
-      if(p.type==="flip"){
-        const[a,b]=[p.card_a,p.card_b];
-        if(a===undefined||b===undefined)return;
-        checkRef.current=true;
-        setTerbuka([a,b]);
-        setTimeout(()=>{
-          if(cards[a]?.pair===cards[b]?.pair){
-            setSkor(s=>{const ns={...s,op:s.op+1};skorRef.current=ns;return ns;});
-            setMatched(m=>{const nm=[...m,a,b];matchedRef.current=nm;if(nm.length===cards.length)setSelesai(true);return nm;});
-            setTerbuka([]);checkRef.current=false;
-          }else{
-            setTimeout(()=>{setTerbuka([]);setGiliranKamu(true);checkRef.current=false;},700);
-          }
-        },900);
-      }
+    if(d.user_id===myId)return;
+    const p=d.payload||{};
+    if(p.type==="flip"){
+      const[a,b]=[p.card_a,p.card_b];
+      if(a===undefined||b===undefined)return;
+      checkRef.current=true;
+      setTerbuka([a,b]);
+      setTimeout(()=>{
+        if(cards[a]?.pair===cards[b]?.pair){
+          if(d.scores)setSkor(d.scores);
+          setMatched(m=>{const nm=[...m,a,b];matchedRef.current=nm;if(nm.length===cards.length)setSelesai(true);return nm;});
+          setTerbuka([]);checkRef.current=false;
+        }else{
+          setTimeout(()=>{setTerbuka([]);setGiliranIdx(i=>i+1);checkRef.current=false;},700);
+        }
+      },900);
     }
-  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
+  },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
 
   const klik=i=>{
     if(!giliranKamu||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
@@ -852,22 +903,24 @@ function MemoryOnline({lawan,sessionCode,myRole,onExit}){
     if(next.length===2){
       checkRef.current=true;
       const[a,b]=next;
-      sendMove({type:"flip",card_a:a,card_b:b,score:skorRef.current.you});
       if(cards[a].pair===cards[b].pair){
-        const newYou=skorRef.current.you+1;
-        setSkor(s=>{const ns={...s,you:newYou};skorRef.current=ns;return ns;});
+        const skorBaru=(skorRef.current[myId]||0)+1;
+        setSkor(s=>({...s,[myId]:skorBaru}));
+        sendMove({type:"flip",card_a:a,card_b:b,score:skorBaru});
         setMatched(m=>{const nm=[...m,a,b];matchedRef.current=nm;if(nm.length===cards.length)setSelesai(true);return nm;});
         setTerbuka([]);checkRef.current=false;
       }else{
-        setTimeout(()=>{setTerbuka([]);setGiliranKamu(false);checkRef.current=false;},900);
+        sendMove({type:"flip",card_a:a,card_b:b});
+        setTimeout(()=>{setTerbuka([]);setGiliranIdx(i=>i+1);checkRef.current=false;},900);
       }
     }
   };
 
-  useEffect(()=>{if(selesai)sendFinished(skorRef.current.you);},[selesai]);
+  useEffect(()=>{if(selesai)sendFinished(skorRef.current[myId]||0);},[selesai]);
 
-  if(selesai){const w=skor.you===skor.op?"Seri!":skor.you>skor.op?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.you>=skor.op?P.orange:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name={namaSaya}val={skor.you}color={P.gold}win={skor.you>=skor.op}/><ScorePill name={lawan.nama}val={skor.op}color={P.p2}win={skor.op>=skor.you}/></div>}/>;}
-  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{giliranKamu?"Giliranmu — buka 2 kartu":"Giliran lawan…"}</div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:12,padding:"10px 14px",borderRadius:14,background:"rgba(255,255,255,0.04)"}}><div><div style={{fontWeight:700,fontSize:13,color:P.orange}}>{namaSaya}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:22,color:P.orange}}>{skor.you}</div></div><div style={{textAlign:"right"}}><div style={{fontWeight:700,fontSize:13,color:P.p2}}>{lawan.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:22,color:P.p2}}>{skor.op}</div></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/8 pasang ditemukan</div></div>);
+  if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.orange}onExit={onExit}/>;
+  const giliranNama=players.find(p=>p.id===giliranId)?.nama||"?";
+  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/8 pasang ditemukan</div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -886,19 +939,34 @@ function GameFeature(){
   const [screen,setScreen]=useState("hub");
   const [game,setGame]=useState(null);
   const [mode,setMode]=useState(null);
-  const [lawan,setLawan]=useState(null);
+  const [lawan,setLawan]=useState(null); // 1 lawan (mode "tatap")
+  const [lawanList,setLawanList]=useState([]); // 1-3 lawan (mode "online")
   const [sessionCode,setSessionCode]=useState(null);
+  const [players,setPlayers]=useState(null); // semua peserta 'accepted' termasuk diri sendiri, diisi begitu sesi online aktif
   const [notif,setNotif]=useState(null);
-  // Peran sendiri di sesi online: "challenger" (penantang, yang memilih lawan)
-  // atau "opponent" (penerima tantangan). Dibutuhkan supaya skor dari event
-  // GameEnded (score_challenger/score_opponent) dipetakan ke sisi yang benar —
-  // tanpa ini pihak opponent melihat skornya sendiri tertukar dengan lawan.
-  const [myRole,setMyRole]=useState(null);
 
-  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setSessionCode(null);setMyRole(null);};
+  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setLawanList([]);setSessionCode(null);setPlayers(null);};
   const mulaiGame=g=>{setGame(g);setScreen("cara");};
   const pilihCara=m=>{setMode(m);if(m==="solo")setScreen("main");else setScreen("lawan");};
-  const pilihLawan=l=>{setLawan(l);setMyRole("challenger");if(mode==="online")setScreen("lobi");else setScreen("main");};
+  const pilihLawan=picked=>{
+    if(mode==="online"){setLawanList(Array.isArray(picked)?picked:[picked]);setScreen("lobi");}
+    else{setLawan(picked);setScreen("main");}
+  };
+
+  // Begitu sessionCode online tersedia (baik dari lobi maupun terima notif),
+  // ambil daftar lengkap pemain dari server — tidak cukup mengandalkan data
+  // notif/lobi lokal karena bisa ada peserta lain yang tidak kita tahu (mis.
+  // kita opponent, ada opponent lain juga yang tidak muncul di notif kita).
+  useEffect(()=>{
+    if(mode!=="online"||!sessionCode||screen!=="main")return;
+    let batal=false;
+    apiGet("/game/session/"+sessionCode).then(s=>{
+      if(batal)return;
+      const aktif=(s.players||[]).filter(p=>p.status==="accepted");
+      setPlayers(aktif.map(p=>({id:p.id,nama:p.nama})));
+    }).catch(()=>{});
+    return()=>{batal=true;};
+  },[mode,sessionCode,screen]);
 
   // Langganan notifikasi tantangan masuk via Pusher
   useEffect(()=>{
@@ -916,12 +984,9 @@ function GameFeature(){
   const terimaNotif=async()=>{
     if(!notif)return;
     try{
-      const res=await apiPost("/game/respond",{session_code:notif.session_code,accept:true});
-      // Set game & lawan dari data notif SEBELUM notif dikosongkan
-      setGame({id:res.game_type||notif.game_type});
-      setLawan({id:notif.challenger_id,nama:notif.challenger_name});
+      await apiPost("/game/respond",{session_code:notif.session_code,accept:true});
+      setGame({id:notif.game_type});
       setSessionCode(notif.session_code);
-      setMyRole("opponent");
       setMode("online");
       setScreen("main");
       setNotif(null);
@@ -934,16 +999,16 @@ function GameFeature(){
   };
 
   const GameMain=()=>{
-    if(!game&&!sessionCode)return null;
+    if(!game)return null;
     if(mode==="solo"){if(game.id==="kuis")return<KuisSolo onExit={pulang}/>;if(game.id==="susun")return<SusunSolo onExit={pulang}/>;if(game.id==="tebak")return<TebakSolo onExit={pulang}/>;if(game.id==="memory")return<MemorySolo onExit={pulang}/>;}
     if(mode==="tatap"){if(game.id==="kuis")return<KuisTatap lawan={lawan}onExit={pulang}/>;if(game.id==="susun")return<SusunTatap lawan={lawan}onExit={pulang}/>;if(game.id==="tebak")return<TebakTatap lawan={lawan}onExit={pulang}/>;if(game.id==="memory")return<MemoryTatap lawan={lawan}onExit={pulang}/>;}
     if(mode==="online"){
-      // Jika masuk dari notif (tanpa game object), tentukan game dari sessionCode
-      const gType=game?.id||notif?.game_type||"kuis";
-      if(gType==="kuis")return<KuisOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
-      if(gType==="susun")return<SusunOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
-      if(gType==="tebak")return<TebakOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
-      if(gType==="memory")return<MemoryOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
+      if(!players)return<div style={{padding:60,textAlign:"center",color:P.muted,fontWeight:600}}>Memuat pemain…</div>;
+      const gType=game.id;
+      if(gType==="kuis")return<KuisOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
+      if(gType==="susun")return<SusunOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
+      if(gType==="tebak")return<TebakOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
+      if(gType==="memory")return<MemoryOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
     }
     return null;
   };
@@ -955,7 +1020,7 @@ function GameFeature(){
       {screen==="leaderboard"&&<PapanPeringkat onBack={pulang}/>}
       {screen==="cara"   &&game&&<PilihCara game={game}onBack={pulang}onPick={pilihCara}/>}
       {screen==="lawan"  &&game&&<PilihLawan game={game}mode={mode}onBack={()=>setScreen("cara")}onPick={pilihLawan}/>}
-      {screen==="lobi"   &&game&&lawan&&<LobiOnline lawan={lawan}game={game}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
+      {screen==="lobi"   &&game&&lawanList.length>0&&<LobiOnline lawanList={lawanList}game={game}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
       {screen==="main"   &&<GameMain/>}
       {notif&&screen!=="main"&&<NotifTantangan notif={notif}onTerima={terimaNotif}onTolak={tolakNotif}/>}
     </div>

@@ -301,6 +301,7 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::get('game/members', [GameController::class, 'members'])->name('game.members');
     Route::post('game/challenge',     [\App\Http\Controllers\GameSessionController::class, 'challenge'])->name('game.challenge');
     Route::post('game/respond',       [\App\Http\Controllers\GameSessionController::class, 'respond'])->name('game.respond');
+    Route::post('game/start',         [\App\Http\Controllers\GameSessionController::class, 'start'])->name('game.start');
     Route::post('game/move',          [\App\Http\Controllers\GameSessionController::class, 'move'])->name('game.move');
     Route::get('game/pending',        [\App\Http\Controllers\GameSessionController::class, 'pending'])->name('game.pending');
     Route::get('game/session/{code}', [\App\Http\Controllers\GameSessionController::class, 'show'])->name('game.session.show');

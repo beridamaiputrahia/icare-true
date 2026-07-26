@@ -22,13 +22,13 @@ Broadcast::channel('game-user.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
 
-// Game session channel — hanya challenger atau opponent dari sesi tsb yang boleh subscribe.
-// Tidak perlu cek tenant_id di sini: siapa pun yang tercatat sebagai
-// challenger_id/opponent_id pada baris sesi itu SUDAH pasti pihak yang sah
-// (baris itu hanya bisa dibuat lewat GameSessionController::challenge, yang
-// hanya mengizinkan user login menantang user lain). Membandingkan tenant_id
-// di sini dulu jadi bug: superadmin punya users.tenant_id = NULL by design
-// (tenant aktifnya cuma ada di session 'active_tenant_id', lihat
+// Game session channel — hanya peserta (baris di game_session_participants,
+// termasuk host) yang boleh subscribe. Tidak perlu cek tenant_id: siapa pun
+// yang tercatat sebagai peserta baris sesi itu SUDAH pasti pihak yang sah
+// (baris peserta hanya bisa dibuat lewat GameSessionController::challenge,
+// yang hanya mengizinkan user login mengundang user lain). Membandingkan
+// tenant_id di sini dulu jadi bug: superadmin punya users.tenant_id = NULL
+// by design (tenant aktifnya cuma ada di session 'active_tenant_id', lihat
 // BelongsToTenant::resolveTenantId), sehingga NULL !== tenant_id sesi selalu
 // gagal dan otorisasi channel ditolak terus untuk akun superadmin.
 Broadcast::channel('game-session.{code}', function ($user, $code) {
@@ -39,11 +39,10 @@ Broadcast::channel('game-session.{code}', function ($user, $code) {
         return false;
     }
 
-    $ok = (int) $user->id === (int) $session->challenger_id || (int) $user->id === (int) $session->opponent_id;
+    $ok = $session->isParticipant((int) $user->id);
     if (! $ok) {
         \Illuminate\Support\Facades\Log::warning('[game-session channel] user bukan peserta sesi', [
             'code' => $code, 'user_id' => $user->id,
-            'challenger_id' => $session->challenger_id, 'opponent_id' => $session->opponent_id,
         ]);
     }
     return $ok;

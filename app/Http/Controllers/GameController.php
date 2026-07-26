@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\GameQuestion;
 use App\Models\GameSession;
+use App\Models\GameSessionParticipant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -53,30 +54,40 @@ class GameController extends Controller
 
     private function buildMembers($user, $users)
     {
-        $finished = GameSession::where('status', 'finished')
-            ->where(function ($q) use ($users, $user) {
-                $ids = $users->pluck('id')->push($user->id);
-                $q->whereIn('challenger_id', $ids)->orWhereIn('opponent_id', $ids);
-            })
-            ->get(['challenger_id', 'opponent_id', 'score_challenger', 'score_opponent']);
+        $ids = $users->pluck('id')->push($user->id);
+
+        // Semua peserta 'accepted' dari sesi yang sudah selesai & melibatkan
+        // salah satu user relevan (biar tidak scan seluruh tabel).
+        $sessionIds = GameSession::where('status', 'finished')
+            ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $ids)->where('status', 'accepted'))
+            ->pluck('id');
+
+        $participants = GameSessionParticipant::whereIn('game_session_id', $sessionIds)
+            ->where('status', 'accepted')
+            ->get(['game_session_id', 'user_id', 'score']);
 
         $stats = [];
-        foreach ($finished as $session) {
-            foreach (['challenger_id' => 'score_challenger', 'opponent_id' => 'score_opponent'] as $idField => $scoreField) {
-                $uid = $session->$idField;
-                $stats[$uid] ??= ['menang' => 0, 'kalah' => 0];
-            }
-            if ($session->score_challenger === $session->score_opponent) {
+        foreach ($participants->groupBy('game_session_id') as $rows) {
+            if ($rows->count() < 2) {
                 continue;
             }
-            $winnerId = $session->score_challenger > $session->score_opponent
-                ? $session->challenger_id
-                : $session->opponent_id;
-            $loserId = $winnerId === $session->challenger_id
-                ? $session->opponent_id
-                : $session->challenger_id;
-            $stats[$winnerId]['menang']++;
-            $stats[$loserId]['kalah']++;
+            $topScore = $rows->max('score');
+            $winners  = $rows->where('score', $topScore);
+            // Kalau semua skor sama (termasuk seri di antara semua pemain),
+            // tidak dihitung menang/kalah untuk ronde ini.
+            $isDraw = $winners->count() === $rows->count();
+
+            foreach ($rows as $p) {
+                $stats[$p->user_id] ??= ['menang' => 0, 'kalah' => 0];
+                if ($isDraw) {
+                    continue;
+                }
+                if ($winners->contains('user_id', $p->user_id)) {
+                    $stats[$p->user_id]['menang']++;
+                } else {
+                    $stats[$p->user_id]['kalah']++;
+                }
+            }
         }
 
         return $users->map(fn($u) => [
@@ -93,24 +104,25 @@ class GameController extends Controller
     {
         $allUsers = $users->push($user)->keyBy('id');
 
-        $sessions = GameSession::where('status', 'finished')
+        $sessionIds = GameSession::where('status', 'finished')
             ->where('finished_at', '>=', now()->startOfWeek())
-            ->get(['challenger_id', 'opponent_id', 'game_type', 'score_challenger', 'score_opponent']);
+            ->pluck('id', 'id');
 
-        $gameTypes = ['kuis', 'susun', 'tebak', 'memory'];
-        $points    = [];
+        $participants = GameSessionParticipant::whereIn('game_session_id', $sessionIds->keys())
+            ->where('status', 'accepted')
+            ->whereIn('user_id', $allUsers->keys())
+            ->get(['game_session_id', 'user_id', 'score']);
 
-        foreach ($sessions as $session) {
-            foreach ([
-                $session->challenger_id => $session->score_challenger,
-                $session->opponent_id   => $session->score_opponent,
-            ] as $uid => $score) {
-                if (! $allUsers->has($uid)) {
-                    continue;
-                }
-                $points[$uid] ??= ['kuis' => 0, 'susun' => 0, 'tebak' => 0, 'memory' => 0];
-                $points[$uid][$session->game_type] += (int) $score;
+        $sessionGameType = GameSession::whereIn('id', $sessionIds->keys())->pluck('game_type', 'id');
+
+        $points = [];
+        foreach ($participants as $p) {
+            $gameType = $sessionGameType[$p->game_session_id] ?? null;
+            if (! $gameType) {
+                continue;
             }
+            $points[$p->user_id] ??= ['kuis' => 0, 'susun' => 0, 'tebak' => 0, 'memory' => 0];
+            $points[$p->user_id][$gameType] += (int) $p->score;
         }
 
         return collect($points)

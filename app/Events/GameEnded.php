@@ -26,15 +26,17 @@ class GameEnded implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
-        $sc = $this->session->score_challenger;
-        $so = $this->session->score_opponent;
+        $players = $this->session->participants->where('status', 'accepted');
+        $topScore = $players->max('score');
 
         return [
-            'score_challenger' => $sc,
-            'score_opponent'   => $so,
-            'winner_id'        => $sc > $so
-                ? $this->session->challenger_id
-                : ($so > $sc ? $this->session->opponent_id : null),
+            'players' => $players->map(fn ($p) => [
+                'user_id' => $p->user_id,
+                'nama'    => $p->user->name,
+                'score'   => $p->score,
+            ])->values(),
+            // Bisa lebih dari satu id kalau skor tertinggi seri.
+            'winner_ids' => $players->where('score', $topScore)->pluck('user_id')->values(),
         ];
     }
 }

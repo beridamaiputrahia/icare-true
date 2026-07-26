@@ -9,41 +9,37 @@ class GameSession extends Model
 {
     use BelongsToTenant;
     protected $fillable = [
-        'code', 'challenger_id', 'opponent_id', 'game_type',
-        'status', 'score_challenger', 'score_opponent',
-        'challenger_finished', 'opponent_finished',
-        'seed', 'started_at', 'finished_at',
+        'code', 'host_id', 'game_type',
+        'status', 'seed', 'started_at', 'finished_at',
         'tenant_id',
     ];
 
     protected $casts = [
-        'seed'                => 'array',
-        'started_at'          => 'datetime',
-        'finished_at'         => 'datetime',
-        'challenger_finished' => 'boolean',
-        'opponent_finished'   => 'boolean',
+        'seed'        => 'array',
+        'started_at'  => 'datetime',
+        'finished_at' => 'datetime',
     ];
 
-    public function challenger()
+    public function host()
     {
-        return $this->belongsTo(User::class, 'challenger_id');
+        return $this->belongsTo(User::class, 'host_id');
     }
 
-    public function opponent()
+    public function participants()
     {
-        return $this->belongsTo(User::class, 'opponent_id');
+        return $this->hasMany(GameSessionParticipant::class);
     }
 
-    public function roleOf(int $userId): string
+    public function participantOf(int $userId): ?GameSessionParticipant
     {
-        return $this->challenger_id === $userId ? 'challenger' : 'opponent';
+        return $this->relationLoaded('participants')
+            ? $this->participants->firstWhere('user_id', $userId)
+            : $this->participants()->where('user_id', $userId)->first();
     }
 
-    public function scoreOf(int $userId): int
+    public function isParticipant(int $userId): bool
     {
-        return $this->roleOf($userId) === 'challenger'
-            ? $this->score_challenger
-            : $this->score_opponent;
+        return $this->participantOf($userId) !== null;
     }
 
     public static function generateCode(): string

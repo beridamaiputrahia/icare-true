@@ -31,11 +31,11 @@ class GameMove implements ShouldBroadcastNow
     public function broadcastWith(): array
     {
         return [
-            'user_id'          => $this->userId,
-            'role'             => $this->session->roleOf($this->userId),
-            'score_challenger' => $this->session->score_challenger,
-            'score_opponent'   => $this->session->score_opponent,
-            'payload'          => $this->payload,
+            'user_id' => $this->userId,
+            'scores'  => $this->session->participants
+                ->where('status', 'accepted')
+                ->mapWithKeys(fn ($p) => [$p->user_id => $p->score]),
+            'payload' => $this->payload,
         ];
     }
 }
