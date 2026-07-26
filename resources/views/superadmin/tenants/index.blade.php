@@ -32,7 +32,7 @@
                     <td class="fw-medium">{{ $tenant->nama_perusahaan }}</td>
                     <td><code>{{ $tenant->slug }}</code></td>
                     <td>{{ $tenant->email ?: '-' }}</td>
-                    <td>{{ $tenant->users_count }}</td>
+                    <td>{{ $tenant->total_members_count }}</td>
                     <td>
                         @if($tenant->is_active)
                             <span class="badge bg-success">Aktif</span>

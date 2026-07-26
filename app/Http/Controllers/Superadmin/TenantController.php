@@ -28,7 +28,7 @@ class TenantController extends Controller
 {
     public function index(): View
     {
-        $tenants = Tenant::visible()->withCount('users')->orderBy('nama_perusahaan')->get();
+        $tenants = Tenant::visible()->withCount(['users', 'superadminTenantRoles'])->orderBy('nama_perusahaan')->get();
 
         return view('superadmin.tenants.index', compact('tenants'));
     }
@@ -143,17 +143,25 @@ class TenantController extends Controller
 
         session(['active_tenant_id' => (int) $data['tenant_id']]);
 
-        if (! empty($data['identity_role'])) {
-            $this->setIdentityRole(auth()->user(), (int) $data['tenant_id'], $data['identity_role']);
+        if (auth()->user()->isSuperAdmin()) {
+            if (! empty($data['identity_role'])) {
+                $this->setIdentityRole(auth()->user(), (int) $data['tenant_id'], $data['identity_role']);
+            } else {
+                // "Super Admin (default)" dipilih -- lepas keanggotaan resmi
+                // di grup ini kalau sebelumnya sudah pernah pilih identitas.
+                $this->clearIdentityRole(auth()->user(), (int) $data['tenant_id']);
+            }
         }
 
         return redirect()->route('dashboard')->with('success', 'Berhasil masuk sebagai I Care Group terpilih.');
     }
 
     /**
-     * Simpan/perbarui identitas tampilan superadmin di suatu tenant, dan
-     * pastikan ada Member record di tenant itu supaya profil (nama panggilan,
-     * foto, dst) punya tempat tersimpan per-grup -- sama seperti anggota biasa.
+     * Simpan/perbarui identitas tampilan superadmin di suatu tenant --
+     * membuat superadmin terhitung sebagai anggota resmi grup itu (lihat
+     * Tenant::getTotalMembersCountAttribute()) -- dan pastikan ada Member
+     * record di tenant itu supaya profil (nama panggilan, foto, dst) punya
+     * tempat tersimpan per-grup, sama seperti anggota biasa.
      */
     private function setIdentityRole(User $superadmin, int $tenantId, string $role): void
     {
@@ -176,6 +184,26 @@ class TenantController extends Controller
                 'tenant_id'    => $tenantId,
             ]);
         }
+    }
+
+    /**
+     * Kembali ke identitas "Super Admin (default)" di suatu tenant -- lepas
+     * status anggota resmi sepenuhnya: hapus SuperadminTenantRole DAN Member
+     * record profilnya, supaya tidak lagi ikut dihitung maupun tampil di
+     * daftar anggota grup itu. Kalau nanti superadmin pilih identitas lagi
+     * di grup yang sama, profil akan dibuat ulang dari nol (nama default,
+     * tanpa foto/nama panggilan lama).
+     */
+    private function clearIdentityRole(User $superadmin, int $tenantId): void
+    {
+        SuperadminTenantRole::where('user_id', $superadmin->id)
+            ->where('tenant_id', $tenantId)
+            ->delete();
+
+        Member::withoutTenantScope()
+            ->where('user_id', $superadmin->id)
+            ->where('tenant_id', $tenantId)
+            ->delete();
     }
 
     private function generateUniqueSlug(string $name): string

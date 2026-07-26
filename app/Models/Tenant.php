@@ -31,6 +31,23 @@ class Tenant extends Model
     }
 
     /**
+     * Superadmin yang sudah memilih identitas (bukan default "Super Admin")
+     * di tenant ini -- dihitung sebagai anggota resmi tambahan, terpisah
+     * dari users() karena users.tenant_id superadmin selalu NULL by design.
+     */
+    public function superadminTenantRoles()
+    {
+        return $this->hasMany(SuperadminTenantRole::class);
+    }
+
+    /** Total anggota resmi: user biasa (tenant_id) + superadmin yang sudah pilih identitas di sini. */
+    public function getTotalMembersCountAttribute(): int
+    {
+        return ($this->users_count ?? $this->users()->count())
+            + ($this->superadmin_tenant_roles_count ?? $this->superadminTenantRoles()->count());
+    }
+
+    /**
      * Tenant khusus (bukan I Care Group sungguhan) yang jadi wadah
      * "Pengaturan Aplikasi Default" untuk superadmin yang belum "masuk
      * sebagai" grup tertentu -- supaya perubahan nama/logo/dll di layar itu
