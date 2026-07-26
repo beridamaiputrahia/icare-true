@@ -181,6 +181,12 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         ->name('superadmins.role');
     Route::put('superadmins/{superadmin}/group', [\App\Http\Controllers\Superadmin\SuperAdminController::class, 'updateGroup'])
         ->name('superadmins.group');
+
+    // Bank soal 4 mini-game rohani
+    Route::resource('game-questions', \App\Http\Controllers\Superadmin\GameQuestionController::class)
+        ->except(['show']);
+    Route::put('game-questions/{game_question}/toggle', [\App\Http\Controllers\Superadmin\GameQuestionController::class, 'toggle'])
+        ->name('game-questions.toggle');
 });
 
 // ── Authenticated ─────────────────────────────────────────────────────────

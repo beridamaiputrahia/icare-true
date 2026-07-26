@@ -21,6 +21,7 @@
 <script>
 window.__GAME_MEMBERS__     = @json($members);
 window.__GAME_LEADERBOARD__ = @json($leaderboard);
+window.__GAME_QUESTIONS__   = @json($customQuestions);
 window.__GAME_USER__        = { id: {{ $user->id }}, nama: @json($user->name) };
 window.__PUSHER_CONFIG__ = {
     key:     "{{ config('broadcasting.connections.pusher.key') }}",

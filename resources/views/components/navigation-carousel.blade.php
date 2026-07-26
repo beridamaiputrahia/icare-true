@@ -483,6 +483,7 @@ $allItems = [
     $__authUser?->isSuperAdmin() ? ['icon' => 'fa-building',    'label' => 'Kelola I Care Group', 'route' => 'superadmin.tenants.index',     'pattern' => 'superadmin.tenants.index'] : null,
     $__authUser?->isSuperAdmin() ? ['icon' => 'fa-user-shield', 'label' => 'Kelola Pengguna', 'route' => 'superadmin.superadmins.index', 'pattern' => 'superadmin.superadmins.*'] : null,
     $__authUser?->isSuperAdmin() ? ['icon' => 'fa-right-left',  'label' => 'Ganti I Care Group', 'route' => 'superadmin.tenants.select',    'pattern' => 'superadmin.tenants.select'] : null,
+    $__authUser?->isSuperAdmin() ? ['icon' => 'fa-gamepad',     'label' => 'Bank Soal Game', 'route' => 'superadmin.game-questions.index', 'pattern' => 'superadmin.game-questions.*'] : null,
 ];
 
 $navItems = array_values(array_filter($allItems));

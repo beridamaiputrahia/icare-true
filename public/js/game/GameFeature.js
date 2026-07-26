@@ -97,6 +97,22 @@ function getLeaderboard() {
   if (!raw || !raw.length) return [];
   return raw;
 }
+function bankGabungan(bawaan, gameType) {
+  const custom = (window.__GAME_QUESTIONS__ || {})[gameType];
+  return custom && custom.length ? [...bawaan, ...custom] : bawaan;
+}
+function bankSoal() {
+  return bankGabungan(BANK_SOAL, "kuis");
+}
+function bankAyat() {
+  return bankGabungan(BANK_AYAT, "susun");
+}
+function bankTokoh() {
+  return bankGabungan(BANK_TOKOH, "tebak");
+}
+function bankKartu() {
+  return bankGabungan(BANK_KARTU, "memory");
+}
 const GAME_DEFS = [
   { id: "kuis", ikon: "\u26A1", judul: "Kuis Adu Cepat", desc: "Trivia Alkitab \u2014 jawab tercepat", warna: P.gold },
   { id: "susun", ikon: "\u{1F4D6}", judul: "Susun Ayat", desc: "Acak kata \u2014 rangkai ayat suci", warna: P.p2 },
@@ -132,7 +148,7 @@ function shuffleSeed(arr, rng) {
 }
 function siapkanSoalSeed(n, seed) {
   const rng = buatRng(seed);
-  const dipilih = shuffleSeed(BANK_SOAL, rng).slice(0, n);
+  const dipilih = shuffleSeed(bankSoal(), rng).slice(0, n);
   return dipilih.map((s) => {
     const b = s.opsi[s.benar];
     const o = shuffleSeed(s.opsi, rng);
@@ -141,7 +157,7 @@ function siapkanSoalSeed(n, seed) {
 }
 function siapkanAyatSeed(n, seed) {
   const rng = buatRng(seed);
-  const dipilih = shuffleSeed(BANK_AYAT, rng).slice(0, n);
+  const dipilih = shuffleSeed(bankAyat(), rng).slice(0, n);
   return dipilih.map((a) => {
     const kata = a.teks.split(" ");
     return { ref: a.ref, kata, acak: shuffleSeed([...kata], rng) };
@@ -149,7 +165,7 @@ function siapkanAyatSeed(n, seed) {
 }
 function siapkanTokohSeed(n, seed) {
   const rng = buatRng(seed);
-  const dipilih = shuffleSeed(BANK_TOKOH, rng).slice(0, n);
+  const dipilih = shuffleSeed(bankTokoh(), rng).slice(0, n);
   return dipilih.map((t) => {
     let op = shuffleSeed([t.jawaban, ...t.salah], rng).slice(0, 4);
     if (!op.includes(t.jawaban)) op[0] = t.jawaban;
@@ -158,7 +174,7 @@ function siapkanTokohSeed(n, seed) {
 }
 function siapkanKartuSeed(n = 8, seed) {
   const rng = buatRng(seed);
-  const p = shuffleSeed(BANK_KARTU, rng).slice(0, n);
+  const p = shuffleSeed(bankKartu(), rng).slice(0, n);
   return shuffleSeed([...p.map((x, i) => ({ id: i * 2, pair: i, isi: x.a })), ...p.map((x, i) => ({ id: i * 2 + 1, pair: i, isi: x.b }))], rng);
 }
 function inisial(n) {
@@ -169,28 +185,50 @@ function warnaDari(n) {
   for (let i = 0; i < n.length; i++) h = n.charCodeAt(i) + ((h << 5) - h);
   return AVC[Math.abs(h) % AVC.length];
 }
+function ambilRiwayat(key) {
+  try {
+    return JSON.parse(localStorage.getItem("gf_riwayat_" + key) || "[]");
+  } catch (e) {
+    return [];
+  }
+}
+function simpanRiwayat(key, ids) {
+  try {
+    localStorage.setItem("gf_riwayat_" + key, JSON.stringify(ids.slice(-200)));
+  } catch (e) {
+  }
+}
+function pilihSegar(bank, n, key, idFn) {
+  const riwayat = new Set(ambilRiwayat(key));
+  const segar = bank.filter((x) => !riwayat.has(idFn(x)));
+  const kandidat = segar.length >= n ? segar : bank;
+  const pilihan = shuffle(kandidat).slice(0, Math.min(n, bank.length));
+  const riwayatBaru = [...ambilRiwayat(key), ...pilihan.map(idFn)];
+  simpanRiwayat(key, riwayatBaru);
+  return pilihan;
+}
 function siapkanSoal(n) {
-  return shuffle(BANK_SOAL).slice(0, n).map((s) => {
+  return pilihSegar(bankSoal(), n, "soal", (s) => s.q).map((s) => {
     const b = s.opsi[s.benar];
     const o = shuffle(s.opsi);
     return { q: s.q, opsi: o, benar: o.indexOf(b) };
   });
 }
 function siapkanAyat(n) {
-  return shuffle(BANK_AYAT).slice(0, n).map((a) => {
+  return pilihSegar(bankAyat(), n, "ayat", (a) => a.ref).map((a) => {
     const kata = a.teks.split(" ");
     return { ref: a.ref, kata, acak: shuffle([...kata]) };
   });
 }
 function siapkanTokoh(n) {
-  return shuffle(BANK_TOKOH).slice(0, n).map((t) => {
+  return pilihSegar(bankTokoh(), n, "tokoh", (t) => t.jawaban).map((t) => {
     let op = shuffle([t.jawaban, ...t.salah]).slice(0, 4);
     if (!op.includes(t.jawaban)) op[0] = t.jawaban;
     return __spreadProps(__spreadValues({}, t), { opsi: shuffle(op) });
   });
 }
 function siapkanKartu(n = 8) {
-  const p = shuffle(BANK_KARTU).slice(0, n);
+  const p = pilihSegar(bankKartu(), n, "kartu", (x) => x.a);
   return shuffle([...p.map((x, i) => ({ id: i * 2, pair: i, isi: x.a })), ...p.map((x, i) => ({ id: i * 2 + 1, pair: i, isi: x.b }))]);
 }
 function getMembers() {
@@ -370,7 +408,7 @@ function LobiOnline({ lawan, game, sessionCode, onBack, onMulai, onDeclined }) {
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 20px", minHeight: 400, maxWidth: 460, margin: "0 auto", display: "flex", flexDirection: "column" } }, /* @__PURE__ */ React.createElement(TopBar, { onBack, title: "Menghubungkan\u2026" }), /* @__PURE__ */ React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 20 } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement(Avatar, { nama: (window.__GAME_USER__ || { nama: "Kamu" }).nama, size: 60, ring: P.gold }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontWeight: 800, fontSize: 13, color: P.cream } }, "Kamu")), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 20, color: P.muted } }, "VS"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement(Avatar, { nama: lawan.nama, size: 60, ring: fase === "diterima" ? P.green : game.warna }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, fontWeight: 800, fontSize: 13, color: P.cream } }, lawan.nama))), /* @__PURE__ */ React.createElement("div", { key: fase, className: "gf-pop", style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 18, color: warna[fase] || P.cream } }, teks[fase]), (fase === "kirim" || fase === "tunggu") && /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 6 } }, [0, 1, 2].map((i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { width: 8, height: 8, borderRadius: 99, background: P.gold, animation: `gf-blink 1.2s ${i * 0.4}s ease infinite` } }))), kode && fase === "tunggu" && /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: P.muted, fontWeight: 600 } }, "Kode sesi: ", kode)));
 }
 function NotifTantangan({ notif, onTerima, onTolak }) {
-  return /* @__PURE__ */ React.createElement("div", { className: "gf-pop", style: { position: "fixed", bottom: 90, left: "50%", transform: "translateX(-50%)", width: "calc(100% - 32px)", maxWidth: 440, zIndex: 9999, padding: "16px 18px", borderRadius: 20, background: "#241A57", border: `1.5px solid ${P.gold}`, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 14, color: P.gold, marginBottom: 4 } }, "\u{1F3AE} Tantangan Masuk!"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14, color: P.cream, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("b", null, notif.challenger_name), " mengajakmu main ", /* @__PURE__ */ React.createElement("b", null, notif.game_type)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: onTerima, className: "gf-btn", style: { flex: 1, padding: "10px", borderRadius: 12, border: "none", background: P.green, color: "#1A1340", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "\u2713 Terima"), /* @__PURE__ */ React.createElement("button", { onClick: onTolak, className: "gf-btn", style: { flex: 1, padding: "10px", borderRadius: 12, border: `1px solid ${P.red}`, background: "transparent", color: P.red, fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "\u2717 Tolak")));
+  return /* @__PURE__ */ React.createElement("div", { className: "gf-pop", style: { position: "fixed", bottom: "calc(var(--nav-h, 90px) + 12px)", left: "50%", transform: "translateX(-50%)", width: "calc(100% - 32px)", maxWidth: 440, zIndex: 9999, padding: "16px 18px", borderRadius: 20, background: "#241A57", border: `1.5px solid ${P.gold}`, boxShadow: "0 8px 32px rgba(0,0,0,0.5)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 14, color: P.gold, marginBottom: 4 } }, "\u{1F3AE} Tantangan Masuk!"), /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 700, fontSize: 14, color: P.cream, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("b", null, notif.challenger_name), " mengajakmu main ", /* @__PURE__ */ React.createElement("b", null, notif.game_type)), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: onTerima, className: "gf-btn", style: { flex: 1, padding: "10px", borderRadius: 12, border: "none", background: P.green, color: "#1A1340", fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "\u2713 Terima"), /* @__PURE__ */ React.createElement("button", { onClick: onTolak, className: "gf-btn", style: { flex: 1, padding: "10px", borderRadius: 12, border: `1px solid ${P.red}`, background: "transparent", color: P.red, fontWeight: 800, fontSize: 14, cursor: "pointer" } }, "\u2717 Tolak")));
 }
 function PapanPeringkat({ onBack }) {
   const [tab, setTab] = useState("semua");
@@ -515,6 +553,9 @@ function KuisTatap({ lawan, onExit }) {
   };
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", minHeight: 560 } }, /* @__PURE__ */ React.createElement(Panel, { pem: "p2", nama: lawan.nama, color: P.p2, flip: true }), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, padding: "8px 16px", background: "rgba(0,0,0,0.3)", position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: onExit, className: "gf-btn", style: __spreadProps(__spreadValues({}, gBtn), { padding: "5px 10px", position: "absolute", left: 10 }) }, "\u2190"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: P.muted, letterSpacing: 1 } }, "RONDE ", idx + 1, "/", soal.length), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(TimerRing, { ratio, danger: ratio < 0.3, size: 50 }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", fontWeight: 800, fontSize: 15, fontFamily: "'Bricolage Grotesque',sans-serif", color: ratio < 0.3 ? P.red : P.cream } }, Math.ceil(waktu))), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: P.muted, letterSpacing: 1 } }, "ADU CEPAT")), /* @__PURE__ */ React.createElement(Panel, { pem: "p1", nama: "Kamu", color: P.p1 }));
 }
+function skorDariGameEnded(d, myRole) {
+  return myRole === "opponent" ? { you: d.score_opponent, op: d.score_challenger } : { you: d.score_challenger, op: d.score_opponent };
+}
 function useOnlineGame(sessionCode, onMove, onEnded) {
   const pusherRef = useRef(null);
   const chRef = useRef(null);
@@ -555,7 +596,7 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
 function SkorBarOnline({ namaSaya, namaLawan, skorSaya, skorLawan, tengah }) {
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, gap: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, flex: 1 } }, /* @__PURE__ */ React.createElement(Avatar, { nama: namaSaya, size: 38, ring: P.gold }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 13, color: P.gold } }, namaSaya), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 20, color: P.cream } }, skorSaya))), tengah, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 9, flex: 1, justifyContent: "flex-end" } }, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right" } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 13, color: P.p2 } }, namaLawan), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 20, color: P.cream } }, skorLawan)), /* @__PURE__ */ React.createElement(Avatar, { nama: namaLawan, size: 38, ring: P.p2 })));
 }
-function KuisOnline({ lawan, sessionCode, onExit }) {
+function KuisOnline({ lawan, sessionCode, myRole, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
   const [soal] = useState(() => siapkanSoalSeed(7, sessionCode + ":kuis"));
   const [idx, setIdx] = useState(0);
@@ -601,14 +642,14 @@ function KuisOnline({ lawan, sessionCode, onExit }) {
         resolve("op", 0);
         setSkor((s2) => {
           var _a2;
-          return __spreadProps(__spreadValues({}, s2), { op: (_a2 = d.score_opponent) != null ? _a2 : s2.op + 100 });
+          return __spreadProps(__spreadValues({}, s2), { op: (_a2 = p.score) != null ? _a2 : s2.op + 100 });
         });
       } else if (p.type === "answer_wrong") {
         setOpStatus("wrong");
       }
     }
   }, (d) => {
-    setSkor({ you: d.score_challenger, op: d.score_opponent });
+    setSkor(skorDariGameEnded(d, myRole));
     setSelesai(true);
   });
   const jawab = useCallback((i) => {
@@ -668,7 +709,7 @@ function SusunSolo({ onExit }) {
   const [benarTotal, setBenarTotal] = useState(0);
   const [disusun, setDisusun] = useState([]);
   const [bank, setBank] = useState([]);
-  const [waktu, setWaktu] = useState(30);
+  const [waktu, setWaktu] = useState(90);
   const [selesai, setSelesai] = useState(false);
   const [flash, setFlash] = useState(null);
   const [streak, setStreak] = useState(0);
@@ -681,7 +722,7 @@ function SusunSolo({ onExit }) {
   const lanjut = useCallback((berhasil) => {
     clearInterval(timerRef.current);
     if (berhasil) {
-      const p = 100 + Math.round(waktu / 30 * 150) + streak * 25;
+      const p = 100 + Math.round(waktu / 90 * 150) + streak * 25;
       setSkor((s) => s + p);
       setBenarTotal((b) => b + 1);
       setStreak((s) => s + 1);
@@ -695,7 +736,7 @@ function SusunSolo({ onExit }) {
       if (idx + 1 >= ayat.length) setSelesai(true);
       else {
         setIdx((i) => i + 1);
-        setWaktu(30);
+        setWaktu(90);
       }
     }, 1400);
   }, [waktu, streak, idx, ayat.length]);
@@ -732,7 +773,7 @@ function SusunSolo({ onExit }) {
     setFlash(null);
   };
   if (selesai) return /* @__PURE__ */ React.createElement(Hasil, { judul: "Selesai! \u{1F4D6}", skor, accent: P.p2, onExit, baris: [{ label: "Ayat tersusun", val: `${benarTotal}/5` }, { label: "Streak terbaik", val: `${Math.max(benarTotal, 0)} \u{1F525}` }, { label: "Total poin", val: skor.toLocaleString() }] });
-  const ratio = waktu / 30;
+  const ratio = waktu / 90;
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "18px 20px 28px", maxWidth: 460, margin: "0 auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: onExit, className: "gf-btn", style: gBtn }, "\u2190 Keluar"), /* @__PURE__ */ React.createElement(Pill, { color: P.p2, label: `${skor} pts` })), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, marginBottom: 16 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, color: P.muted, marginBottom: 6 } }, /* @__PURE__ */ React.createElement("span", null, "Ayat ", idx + 1, "/5 \xB7 ", /* @__PURE__ */ React.createElement("span", { style: { color: P.p2 } }, a.ref)), /* @__PURE__ */ React.createElement("span", { style: { color: ratio < 0.3 ? P.red : P.p2 } }, Math.ceil(waktu), " dtk")), /* @__PURE__ */ React.createElement("div", { style: { height: 5, background: "rgba(255,255,255,0.1)", borderRadius: 99 } }, /* @__PURE__ */ React.createElement("div", { style: { height: "100%", width: `${ratio * 100}%`, background: ratio < 0.3 ? P.red : P.p2, transition: "width .1s linear" } }))), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: 10 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: P.p2, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 } }, "Susunanmu:"), /* @__PURE__ */ React.createElement(WordArea, { kata: disusun.map((x) => x.kata), onKlik: hapus, disabled: !!flash, accent: P.p2 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: P.muted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 } }, "Bank Kata:"), /* @__PURE__ */ React.createElement(WordArea, { kata: bank.map((x) => x.kata), onKlik: tambah, disabled: !!flash, accent: P.muted })), /* @__PURE__ */ React.createElement("div", { style: { minHeight: 30, marginTop: 12, textAlign: "center" } }, flash && /* @__PURE__ */ React.createElement("div", { className: "gf-pop", style: { fontWeight: 800, fontSize: 16, color: flash.ok ? P.green : P.red, fontFamily: "'Bricolage Grotesque',sans-serif" } }, flash.pesan)));
 }
 function SusunTatap({ lawan, onExit }) {
@@ -740,7 +781,7 @@ function SusunTatap({ lawan, onExit }) {
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState({ p1: 0, p2: 0 });
   const [state, setState] = useState({ p1: { disusun: [], bank: [] }, p2: { disusun: [], bank: [] } });
-  const [waktu, setWaktu] = useState(25);
+  const [waktu, setWaktu] = useState(90);
   const [winner, setWinner] = useState(null);
   const [selesai, setSelesai] = useState(false);
   const timerRef = useRef();
@@ -754,10 +795,10 @@ function SusunTatap({ lawan, onExit }) {
     else {
       setIdx((i) => i + 1);
       setWinner(null);
-      setWaktu(25);
+      setWaktu(90);
     }
     ;
-    if (w) setSkor((s) => __spreadProps(__spreadValues({}, s), { [w]: s[w] + 100 + Math.round(waktu / 25 * 80) }));
+    if (w) setSkor((s) => __spreadProps(__spreadValues({}, s), { [w]: s[w] + 100 + Math.round(waktu / 90 * 80) }));
   }, [idx, ayat.length, waktu]);
   useEffect(() => {
     if (selesai || winner) return;
@@ -799,11 +840,11 @@ function SusunTatap({ lawan, onExit }) {
     const w = skor.p1 === skor.p2 ? "Seri!" : skor.p1 > skor.p2 ? "Kamu Menang! \u{1F3C6}" : `${lawan.nama} Menang! \u{1F3C6}`;
     return /* @__PURE__ */ React.createElement(Hasil, { judul: w, skor: null, accent: skor.p1 >= skor.p2 ? P.p1 : P.p2, onExit, custom: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, justifyContent: "center", marginTop: 8 } }, /* @__PURE__ */ React.createElement(ScorePill, { name: "Kamu", val: skor.p1, color: P.p1, win: skor.p1 >= skor.p2 }), /* @__PURE__ */ React.createElement(ScorePill, { name: lawan.nama, val: skor.p2, color: P.p2, win: skor.p2 >= skor.p1 })) });
   }
-  const ratio = waktu / 25;
+  const ratio = waktu / 90;
   const Panel = ({ pem, nama, color, flip }) => /* @__PURE__ */ React.createElement("div", { style: { flex: 1, padding: "12px 16px", display: "flex", flexDirection: "column", transform: flip ? "rotate(180deg)" : "none", background: winner === pem ? `${color}14` : "transparent" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, /* @__PURE__ */ React.createElement(Avatar, { nama, size: 24 }), /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 800, fontSize: 13, color } }, nama)), /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 17, color } }, skor[pem])), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: P.muted, marginBottom: 5 } }, a.ref), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: P.muted, marginBottom: 7 } }, "Susunanmu:", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement(WordArea, { kata: state[pem].disusun.map((x) => x.kata), onKlik: (i) => hapus(pem, i), disabled: !!winner, accent: color })), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: P.muted } }, "Bank Kata:", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement(WordArea, { kata: state[pem].bank.map((x) => x.kata), onKlik: (i) => tambah(pem, i), disabled: !!winner, accent: P.muted })), winner === pem && /* @__PURE__ */ React.createElement("div", { className: "gf-pop", style: { textAlign: "center", marginTop: 6, fontWeight: 800, color, fontSize: 13 } }, "Tersusun! \u{1F389}"));
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", minHeight: 560 } }, /* @__PURE__ */ React.createElement(Panel, { pem: "p2", nama: lawan.nama, color: P.p2, flip: true }), /* @__PURE__ */ React.createElement("div", { style: { padding: "7px 14px", background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: onExit, className: "gf-btn", style: __spreadProps(__spreadValues({}, gBtn), { padding: "4px 10px", position: "absolute", left: 8 }) }, "\u2190"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 11, fontWeight: 800, color: P.muted } }, "RONDE ", idx + 1, "/", ayat.length), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(TimerRing, { ratio, danger: ratio < 0.3, size: 44 }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", fontWeight: 800, fontSize: 13, color: ratio < 0.3 ? P.red : P.cream } }, Math.ceil(waktu)))), /* @__PURE__ */ React.createElement(Panel, { pem: "p1", nama: "Kamu", color: P.p1 }));
 }
-function SusunOnline({ lawan, sessionCode, onExit }) {
+function SusunOnline({ lawan, sessionCode, myRole, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
   const [ayat] = useState(() => siapkanAyatSeed(5, sessionCode + ":susun"));
   const [idx, setIdx] = useState(0);
@@ -811,12 +852,12 @@ function SusunOnline({ lawan, sessionCode, onExit }) {
   const skorRef = useRef({ you: 0, op: 0 });
   const [disusun, setDisusun] = useState([]);
   const [bank, setBank] = useState([]);
-  const [waktu, setWaktu] = useState(25);
+  const [waktu, setWaktu] = useState(90);
   const [hasil, setHasil] = useState(null);
   const [selesai, setSelesai] = useState(false);
   const timerRef = useRef();
   const resolvedRef = useRef(false);
-  const waktuRef = useRef(25);
+  const waktuRef = useRef(90);
   const a = ayat[idx];
   useEffect(() => {
     skorRef.current = skor;
@@ -826,7 +867,7 @@ function SusunOnline({ lawan, sessionCode, onExit }) {
     else {
       setIdx(nextIdx);
       setHasil(null);
-      setWaktu(25);
+      setWaktu(90);
     }
   }, [ayat.length]);
   const { sendMove, sendFinished } = useOnlineGame(sessionCode, (d) => {
@@ -847,14 +888,14 @@ function SusunOnline({ lawan, sessionCode, onExit }) {
       }
     }
   }, (d) => {
-    setSkor({ you: d.score_challenger, op: d.score_opponent });
+    setSkor(skorDariGameEnded(d, myRole));
     setSelesai(true);
   });
   useEffect(() => {
     setBank(a.acak.map((k, i) => ({ kata: k, origIdx: i })));
     setDisusun([]);
     resolvedRef.current = false;
-    waktuRef.current = 25;
+    waktuRef.current = 90;
   }, [idx]);
   useEffect(() => {
     if (selesai || hasil) return;
@@ -883,7 +924,7 @@ function SusunOnline({ lawan, sessionCode, onExit }) {
       if (!resolvedRef.current) {
         resolvedRef.current = true;
         clearInterval(timerRef.current);
-        const p = 100 + Math.round(waktuRef.current / 25 * 150);
+        const p = 100 + Math.round(waktuRef.current / 90 * 150);
         const newYou = skorRef.current.you + p;
         setSkor((s) => {
           const ns = __spreadProps(__spreadValues({}, s), { you: newYou });
@@ -909,12 +950,12 @@ function SusunOnline({ lawan, sessionCode, onExit }) {
     const w = skor.you === skor.op ? "Seri!" : skor.you > skor.op ? "Kamu Menang! \u{1F3C6}" : `${lawan.nama} Menang! \u{1F3C6}`;
     return /* @__PURE__ */ React.createElement(Hasil, { judul: w, skor: null, accent: skor.you >= skor.op ? P.p2 : P.p2, onExit, custom: /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 12, justifyContent: "center", marginTop: 8 } }, /* @__PURE__ */ React.createElement(ScorePill, { name: namaSaya, val: skor.you, color: P.gold, win: skor.you >= skor.op }), /* @__PURE__ */ React.createElement(ScorePill, { name: lawan.nama, val: skor.op, color: P.p2, win: skor.op >= skor.you })) });
   }
-  const ratio = waktu / 25;
+  const ratio = waktu / 90;
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "18px 20px 26px", maxWidth: 460, margin: "0 auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } }, /* @__PURE__ */ React.createElement("button", { onClick: onExit, className: "gf-btn", style: gBtn }, "\u2190 Keluar"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } }, /* @__PURE__ */ React.createElement(Avatar, { nama: namaSaya, size: 32, ring: P.gold }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", display: "grid", placeItems: "center" } }, /* @__PURE__ */ React.createElement(TimerRing, { ratio, danger: ratio < 0.3, size: 42 }), /* @__PURE__ */ React.createElement("div", { style: { position: "absolute", fontWeight: 800, fontSize: 13, color: ratio < 0.3 ? P.red : P.cream } }, Math.ceil(waktu))), /* @__PURE__ */ React.createElement(Avatar, { nama: lawan.nama, size: 32, ring: P.p2 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 800, margin: "10px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { color: P.gold } }, namaSaya, ": ", skor.you), /* @__PURE__ */ React.createElement("span", { style: { color: P.p2 } }, lawan.nama, ": ", skor.op)), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 4, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", fontSize: 13, fontWeight: 700, color: P.muted } }, hasil ? /* @__PURE__ */ React.createElement("span", { style: { color: hasil === "you" ? P.green : hasil === "op" ? P.red : P.muted } }, hasil === "you" ? "Kamu berhasil duluan! \u{1F389}" : hasil === "op" ? `${lawan.nama} lebih cepat\u2026` : "Ronde seri") : /* @__PURE__ */ React.createElement("span", null, lawan.nama, " sedang menyusun\u2026")), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 14, fontSize: 12, fontWeight: 700, color: P.p2, letterSpacing: 1 } }, a.ref), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, marginBottom: 8 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: P.muted, marginBottom: 6 } }, "Susunanmu:"), /* @__PURE__ */ React.createElement(WordArea, { kata: disusun.map((x) => x.kata), onKlik: hapus, disabled: !!hasil, accent: P.p2 })), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, color: P.muted, marginBottom: 6 } }, "Bank Kata:"), /* @__PURE__ */ React.createElement(WordArea, { kata: bank.map((x) => x.kata), onKlik: tambah, disabled: !!hasil, accent: P.muted })));
 }
 const TEBAK_POIN = [400, 280, 180, 100];
 function TebakSolo({ onExit }) {
-  const [tokoh] = useState(() => siapkanTokoh(8));
+  const [tokoh] = useState(() => siapkanTokoh(10));
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState(0);
   const [benarTotal, setBenarTotal] = useState(0);
@@ -951,7 +992,7 @@ function TebakSolo({ onExit }) {
   }))));
 }
 function TebakTatap({ lawan, onExit }) {
-  const [tokoh] = useState(() => siapkanTokoh(6));
+  const [tokoh] = useState(() => siapkanTokoh(10));
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState({ p1: 0, p2: 0 });
   const [clueIdx, setClueIdx] = useState(0);
@@ -1006,9 +1047,9 @@ function TebakTatap({ lawan, onExit }) {
   };
   return /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexDirection: "column", minHeight: 560 } }, /* @__PURE__ */ React.createElement(Panel, { pem: "p2", nama: lawan.nama, color: P.p2, flip: true }), /* @__PURE__ */ React.createElement("div", { style: { background: "rgba(0,0,0,0.3)", padding: "8px 14px" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12, position: "relative" } }, /* @__PURE__ */ React.createElement("button", { onClick: onExit, className: "gf-btn", style: __spreadProps(__spreadValues({}, gBtn), { padding: "4px 10px", position: "absolute", left: 0 }) }, "\u2190"), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 800, color: P.muted, letterSpacing: 1 } }, "TOKOH ", idx + 1, "/", tokoh.length))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 8, padding: "10px 12px", borderRadius: 14, background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, fontWeight: 700, color: P.purple, marginBottom: 6 } }, "Clue terlihat semua pemain:"), t.clues.slice(0, clueIdx + 1).map((c, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontSize: 13, color: P.cream, fontWeight: 600, marginBottom: 4 } }, "#", i + 1, " ", c)), clueIdx < t.clues.length - 1 && !winner && /* @__PURE__ */ React.createElement("button", { onClick: () => setClueIdx((i) => i + 1), className: "gf-btn", style: { marginTop: 8, width: "100%", padding: "8px", borderRadius: 10, border: `1px solid ${P.purple}44`, background: `${P.purple}10`, color: P.purple, fontWeight: 700, fontSize: 12 } }, "Buka Clue Berikutnya"))), /* @__PURE__ */ React.createElement(Panel, { pem: "p1", nama: "Kamu", color: P.p1 }));
 }
-function TebakOnline({ lawan, sessionCode, onExit }) {
+function TebakOnline({ lawan, sessionCode, myRole, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
-  const [tokoh] = useState(() => siapkanTokohSeed(6, sessionCode + ":tebak"));
+  const [tokoh] = useState(() => siapkanTokohSeed(10, sessionCode + ":tebak"));
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState({ you: 0, op: 0 });
   const skorRef = useRef({ you: 0, op: 0 });
@@ -1049,7 +1090,7 @@ function TebakOnline({ lawan, sessionCode, onExit }) {
       }
     }
   }, (d) => {
-    setSkor({ you: d.score_challenger, op: d.score_opponent });
+    setSkor(skorDariGameEnded(d, myRole));
     setSelesai(true);
   });
   useEffect(() => {
@@ -1178,7 +1219,7 @@ function MemoryTatap({ lawan, onExit }) {
   }
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "18px 20px 28px", maxWidth: 460, margin: "0 auto" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } }, /* @__PURE__ */ React.createElement("button", { onClick: onExit, className: "gf-btn", style: gBtn }, "\u2190 Keluar"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 12, fontWeight: 800, color: P.muted, letterSpacing: 1 } }, "MEMORY MATCH")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 12, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement(Avatar, { nama: "Kamu", size: 28, ring: giliranP === "p1" ? P.orange : void 0 }), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 13, color: giliranP === "p1" ? P.orange : P.cream } }, "Kamu ", giliranP === "p1" ? "\u2190 giliran" : ""), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 18, color: P.orange } }, skor.p1, " pasang"))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "right", display: "flex", alignItems: "center", gap: 8 } }, /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 800, fontSize: 13, color: giliranP === "p2" ? P.p2 : P.cream } }, giliranP === "p2" ? "giliran \u2192" : "", " ", lawan.nama), /* @__PURE__ */ React.createElement("div", { style: { fontFamily: "'Bricolage Grotesque',sans-serif", fontWeight: 800, fontSize: 18, color: P.p2 } }, skor.p2, " pasang")), /* @__PURE__ */ React.createElement(Avatar, { nama: lawan.nama, size: 28, ring: giliranP === "p2" ? P.p2 : void 0 }))), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 } }, cards.map((c, i) => /* @__PURE__ */ React.createElement(KartuView, { key: c.id, kartu: c, terbuka: terbuka.includes(i), matched: matched.includes(i), onClick: () => klik(i), disabled: terbuka.length === 2 && !terbuka.includes(i) }))), /* @__PURE__ */ React.createElement("div", { style: { marginTop: 10, textAlign: "center", fontSize: 13, fontWeight: 700, color: P.muted } }, langkah, " langkah \xB7 ", matched.length / 2, "/8 pasang ditemukan"));
 }
-function MemoryOnline({ lawan, sessionCode, onExit }) {
+function MemoryOnline({ lawan, sessionCode, myRole, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
   const [cards] = useState(() => siapkanKartuSeed(8, sessionCode + ":memory"));
   const [terbuka, setTerbuka] = useState([]);
@@ -1231,7 +1272,7 @@ function MemoryOnline({ lawan, sessionCode, onExit }) {
       }
     }
   }, (d) => {
-    setSkor({ you: d.score_challenger, op: d.score_opponent });
+    setSkor(skorDariGameEnded(d, myRole));
     setSelesai(true);
   });
   const klik = (i) => {
@@ -1289,12 +1330,14 @@ function GameFeature() {
   const [lawan, setLawan] = useState(null);
   const [sessionCode, setSessionCode] = useState(null);
   const [notif, setNotif] = useState(null);
+  const [myRole, setMyRole] = useState(null);
   const pulang = () => {
     setScreen("hub");
     setGame(null);
     setMode(null);
     setLawan(null);
     setSessionCode(null);
+    setMyRole(null);
   };
   const mulaiGame = (g) => {
     setGame(g);
@@ -1307,6 +1350,7 @@ function GameFeature() {
   };
   const pilihLawan = (l) => {
     setLawan(l);
+    setMyRole("challenger");
     if (mode === "online") setScreen("lobi");
     else setScreen("main");
   };
@@ -1331,6 +1375,7 @@ function GameFeature() {
       setGame({ id: res.game_type || notif.game_type });
       setLawan({ id: notif.challenger_id, nama: notif.challenger_name });
       setSessionCode(notif.session_code);
+      setMyRole("opponent");
       setMode("online");
       setScreen("main");
       setNotif(null);
@@ -1362,10 +1407,10 @@ function GameFeature() {
     }
     if (mode === "online") {
       const gType = (game == null ? void 0 : game.id) || (notif == null ? void 0 : notif.game_type) || "kuis";
-      if (gType === "kuis") return /* @__PURE__ */ React.createElement(KuisOnline, { lawan, sessionCode, onExit: pulang });
-      if (gType === "susun") return /* @__PURE__ */ React.createElement(SusunOnline, { lawan, sessionCode, onExit: pulang });
-      if (gType === "tebak") return /* @__PURE__ */ React.createElement(TebakOnline, { lawan, sessionCode, onExit: pulang });
-      if (gType === "memory") return /* @__PURE__ */ React.createElement(MemoryOnline, { lawan, sessionCode, onExit: pulang });
+      if (gType === "kuis") return /* @__PURE__ */ React.createElement(KuisOnline, { lawan, sessionCode, myRole, onExit: pulang });
+      if (gType === "susun") return /* @__PURE__ */ React.createElement(SusunOnline, { lawan, sessionCode, myRole, onExit: pulang });
+      if (gType === "tebak") return /* @__PURE__ */ React.createElement(TebakOnline, { lawan, sessionCode, myRole, onExit: pulang });
+      if (gType === "memory") return /* @__PURE__ */ React.createElement(MemoryOnline, { lawan, sessionCode, myRole, onExit: pulang });
     }
     return null;
   };

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\GameQuestion;
 use App\Models\GameSession;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,8 +16,23 @@ class GameController extends Controller
         $members = $this->buildMembers($user, $users);
 
         $leaderboard = $this->buildWeeklyLeaderboard($user, $users);
+        $customQuestions = $this->buildCustomQuestions();
 
-        return view('game.index', compact('user', 'members', 'leaderboard'));
+        return view('game.index', compact('user', 'members', 'leaderboard', 'customQuestions'));
+    }
+
+    /**
+     * Soal tambahan dari bank soal superadmin (game_questions), dikelompokkan
+     * per game_type supaya frontend tinggal menggabungkannya dengan bank
+     * bawaan hardcoded — lihat public/js/game/GameFeature.jsx.
+     */
+    private function buildCustomQuestions(): array
+    {
+        return GameQuestion::where('is_active', true)
+            ->get(['game_type', 'data'])
+            ->groupBy('game_type')
+            ->map(fn($rows) => $rows->pluck('data')->values())
+            ->toArray();
     }
 
     public function members()

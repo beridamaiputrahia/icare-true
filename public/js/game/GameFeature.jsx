@@ -154,6 +154,19 @@ const BANK_KARTU = [
 
 function getLeaderboard(){const raw=window.__GAME_LEADERBOARD__;if(!raw||!raw.length)return [];return raw;}
 
+/* Gabungkan bank soal bawaan (hardcoded di atas) dengan soal tambahan yang
+   ditambahkan superadmin lewat halaman admin (tabel game_questions, dikirim
+   via window.__GAME_QUESTIONS__ dari GameController). Kalau tidak ada soal
+   custom untuk tipe game tsb, hasilnya sama seperti bank bawaan saja. */
+function bankGabungan(bawaan,gameType){
+  const custom=(window.__GAME_QUESTIONS__||{})[gameType];
+  return custom&&custom.length?[...bawaan,...custom]:bawaan;
+}
+function bankSoal(){return bankGabungan(BANK_SOAL,"kuis");}
+function bankAyat(){return bankGabungan(BANK_AYAT,"susun");}
+function bankTokoh(){return bankGabungan(BANK_TOKOH,"tebak");}
+function bankKartu(){return bankGabungan(BANK_KARTU,"memory");}
+
 const GAME_DEFS = [
   {id:"kuis",  ikon:"⚡",judul:"Kuis Adu Cepat",desc:"Trivia Alkitab — jawab tercepat",warna:P.gold},
   {id:"susun", ikon:"📖",judul:"Susun Ayat",     desc:"Acak kata — rangkai ayat suci",  warna:P.p2},
@@ -172,10 +185,10 @@ function buatRng(seed){
   return function(){s|=0;s=(s+0x6D2B79F5)|0;let t=Math.imul(s^s>>>15,1|s);t=(t+Math.imul(t^t>>>7,61|t))^t;return((t^t>>>14)>>>0)/4294967296;};
 }
 function shuffleSeed(arr,rng){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=0|rng()*(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
-function siapkanSoalSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(BANK_SOAL,rng).slice(0,n);return dipilih.map(s=>{const b=s.opsi[s.benar];const o=shuffleSeed(s.opsi,rng);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
-function siapkanAyatSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(BANK_AYAT,rng).slice(0,n);return dipilih.map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffleSeed([...kata],rng)};});}
-function siapkanTokohSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(BANK_TOKOH,rng).slice(0,n);return dipilih.map(t=>{let op=shuffleSeed([t.jawaban,...t.salah],rng).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffleSeed(op,rng)};});}
-function siapkanKartuSeed(n=8,seed){const rng=buatRng(seed);const p=shuffleSeed(BANK_KARTU,rng).slice(0,n);return shuffleSeed([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))],rng);}
+function siapkanSoalSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(bankSoal(),rng).slice(0,n);return dipilih.map(s=>{const b=s.opsi[s.benar];const o=shuffleSeed(s.opsi,rng);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
+function siapkanAyatSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(bankAyat(),rng).slice(0,n);return dipilih.map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffleSeed([...kata],rng)};});}
+function siapkanTokohSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(bankTokoh(),rng).slice(0,n);return dipilih.map(t=>{let op=shuffleSeed([t.jawaban,...t.salah],rng).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffleSeed(op,rng)};});}
+function siapkanKartuSeed(n=8,seed){const rng=buatRng(seed);const p=shuffleSeed(bankKartu(),rng).slice(0,n);return shuffleSeed([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))],rng);}
 function inisial(n){return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();}
 function warnaDari(n){let h=0;for(let i=0;i<n.length;i++)h=n.charCodeAt(i)+((h<<5)-h);return AVC[Math.abs(h)%AVC.length];}
 
@@ -199,10 +212,10 @@ function pilihSegar(bank,n,key,idFn){
   return pilihan;
 }
 
-function siapkanSoal(n){return pilihSegar(BANK_SOAL,n,"soal",s=>s.q).map(s=>{const b=s.opsi[s.benar];const o=shuffle(s.opsi);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
-function siapkanAyat(n){return pilihSegar(BANK_AYAT,n,"ayat",a=>a.ref).map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffle([...kata])};});}
-function siapkanTokoh(n){return pilihSegar(BANK_TOKOH,n,"tokoh",t=>t.jawaban).map(t=>{let op=shuffle([t.jawaban,...t.salah]).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffle(op)};});}
-function siapkanKartu(n=8){const p=pilihSegar(BANK_KARTU,n,"kartu",x=>x.a);return shuffle([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))]);}
+function siapkanSoal(n){return pilihSegar(bankSoal(),n,"soal",s=>s.q).map(s=>{const b=s.opsi[s.benar];const o=shuffle(s.opsi);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
+function siapkanAyat(n){return pilihSegar(bankAyat(),n,"ayat",a=>a.ref).map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffle([...kata])};});}
+function siapkanTokoh(n){return pilihSegar(bankTokoh(),n,"tokoh",t=>t.jawaban).map(t=>{let op=shuffle([t.jawaban,...t.salah]).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffle(op)};});}
+function siapkanKartu(n=8){const p=pilihSegar(bankKartu(),n,"kartu",x=>x.a);return shuffle([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))]);}
 function getMembers(){const raw=window.__GAME_MEMBERS__;if(!raw||!raw.length)return [];return raw;}
 
 /* ── GLOBAL STYLES ─────────────────────────────────────────── */
@@ -369,7 +382,7 @@ function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
 /* ── NOTIF TANTANGAN MASUK ──────────────────────────────────── */
 function NotifTantangan({notif,onTerima,onTolak}){
   return(
-    <div className="gf-pop"style={{position:"fixed",bottom:90,left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999,padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+    <div className="gf-pop"style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999,padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
       <div style={{fontWeight:800,fontSize:14,color:P.gold,marginBottom:4}}>🎮 Tantangan Masuk!</div>
       <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.challenger_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
       <div style={{display:"flex",gap:10}}>
@@ -422,6 +435,16 @@ function KuisTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,padding:"8px 16px",background:"rgba(0,0,0,0.3)",position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"5px 10px",position:"absolute",left:10}}>←</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={50}/><div style={{position:"absolute",fontWeight:800,fontSize:15,fontFamily:"'Bricolage Grotesque',sans-serif",color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>ADU CEPAT</span></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
+/* d.score_challenger/d.score_opponent dari event GameEnded selalu berupa skor
+   challenger vs opponent — BUKAN "skor saya vs skor lawan". Kalau saya adalah
+   opponent, itu harus dibalik, kalau tidak skor saya & lawan akan tertukar
+   di layar hasil (menang/kalah jadi salah, atau seolah tidak ada hasil). */
+function skorDariGameEnded(d,myRole){
+  return myRole==="opponent"
+    ? {you:d.score_opponent,op:d.score_challenger}
+    : {you:d.score_challenger,op:d.score_opponent};
+}
+
 /* ── HOOK: SINKRONISASI GAME ONLINE VIA PUSHER ──────────────── */
 function useOnlineGame(sessionCode,onMove,onEnded){
   const pusherRef=useRef(null);
@@ -470,7 +493,7 @@ function SkorBarOnline({namaSaya,namaLawan,skorSaya,skorLawan,tengah}){
   );
 }
 
-function KuisOnline({lawan,sessionCode,onExit}){
+function KuisOnline({lawan,sessionCode,myRole,onExit}){
   const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
   const [soal]=useState(()=>siapkanSoalSeed(7,sessionCode+":kuis"));
   const [idx,setIdx]=useState(0);
@@ -504,10 +527,10 @@ function KuisOnline({lawan,sessionCode,onExit}){
   const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
     if(d.role==="opponent"||d.user_id!==window.__GAME_USER__?.id){
       const p=d.payload||{};
-      if(p.type==="answer_correct"){setOpStatus("answered");resolve("op",0);setSkor(s=>({...s,op:d.score_opponent??s.op+100}));}
+      if(p.type==="answer_correct"){setOpStatus("answered");resolve("op",0);setSkor(s=>({...s,op:p.score??s.op+100}));}
       else if(p.type==="answer_wrong"){setOpStatus("wrong");}
     }
-  },(d)=>{setSkor({you:d.score_challenger,op:d.score_opponent});setSelesai(true);});
+  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
 
   const jawab=useCallback(i=>{
     if(resolvedRef.current||pilih!==null||youLockRef.current)return;
@@ -547,36 +570,36 @@ function WordArea({kata,onKlik,disabled,accent}){return(<div style={{display:"fl
 
 function SusunSolo({onExit}){
   const [ayat]=useState(()=>siapkanAyat(5));const [idx,setIdx]=useState(0);const [skor,setSkor]=useState(0);const [benarTotal,setBenarTotal]=useState(0);
-  const [disusun,setDisusun]=useState([]);const [bank,setBank]=useState([]);const [waktu,setWaktu]=useState(30);const [selesai,setSelesai]=useState(false);
+  const [disusun,setDisusun]=useState([]);const [bank,setBank]=useState([]);const [waktu,setWaktu]=useState(90);const [selesai,setSelesai]=useState(false);
   const [flash,setFlash]=useState(null);const [streak,setStreak]=useState(0);const timerRef=useRef();
   const a=ayat[idx];
   useEffect(()=>{setBank(a.acak.map((k,i)=>({kata:k,origIdx:i})));setDisusun([]);},[idx]);
-  const lanjut=useCallback((berhasil)=>{clearInterval(timerRef.current);if(berhasil){const p=100+Math.round((waktu/30)*150)+streak*25;setSkor(s=>s+p);setBenarTotal(b=>b+1);setStreak(s=>s+1);setFlash({ok:true,pesan:`+${p} poin!`});}else{setStreak(0);setFlash({ok:false,pesan:"Waktu habis ⏱"});}setTimeout(()=>{setFlash(null);if(idx+1>=ayat.length)setSelesai(true);else{setIdx(i=>i+1);setWaktu(30);}},1400);},[waktu,streak,idx,ayat.length]);
+  const lanjut=useCallback((berhasil)=>{clearInterval(timerRef.current);if(berhasil){const p=100+Math.round((waktu/90)*150)+streak*25;setSkor(s=>s+p);setBenarTotal(b=>b+1);setStreak(s=>s+1);setFlash({ok:true,pesan:`+${p} poin!`});}else{setStreak(0);setFlash({ok:false,pesan:"Waktu habis ⏱"});}setTimeout(()=>{setFlash(null);if(idx+1>=ayat.length)setSelesai(true);else{setIdx(i=>i+1);setWaktu(90);}},1400);},[waktu,streak,idx,ayat.length]);
   useEffect(()=>{if(selesai||flash)return;timerRef.current=setInterval(()=>{setWaktu(w=>{if(w<=0.1){clearInterval(timerRef.current);lanjut(false);return 0;}return+(w-.1).toFixed(1);});},100);return()=>clearInterval(timerRef.current);},[idx,selesai,flash,lanjut]);
   const tambah=i=>{if(flash)return;const item=bank[i];const nd=[...disusun,item];setDisusun(nd);setBank(b=>b.filter((_,j)=>j!==i));if(nd.length===a.kata.length){const benar=nd.every((it,j)=>it.kata===a.kata[j]);if(benar)lanjut(true);else setFlash({ok:false,pesan:"Susunan belum tepat 🤔"});}};
   const hapus=i=>{const item=disusun[i];setDisusun(d=>d.filter((_,j)=>j!==i));setBank(b=>[...b,item]);setFlash(null);};
   if(selesai)return<Hasil judul="Selesai! 📖"skor={skor}accent={P.p2}onExit={onExit}baris={[{label:"Ayat tersusun",val:`${benarTotal}/5`},{label:"Streak terbaik",val:`${Math.max(benarTotal,0)} 🔥`},{label:"Total poin",val:skor.toLocaleString()}]}/>;
-  const ratio=waktu/30;
+  const ratio=waktu/90;
   return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><Pill color={P.p2}label={`${skor} pts`}/></div><div style={{marginTop:14,marginBottom:16}}><div style={{display:"flex",justifyContent:"space-between",fontSize:12.5,fontWeight:700,color:P.muted,marginBottom:6}}><span>Ayat {idx+1}/5 · <span style={{color:P.p2}}>{a.ref}</span></span><span style={{color:ratio<.3?P.red:P.p2}}>{Math.ceil(waktu)} dtk</span></div><div style={{height:5,background:"rgba(255,255,255,0.1)",borderRadius:99}}><div style={{height:"100%",width:`${ratio*100}%`,background:ratio<.3?P.red:P.p2,transition:"width .1s linear"}}/></div></div><div style={{marginBottom:10}}><div style={{fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!flash}accent={P.p2}/></div><div><div style={{fontSize:12,fontWeight:700,color:P.muted,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!flash}accent={P.muted}/></div><div style={{minHeight:30,marginTop:12,textAlign:"center"}}>{flash&&<div className="gf-pop"style={{fontWeight:800,fontSize:16,color:flash.ok?P.green:P.red,fontFamily:"'Bricolage Grotesque',sans-serif"}}>{flash.pesan}</div>}</div></div>);
 }
 
 function SusunTatap({lawan,onExit}){
   const [ayat]=useState(()=>siapkanAyat(5));const [idx,setIdx]=useState(0);const [skor,setSkor]=useState({p1:0,p2:0});
   const [state,setState]=useState({p1:{disusun:[],bank:[]},p2:{disusun:[],bank:[]}});
-  const [waktu,setWaktu]=useState(25);const [winner,setWinner]=useState(null);const [selesai,setSelesai]=useState(false);const timerRef=useRef();
+  const [waktu,setWaktu]=useState(90);const [winner,setWinner]=useState(null);const [selesai,setSelesai]=useState(false);const timerRef=useRef();
   const a=ayat[idx];
   useEffect(()=>{const bank=a.acak.map((k,i)=>({kata:k,origIdx:i}));setState({p1:{disusun:[],bank:[...bank]},p2:{disusun:[],bank:[...bank]}});},[idx]);
-  const lanjut=useCallback(w=>{if(idx+1>=ayat.length)setSelesai(true);else{setIdx(i=>i+1);setWinner(null);setWaktu(25);};if(w)setSkor(s=>({...s,[w]:s[w]+100+Math.round((waktu/25)*80)}));},[idx,ayat.length,waktu]);
+  const lanjut=useCallback(w=>{if(idx+1>=ayat.length)setSelesai(true);else{setIdx(i=>i+1);setWinner(null);setWaktu(90);};if(w)setSkor(s=>({...s,[w]:s[w]+100+Math.round((waktu/90)*80)}));},[idx,ayat.length,waktu]);
   useEffect(()=>{if(selesai||winner)return;timerRef.current=setInterval(()=>{setWaktu(w=>{if(w<=0.1){clearInterval(timerRef.current);setWinner("seri");setTimeout(()=>lanjut(null),1500);return 0;}return+(w-.1).toFixed(1);});},100);return()=>clearInterval(timerRef.current);},[idx,winner,selesai,lanjut]);
   const tambah=(pem,i)=>{if(winner)return;const cur=state[pem];const item=cur.bank[i];const nd=[...cur.disusun,item];const nb=cur.bank.filter((_,j)=>j!==i);setState(st=>({...st,[pem]:{disusun:nd,bank:nb}}));if(nd.length===a.kata.length&&nd.every((it,j)=>it.kata===a.kata[j])){clearInterval(timerRef.current);setWinner(pem);setTimeout(()=>lanjut(pem),1500);}};
   const hapus=(pem,i)=>{if(winner)return;setState(st=>{const cur=st[pem];const item=cur.disusun[i];return{...st,[pem]:{disusun:cur.disusun.filter((_,j)=>j!==i),bank:[...cur.bank,item]}};});};
   if(selesai){const w=skor.p1===skor.p2?"Seri!":skor.p1>skor.p2?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.p1>=skor.p2?P.p1:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name="Kamu"val={skor.p1}color={P.p1}win={skor.p1>=skor.p2}/><ScorePill name={lawan.nama}val={skor.p2}color={P.p2}win={skor.p2>=skor.p1}/></div>}/>;}
-  const ratio=waktu/25;
+  const ratio=waktu/90;
   const Panel=({pem,nama,color,flip})=>(<div style={{flex:1,padding:"12px 16px",display:"flex",flexDirection:"column",transform:flip?"rotate(180deg)":"none",background:winner===pem?`${color}14`:"transparent"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}><div style={{display:"flex",alignItems:"center",gap:6}}><Avatar nama={nama}size={24}/><span style={{fontWeight:800,fontSize:13,color}}>{nama}</span></div><span style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17,color}}>{skor[pem]}</span></div><div style={{fontSize:11,fontWeight:700,color:P.muted,marginBottom:5}}>{a.ref}</div><div style={{fontSize:11,color:P.muted,marginBottom:7}}>Susunanmu:<br/><WordArea kata={state[pem].disusun.map(x=>x.kata)}onKlik={i=>hapus(pem,i)}disabled={!!winner}accent={color}/></div><div style={{fontSize:11,color:P.muted}}>Bank Kata:<br/><WordArea kata={state[pem].bank.map(x=>x.kata)}onKlik={i=>tambah(pem,i)}disabled={!!winner}accent={P.muted}/></div>{winner===pem&&<div className="gf-pop"style={{textAlign:"center",marginTop:6,fontWeight:800,color,fontSize:13}}>Tersusun! 🎉</div>}</div>);
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{padding:"7px 14px",background:"rgba(0,0,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center",gap:12,position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"4px 10px",position:"absolute",left:8}}>←</button><span style={{fontSize:11,fontWeight:800,color:P.muted}}>RONDE {idx+1}/{ayat.length}</span><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={44}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-function SusunOnline({lawan,sessionCode,onExit}){
+function SusunOnline({lawan,sessionCode,myRole,onExit}){
   const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
   const [ayat]=useState(()=>siapkanAyatSeed(5,sessionCode+":susun"));
   const [idx,setIdx]=useState(0);
@@ -584,19 +607,19 @@ function SusunOnline({lawan,sessionCode,onExit}){
   const skorRef=useRef({you:0,op:0});
   const [disusun,setDisusun]=useState([]);
   const [bank,setBank]=useState([]);
-  const [waktu,setWaktu]=useState(25);
+  const [waktu,setWaktu]=useState(90);
   const [hasil,setHasil]=useState(null);
   const [selesai,setSelesai]=useState(false);
   const timerRef=useRef();
   const resolvedRef=useRef(false);
-  const waktuRef=useRef(25);
+  const waktuRef=useRef(90);
   const a=ayat[idx];
 
   useEffect(()=>{skorRef.current=skor;},[skor]);
 
   const lanjutKe=useCallback((nextIdx)=>{
     if(nextIdx>=ayat.length)setSelesai(true);
-    else{setIdx(nextIdx);setHasil(null);setWaktu(25);}
+    else{setIdx(nextIdx);setHasil(null);setWaktu(90);}
   },[ayat.length]);
 
   const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
@@ -611,13 +634,13 @@ function SusunOnline({lawan,sessionCode,onExit}){
         setTimeout(()=>lanjutKe(p.ronde+1),1600);
       }
     }
-  },(d)=>{setSkor({you:d.score_challenger,op:d.score_opponent});setSelesai(true);});
+  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
 
   useEffect(()=>{
     setBank(a.acak.map((k,i)=>({kata:k,origIdx:i})));
     setDisusun([]);
     resolvedRef.current=false;
-    waktuRef.current=25;
+    waktuRef.current=90;
   },[idx]);
 
   useEffect(()=>{
@@ -648,7 +671,7 @@ function SusunOnline({lawan,sessionCode,onExit}){
       if(!resolvedRef.current){
         resolvedRef.current=true;
         clearInterval(timerRef.current);
-        const p=100+Math.round((waktuRef.current/25)*150);
+        const p=100+Math.round((waktuRef.current/90)*150);
         const newYou=skorRef.current.you+p;
         setSkor(s=>{const ns={...s,you:newYou};skorRef.current=ns;return ns;});
         setHasil("you");
@@ -667,7 +690,7 @@ function SusunOnline({lawan,sessionCode,onExit}){
   useEffect(()=>{if(selesai)sendFinished(skorRef.current.you);},[selesai]);
 
   if(selesai){const w=skor.you===skor.op?"Seri!":skor.you>skor.op?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.you>=skor.op?P.p2:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name={namaSaya}val={skor.you}color={P.gold}win={skor.you>=skor.op}/><ScorePill name={lawan.nama}val={skor.op}color={P.p2}win={skor.op>=skor.you}/></div>}/>;}
-  const ratio=waktu/25;
+  const ratio=waktu/90;
   return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{display:"flex",alignItems:"center",gap:12}}><Avatar nama={namaSaya}size={32}ring={P.gold}/><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div><Avatar nama={lawan.nama}size={32}ring={P.p2}/></div></div><div style={{display:"flex",justifyContent:"space-between",fontSize:13,fontWeight:800,margin:"10px 0"}}><span style={{color:P.gold}}>{namaSaya}: {skor.you}</span><span style={{color:P.p2}}>{lawan.nama}: {skor.op}</span></div><div style={{marginTop:4,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:P.muted}}>{hasil?<span style={{color:hasil==="you"?P.green:hasil==="op"?P.red:P.muted}}>{hasil==="you"?"Kamu berhasil duluan! 🎉":hasil==="op"?`${lawan.nama} lebih cepat…`:"Ronde seri"}</span>:<span>{lawan.nama} sedang menyusun…</span>}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!hasil}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!hasil}accent={P.muted}/></div></div>);
 }
 
@@ -677,7 +700,7 @@ function SusunOnline({lawan,sessionCode,onExit}){
 const TEBAK_POIN=[400,280,180,100];
 
 function TebakSolo({onExit}){
-  const [tokoh]=useState(()=>siapkanTokoh(8));const [idx,setIdx]=useState(0);const [skor,setSkor]=useState(0);const [benarTotal,setBenarTotal]=useState(0);
+  const [tokoh]=useState(()=>siapkanTokoh(10));const [idx,setIdx]=useState(0);const [skor,setSkor]=useState(0);const [benarTotal,setBenarTotal]=useState(0);
   const [clueIdx,setClueIdx]=useState(0);const [pilih,setPilih]=useState(null);const [selesai,setSelesai]=useState(false);
   const t=tokoh[idx];
   const lanjut=useCallback(()=>{if(idx+1>=tokoh.length)setSelesai(true);else{setIdx(i=>i+1);setClueIdx(0);setPilih(null);}},[idx,tokoh.length]);
@@ -688,7 +711,7 @@ function TebakSolo({onExit}){
 }
 
 function TebakTatap({lawan,onExit}){
-  const [tokoh]=useState(()=>siapkanTokoh(6));const [idx,setIdx]=useState(0);const [skor,setSkor]=useState({p1:0,p2:0});
+  const [tokoh]=useState(()=>siapkanTokoh(10));const [idx,setIdx]=useState(0);const [skor,setSkor]=useState({p1:0,p2:0});
   const [clueIdx,setClueIdx]=useState(0);const [buzzed,setBuzzed]=useState(null);const [lock,setLock]=useState({p1:false,p2:false});
   const [pilih,setPilih]=useState({p1:null,p2:null});const [winner,setWinner]=useState(null);const [selesai,setSelesai]=useState(false);const lockTimers=useRef({});
   const t=tokoh[idx];
@@ -700,9 +723,9 @@ function TebakTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{background:"rgba(0,0,0,0.3)",padding:"8px 14px"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"4px 10px",position:"absolute",left:0}}>←</button><div style={{textAlign:"center"}}><div style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>TOKOH {idx+1}/{tokoh.length}</div></div></div><div style={{marginTop:8,padding:"10px 12px",borderRadius:14,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:11,fontWeight:700,color:P.purple,marginBottom:6}}>Clue terlihat semua pemain:</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{fontSize:13,color:P.cream,fontWeight:600,marginBottom:4}}>#{i+1} {c}</div>)}{clueIdx<t.clues.length-1&&!winner&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:8,width:"100%",padding:"8px",borderRadius:10,border:`1px solid ${P.purple}44`,background:`${P.purple}10`,color:P.purple,fontWeight:700,fontSize:12}}>Buka Clue Berikutnya</button>}</div></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-function TebakOnline({lawan,sessionCode,onExit}){
+function TebakOnline({lawan,sessionCode,myRole,onExit}){
   const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
-  const [tokoh]=useState(()=>siapkanTokohSeed(6,sessionCode+":tebak"));
+  const [tokoh]=useState(()=>siapkanTokohSeed(10,sessionCode+":tebak"));
   const [idx,setIdx]=useState(0);
   const [skor,setSkor]=useState({you:0,op:0});
   const skorRef=useRef({you:0,op:0});
@@ -732,7 +755,7 @@ function TebakOnline({lawan,sessionCode,onExit}){
         setTimeout(lanjut,1600);
       }
     }
-  },(d)=>{setSkor({you:d.score_challenger,op:d.score_opponent});setSelesai(true);});
+  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
 
   useEffect(()=>{resolvedRef.current=false;},[idx]);
 
@@ -786,7 +809,7 @@ function MemoryTatap({lawan,onExit}){
   return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:P.muted,letterSpacing:1}}>MEMORY MATCH</div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:12,padding:"10px 14px",borderRadius:14,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar nama="Kamu"size={28}ring={giliranP==="p1"?P.orange:undefined}/><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p1"?P.orange:P.cream}}>Kamu {giliranP==="p1"?"← giliran":""}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.orange}}>{skor.p1} pasang</div></div></div><div style={{textAlign:"right",display:"flex",alignItems:"center",gap:8}}><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p2"?P.p2:P.cream}}>{giliranP==="p2"?"giliran →":""} {lawan.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.p2}}>{skor.p2} pasang</div></div><Avatar nama={lawan.nama}size={28}ring={giliranP==="p2"?P.p2:undefined}/></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={terbuka.length===2&&!terbuka.includes(i)}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:700,color:P.muted}}>{langkah} langkah · {matched.length/2}/8 pasang ditemukan</div></div>);
 }
 
-function MemoryOnline({lawan,sessionCode,onExit}){
+function MemoryOnline({lawan,sessionCode,myRole,onExit}){
   const namaSaya=(window.__GAME_USER__||{nama:"Kamu"}).nama;
   const [cards]=useState(()=>siapkanKartuSeed(8,sessionCode+":memory"));
   const [terbuka,setTerbuka]=useState([]);
@@ -820,7 +843,7 @@ function MemoryOnline({lawan,sessionCode,onExit}){
         },900);
       }
     }
-  },(d)=>{setSkor({you:d.score_challenger,op:d.score_opponent});setSelesai(true);});
+  },(d)=>{setSkor(skorDariGameEnded(d,myRole));setSelesai(true);});
 
   const klik=i=>{
     if(!giliranKamu||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
@@ -866,11 +889,16 @@ function GameFeature(){
   const [lawan,setLawan]=useState(null);
   const [sessionCode,setSessionCode]=useState(null);
   const [notif,setNotif]=useState(null);
+  // Peran sendiri di sesi online: "challenger" (penantang, yang memilih lawan)
+  // atau "opponent" (penerima tantangan). Dibutuhkan supaya skor dari event
+  // GameEnded (score_challenger/score_opponent) dipetakan ke sisi yang benar —
+  // tanpa ini pihak opponent melihat skornya sendiri tertukar dengan lawan.
+  const [myRole,setMyRole]=useState(null);
 
-  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setSessionCode(null);};
+  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setSessionCode(null);setMyRole(null);};
   const mulaiGame=g=>{setGame(g);setScreen("cara");};
   const pilihCara=m=>{setMode(m);if(m==="solo")setScreen("main");else setScreen("lawan");};
-  const pilihLawan=l=>{setLawan(l);if(mode==="online")setScreen("lobi");else setScreen("main");};
+  const pilihLawan=l=>{setLawan(l);setMyRole("challenger");if(mode==="online")setScreen("lobi");else setScreen("main");};
 
   // Langganan notifikasi tantangan masuk via Pusher
   useEffect(()=>{
@@ -893,6 +921,7 @@ function GameFeature(){
       setGame({id:res.game_type||notif.game_type});
       setLawan({id:notif.challenger_id,nama:notif.challenger_name});
       setSessionCode(notif.session_code);
+      setMyRole("opponent");
       setMode("online");
       setScreen("main");
       setNotif(null);
@@ -911,10 +940,10 @@ function GameFeature(){
     if(mode==="online"){
       // Jika masuk dari notif (tanpa game object), tentukan game dari sessionCode
       const gType=game?.id||notif?.game_type||"kuis";
-      if(gType==="kuis")return<KuisOnline lawan={lawan}sessionCode={sessionCode}onExit={pulang}/>;
-      if(gType==="susun")return<SusunOnline lawan={lawan}sessionCode={sessionCode}onExit={pulang}/>;
-      if(gType==="tebak")return<TebakOnline lawan={lawan}sessionCode={sessionCode}onExit={pulang}/>;
-      if(gType==="memory")return<MemoryOnline lawan={lawan}sessionCode={sessionCode}onExit={pulang}/>;
+      if(gType==="kuis")return<KuisOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
+      if(gType==="susun")return<SusunOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
+      if(gType==="tebak")return<TebakOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
+      if(gType==="memory")return<MemoryOnline lawan={lawan}sessionCode={sessionCode}myRole={myRole}onExit={pulang}/>;
     }
     return null;
   };
