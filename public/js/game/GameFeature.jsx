@@ -415,13 +415,24 @@ function NotifTantangan({notif,onTerima,onTolak}){
   // overflow:hidden+position:relative di root-nya, yang membuat
   // position:fixed di dalamnya jadi terikat ke container itu (dipotong,
   // tidak melebar penuh ke layar) alih-alih ke viewport HP sungguhan.
+  //
+  // PENTING: transform:translateX(-50%) untuk centering TIDAK BOLEH ada
+  // di elemen yang sama dengan class "gf-pop" — @keyframes gf-pop juga
+  // mendefinisikan `transform` (scale), dan animation-fill-mode:both
+  // membuat transform hasil akhir animasi (scale(1), tanpa translateX)
+  // MENIMPA transform inline di elemen itu. Makanya sebelumnya kartu
+  // selalu jatuh di x=200 (separuh kanan keluar layar) alih-alih benar-benar
+  // center — translateX(-50%)-nya diam-diam dibatalkan oleh animasi.
+  // Solusi: wrapper luar untuk positioning+centering, gf-pop cuma di anak.
   const konten=(
-    <div className="gf-pop"style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999,padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
-      <div style={{fontWeight:800,fontSize:14,color:P.gold,marginBottom:4}}>🎮 Tantangan Masuk!</div>
-      <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.host_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
-      <div style={{display:"flex",gap:10}}>
-        <button onClick={onTerima}className="gf-btn"style={{flex:1,padding:"10px",borderRadius:12,border:"none",background:P.green,color:"#1A1340",fontWeight:800,fontSize:14,cursor:"pointer"}}>✓ Terima</button>
-        <button onClick={onTolak}className="gf-btn"style={{flex:1,padding:"10px",borderRadius:12,border:`1px solid ${P.red}`,background:"transparent",color:P.red,fontWeight:800,fontSize:14,cursor:"pointer"}}>✗ Tolak</button>
+    <div style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999}}>
+      <div className="gf-pop"style={{padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
+        <div style={{fontWeight:800,fontSize:14,color:P.gold,marginBottom:4}}>🎮 Tantangan Masuk!</div>
+        <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.host_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={onTerima}className="gf-btn"style={{flex:1,padding:"10px",borderRadius:12,border:"none",background:P.green,color:"#1A1340",fontWeight:800,fontSize:14,cursor:"pointer"}}>✓ Terima</button>
+          <button onClick={onTolak}className="gf-btn"style={{flex:1,padding:"10px",borderRadius:12,border:`1px solid ${P.red}`,background:"transparent",color:P.red,fontWeight:800,fontSize:14,cursor:"pointer"}}>✗ Tolak</button>
+        </div>
       </div>
     </div>
   );

@@ -1625,8 +1625,16 @@ function NotifTantangan({
   // overflow:hidden+position:relative di root-nya, yang membuat
   // position:fixed di dalamnya jadi terikat ke container itu (dipotong,
   // tidak melebar penuh ke layar) alih-alih ke viewport HP sungguhan.
+  //
+  // PENTING: transform:translateX(-50%) untuk centering TIDAK BOLEH ada
+  // di elemen yang sama dengan class "gf-pop" — @keyframes gf-pop juga
+  // mendefinisikan `transform` (scale), dan animation-fill-mode:both
+  // membuat transform hasil akhir animasi (scale(1), tanpa translateX)
+  // MENIMPA transform inline di elemen itu. Makanya sebelumnya kartu
+  // selalu jatuh di x=200 (separuh kanan keluar layar) alih-alih benar-benar
+  // center — translateX(-50%)-nya diam-diam dibatalkan oleh animasi.
+  // Solusi: wrapper luar untuk positioning+centering, gf-pop cuma di anak.
   const konten = /*#__PURE__*/React.createElement("div", {
-    className: "gf-pop",
     style: {
       position: "fixed",
       bottom: "calc(var(--nav-h, 90px) + 12px)",
@@ -1634,7 +1642,11 @@ function NotifTantangan({
       transform: "translateX(-50%)",
       width: "calc(100% - 32px)",
       maxWidth: 440,
-      zIndex: 9999,
+      zIndex: 9999
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gf-pop",
+    style: {
       padding: "16px 18px",
       borderRadius: 20,
       background: "#241A57",
@@ -1688,7 +1700,7 @@ function NotifTantangan({
       fontSize: 14,
       cursor: "pointer"
     }
-  }, "✗ Tolak")));
+  }, "✗ Tolak"))));
   return ReactDOM.createPortal(konten, document.body);
 }
 
