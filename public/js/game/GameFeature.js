@@ -306,6 +306,7 @@ function LobiOnline({ lawan, game, sessionCode, onBack, onMulai, onDeclined }) {
   const [kode, setKode] = useState(sessionCode || null);
   const pusherRef = useRef(null);
   const channelRef = useRef(null);
+  const pollRef = useRef(null);
   useEffect(() => {
     let cancelled = false;
     const pusher = getPusher();
@@ -319,22 +320,40 @@ function LobiOnline({ lawan, game, sessionCode, onBack, onMulai, onDeclined }) {
           setKode(kodeAktif);
           setFase("tunggu");
         }
-        if (!pusher) return;
-        const ch = pusher.subscribe("private-game-session." + kodeAktif);
-        channelRef.current = ch;
-        ch.bind("started", () => {
-          if (!cancelled) {
-            setFase("diterima");
-            setTimeout(() => onMulai(kodeAktif), 1e3);
+        if (pusher) {
+          const ch = pusher.subscribe("private-game-session." + kodeAktif);
+          channelRef.current = ch;
+          ch.bind("started", () => {
+            if (!cancelled) {
+              setFase("diterima");
+              setTimeout(() => onMulai(kodeAktif), 1e3);
+            }
+          });
+          ch.bind("move", (d) => {
+            var _a;
+            if (((_a = d == null ? void 0 : d.payload) == null ? void 0 : _a.type) === "declined" && !cancelled) {
+              setFase("ditolak");
+              setTimeout(onDeclined, 2e3);
+            }
+          });
+        }
+        pollRef.current = setInterval(async () => {
+          if (cancelled) return;
+          try {
+            const s = await apiGet("/game/session/" + kodeAktif);
+            if (cancelled) return;
+            if (s.status === "active") {
+              clearInterval(pollRef.current);
+              setFase("diterima");
+              setTimeout(() => onMulai(kodeAktif), 800);
+            } else if (s.status === "declined") {
+              clearInterval(pollRef.current);
+              setFase("ditolak");
+              setTimeout(onDeclined, 2e3);
+            }
+          } catch (e) {
           }
-        });
-        ch.bind("move", (d) => {
-          var _a;
-          if (((_a = d == null ? void 0 : d.payload) == null ? void 0 : _a.type) === "declined" && !cancelled) {
-            setFase("ditolak");
-            setTimeout(onDeclined, 2e3);
-          }
-        });
+        }, 2500);
       } catch (e) {
         if (!cancelled) setFase("error");
       }
@@ -342,6 +361,7 @@ function LobiOnline({ lawan, game, sessionCode, onBack, onMulai, onDeclined }) {
     kirim();
     return () => {
       cancelled = true;
+      clearInterval(pollRef.current);
       if (channelRef.current && pusher) pusher.unsubscribe(channelRef.current.name);
     };
   }, []);

@@ -299,6 +299,7 @@ function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
   const [kode,setKode]=useState(sessionCode||null);
   const pusherRef=useRef(null);
   const channelRef=useRef(null);
+  const pollRef=useRef(null);
 
   useEffect(()=>{
     let cancelled=false;
@@ -314,12 +315,24 @@ function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
           setKode(kodeAktif);
           setFase("tunggu");
         }
-        if(!pusher)return;
-        // Dengarkan channel sesi untuk event started/declined
-        const ch=pusher.subscribe("private-game-session."+kodeAktif);
-        channelRef.current=ch;
-        ch.bind("started",()=>{if(!cancelled){setFase("diterima");setTimeout(()=>onMulai(kodeAktif),1000);}});
-        ch.bind("move",(d)=>{if(d?.payload?.type==="declined"&&!cancelled){setFase("ditolak");setTimeout(onDeclined,2000);}});
+        // Dengarkan channel sesi untuk event started/declined (kalau Pusher tersedia)
+        if(pusher){
+          const ch=pusher.subscribe("private-game-session."+kodeAktif);
+          channelRef.current=ch;
+          ch.bind("started",()=>{if(!cancelled){setFase("diterima");setTimeout(()=>onMulai(kodeAktif),1000);}});
+          ch.bind("move",(d)=>{if(d?.payload?.type==="declined"&&!cancelled){setFase("ditolak");setTimeout(onDeclined,2000);}});
+        }
+        // Fallback polling — kalau event Pusher "started" terlewat (race antara
+        // subscribe & lawan menerima), status sesi tetap kedeteksi lewat polling.
+        pollRef.current=setInterval(async()=>{
+          if(cancelled)return;
+          try{
+            const s=await apiGet("/game/session/"+kodeAktif);
+            if(cancelled)return;
+            if(s.status==="active"){clearInterval(pollRef.current);setFase("diterima");setTimeout(()=>onMulai(kodeAktif),800);}
+            else if(s.status==="declined"){clearInterval(pollRef.current);setFase("ditolak");setTimeout(onDeclined,2000);}
+          }catch(e){/* abaikan, coba lagi di polling berikutnya */}
+        },2500);
       }catch(e){
         if(!cancelled)setFase("error");
       }
@@ -328,6 +341,7 @@ function LobiOnline({lawan,game,sessionCode,onBack,onMulai,onDeclined}){
 
     return()=>{
       cancelled=true;
+      clearInterval(pollRef.current);
       if(channelRef.current&&pusher)pusher.unsubscribe(channelRef.current.name);
     };
   },[]);
