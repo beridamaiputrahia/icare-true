@@ -152,16 +152,7 @@ const BANK_KARTU = [
   {a:"Yeremia",b:"Dijuluki nabi yang menangis"},
 ];
 
-const LEADERBOARD = [
-  {nama:"Mira",       poin:4280,detail:{kuis:1840,susun:1200,tebak:820, memory:420}},
-  {nama:"Kak Ruth",   poin:3760,detail:{kuis:1560,susun:980, tebak:760, memory:460}},
-  {nama:"Bang Daniel",poin:3120,detail:{kuis:1380,susun:820, tebak:620, memory:300}},
-  {nama:"Pdt. Yosua", poin:2840,detail:{kuis:1120,susun:740, tebak:680, memory:300}},
-  {nama:"Kevin",      poin:1980,detail:{kuis:840, susun:560, tebak:380, memory:200}},
-  {nama:"Sarah",      poin:1760,detail:{kuis:720, susun:480, tebak:360, memory:200}},
-  {nama:"Bang Tigor", poin:1540,detail:{kuis:640, susun:420, tebak:300, memory:180}},
-  {nama:"Debora",     poin:1220,detail:{kuis:480, susun:360, tebak:260, memory:120}},
-];
+function getLeaderboard(){const raw=window.__GAME_LEADERBOARD__;if(!raw||!raw.length)return [];return raw;}
 
 const GAME_DEFS = [
   {id:"kuis",  ikon:"⚡",judul:"Kuis Adu Cepat",desc:"Trivia Alkitab — jawab tercepat",warna:P.gold},
@@ -357,9 +348,9 @@ function NotifTantangan({notif,onTerima,onTolak}){
 function PapanPeringkat({onBack}){
   const [tab,setTab]=useState("semua");
   const tabs=[{id:"semua",label:"Semua"},{id:"kuis",label:"⚡ Kuis"},{id:"susun",label:"📖 Susun"},{id:"tebak",label:"🔍 Tebak"},{id:"memory",label:"🃏 Memory"}];
-  const sorted=[...LEADERBOARD].sort((a,b)=>(tab==="semua"?b.poin:b.detail[tab])-(tab==="semua"?a.poin:a.detail[tab]));
+  const sorted=[...getLeaderboard()].sort((a,b)=>(tab==="semua"?b.poin:b.detail[tab])-(tab==="semua"?a.poin:a.detail[tab]));
   const medals=["🥇","🥈","🥉"];
-  return(<div style={{padding:"20px 20px 32px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Papan Peringkat"subtitle="Minggu ini · Reset tiap Senin"/><div style={{display:"flex",gap:6,marginTop:16,overflowX:"auto",paddingBottom:4}}>{tabs.map(t=><button key={t.id}onClick={()=>setTab(t.id)}className="gf-btn"style={{padding:"7px 14px",borderRadius:99,flexShrink:0,border:`1px solid ${tab===t.id?P.gold:"rgba(255,255,255,0.12)"}`,background:tab===t.id?`${P.gold}22`:"rgba(255,255,255,0.04)",color:tab===t.id?P.gold:P.muted,fontWeight:700,fontSize:13}}>{t.label}</button>)}</div><div style={{display:"grid",gap:9,marginTop:16}}>{sorted.map((m,i)=>{const poin=tab==="semua"?m.poin:m.detail[tab];return(<div key={i}className="gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:16,border:`1px solid ${i<3?"rgba(245,196,81,0.3)":"rgba(255,255,255,0.08)"}`,background:i<3?`${P.gold}0a`:"rgba(255,255,255,0.03)",animationDelay:`${i*.04}s`}}><div style={{width:26,textAlign:"center",fontSize:20,fontWeight:800,flexShrink:0}}>{medals[i]||<span style={{fontSize:14,color:P.muted,fontWeight:800}}>#{i+1}</span>}</div><Avatar nama={m.nama}size={38}/><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15,color:P.cream}}>{m.nama}</div></div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:20,color:i===0?P.gold:P.cream}}>{poin.toLocaleString()}</div></div>);})}</div></div>);
+  return(<div style={{padding:"20px 20px 32px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Papan Peringkat"subtitle="Minggu ini · Reset tiap Senin"/><div style={{display:"flex",gap:6,marginTop:16,overflowX:"auto",paddingBottom:4}}>{tabs.map(t=><button key={t.id}onClick={()=>setTab(t.id)}className="gf-btn"style={{padding:"7px 14px",borderRadius:99,flexShrink:0,border:`1px solid ${tab===t.id?P.gold:"rgba(255,255,255,0.12)"}`,background:tab===t.id?`${P.gold}22`:"rgba(255,255,255,0.04)",color:tab===t.id?P.gold:P.muted,fontWeight:700,fontSize:13}}>{t.label}</button>)}</div>{sorted.length===0?<div style={{textAlign:"center",padding:"40px 20px",color:P.muted,fontSize:14}}>Belum ada yang bermain minggu ini</div>:<div style={{display:"grid",gap:9,marginTop:16}}>{sorted.map((m,i)=>{const poin=tab==="semua"?m.poin:m.detail[tab];return(<div key={i}className="gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:"13px 16px",borderRadius:16,border:`1px solid ${i<3?"rgba(245,196,81,0.3)":"rgba(255,255,255,0.08)"}`,background:i<3?`${P.gold}0a`:"rgba(255,255,255,0.03)",animationDelay:`${i*.04}s`}}><div style={{width:26,textAlign:"center",fontSize:20,fontWeight:800,flexShrink:0}}>{medals[i]||<span style={{fontSize:14,color:P.muted,fontWeight:800}}>#{i+1}</span>}</div><Avatar nama={m.nama}size={38}/><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15,color:P.cream}}>{m.nama}</div></div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:20,color:i===0?P.gold:P.cream}}>{poin.toLocaleString()}</div></div>);})}</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════

@@ -19,8 +19,9 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
 <script>
-window.__GAME_MEMBERS__ = @json($members);
-window.__GAME_USER__    = { id: {{ $user->id }}, nama: @json($user->name) };
+window.__GAME_MEMBERS__     = @json($members);
+window.__GAME_LEADERBOARD__ = @json($leaderboard);
+window.__GAME_USER__        = { id: {{ $user->id }}, nama: @json($user->name) };
 window.__PUSHER_CONFIG__ = {
     key:     "{{ config('broadcasting.connections.pusher.key') }}",
     cluster: "{{ config('broadcasting.connections.pusher.options.cluster', 'ap1') }}"

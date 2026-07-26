@@ -51,7 +51,45 @@ class GameController extends Controller
             'kalah'    => $stats[$u->id]['kalah'] ?? 0,
         ]);
 
-        return view('game.index', compact('user', 'members'));
+        $leaderboard = $this->buildWeeklyLeaderboard($user, $users);
+
+        return view('game.index', compact('user', 'members', 'leaderboard'));
+    }
+
+    private function buildWeeklyLeaderboard($user, $users)
+    {
+        $allUsers = $users->push($user)->keyBy('id');
+
+        $sessions = GameSession::where('status', 'finished')
+            ->where('finished_at', '>=', now()->startOfWeek())
+            ->get(['challenger_id', 'opponent_id', 'game_type', 'score_challenger', 'score_opponent']);
+
+        $gameTypes = ['kuis', 'susun', 'tebak', 'memory'];
+        $points    = [];
+
+        foreach ($sessions as $session) {
+            foreach ([
+                $session->challenger_id => $session->score_challenger,
+                $session->opponent_id   => $session->score_opponent,
+            ] as $uid => $score) {
+                if (! $allUsers->has($uid)) {
+                    continue;
+                }
+                $points[$uid] ??= ['kuis' => 0, 'susun' => 0, 'tebak' => 0, 'memory' => 0];
+                $points[$uid][$session->game_type] += (int) $score;
+            }
+        }
+
+        return collect($points)
+            ->map(function ($detail, $uid) use ($allUsers) {
+                return [
+                    'nama'   => $allUsers[$uid]->name,
+                    'poin'   => array_sum($detail),
+                    'detail' => $detail,
+                ];
+            })
+            ->sortByDesc('poin')
+            ->values();
     }
 
     public function serveJsx()
