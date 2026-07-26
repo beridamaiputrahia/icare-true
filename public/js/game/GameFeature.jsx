@@ -36,6 +36,31 @@ const BANK_SOAL = [
   {q:"Makanan apa yang Tuhan turunkan dari langit di padang gurun?",opsi:["Roti","Buah ara","Manna","Madu"],benar:2},
   {q:"Rasul yang dulu menganiaya orang Kristen lalu menulis banyak surat?",opsi:["Petrus","Paulus","Barnabas","Lukas"],benar:1},
   {q:"Sungai tempat bayi Musa dihanyutkan?",opsi:["Yordan","Nil","Efrat","Tigris"],benar:1},
+  {q:"Siapa istri pertama yang diciptakan Tuhan?",opsi:["Sara","Hawa","Rebeka","Rahel"],benar:1},
+  {q:"Siapa yang diikat Abraham untuk dipersembahkan di Gunung Moria?",opsi:["Ismael","Esau","Ishak","Yakub"],benar:2},
+  {q:"Berapa hari Yesus berpuasa di padang gurun?",opsi:["7 hari","40 hari","30 hari","3 hari"],benar:1},
+  {q:"Siapa yang memimpin bangsa Israel masuk ke Tanah Kanaan setelah Musa wafat?",opsi:["Kaleb","Yosua","Gideon","Simson"],benar:1},
+  {q:"Nabi mana yang naik ke surga dengan kereta berapi?",opsi:["Elisa","Elia","Yesaya","Yeremia"],benar:1},
+  {q:"Siapa yang kekuatannya terletak pada rambutnya?",opsi:["Gideon","Simson","Boas","Otniel"],benar:1},
+  {q:"Berapa jumlah tembok Yerikho runtuh setelah dikelilingi bangsa Israel?",opsi:["Ke-3","Ke-5","Ke-7","Ke-12"],benar:2},
+  {q:"Siapa yang menafsirkan mimpi Firaun tentang tujuh tahun kelimpahan dan kelaparan?",opsi:["Musa","Yusuf","Daniel","Yakub"],benar:1},
+  {q:"Kota apa yang dihancurkan Tuhan bersama Gomora karena dosa besar?",opsi:["Sodom","Niniwe","Babel","Tirus"],benar:0},
+  {q:"Siapa nama istri Lot yang menjadi tiang garam?",opsi:["Tidak disebutkan namanya","Sara","Milka","Naomi"],benar:0},
+  {q:"Siapa hakim perempuan yang memimpin Israel?",opsi:["Ester","Debora","Rut","Hulda"],benar:1},
+  {q:"Berapa keping perak Yudas menerima untuk mengkhianati Yesus?",opsi:["10","20","30","50"],benar:2},
+  {q:"Di bukit apa Yesus disalibkan?",opsi:["Sinai","Golgota","Sion","Karmel"],benar:1},
+  {q:"Siapa murid yang meragukan kebangkitan Yesus sampai melihat bekas lukanya?",opsi:["Tomas","Filipus","Bartolomeus","Matius"],benar:0},
+  {q:"Siapa yang menulis sebagian besar kitab Mazmur?",opsi:["Salomo","Musa","Daud","Asaf"],benar:2},
+  {q:"Nabi mana yang menikahi seorang perempuan sundal atas perintah Tuhan sebagai lambang?",opsi:["Hosea","Amos","Mikha","Zefanya"],benar:0},
+  {q:"Siapa raja yang memerintahkan pembunuhan bayi-bayi di Betlehem?",opsi:["Herodes","Pilatus","Kaisar Agustus","Ahab"],benar:0},
+  {q:"Gunung apa tempat Musa melihat Tanah Perjanjian sebelum wafat?",opsi:["Sinai","Horeb","Nebo","Karmel"],benar:2},
+  {q:"Siapa yang menjadi menantu Musa dan memberi nasihat sistem pengadilan?",opsi:["Yitro","Harun","Kaleb","Hur"],benar:0},
+  {q:"Kitab apa yang berisi surat cinta/puisi kasih antara mempelai?",opsi:["Amsal","Pengkhotbah","Kidung Agung","Ratapan"],benar:2},
+  {q:"Siapa nabi yang menantang 450 nabi Baal di Gunung Karmel?",opsi:["Elisa","Elia","Yesaya","Yehezkiel"],benar:1},
+  {q:"Berapa lama Yunus berada dalam perut ikan?",opsi:["1 hari 1 malam","3 hari 3 malam","7 hari","40 hari"],benar:1},
+  {q:"Siapa yang menjadi raja pertama bangsa Israel?",opsi:["Daud","Saul","Salomo","Ish-Boset"],benar:1},
+  {q:"Rasul mana yang dijuluki 'kekasih Yesus' dan menulis Injil keempat?",opsi:["Matius","Markus","Lukas","Yohanes"],benar:3},
+  {q:"Di manakah Paulus bertobat setelah melihat cahaya dari langit?",opsi:["Yerusalem","Damaskus","Antiokhia","Roma"],benar:1},
 ];
 
 const BANK_AYAT = [
@@ -51,6 +76,24 @@ const BANK_AYAT = [
   {ref:"Matius 5:9",    teks:"Berbahagialah orang yang membawa damai karena mereka akan disebut anak-anak Allah"},
   {ref:"Mazmur 121:2",  teks:"Pertolonganku ialah dari Tuhan yang menjadikan langit dan bumi"},
   {ref:"Yeremia 29:11", teks:"Sebab Aku mengetahui rancangan yang ada pada-Ku yaitu rancangan damai sejahtera bukan kecelakaan"},
+  {ref:"Amsal 16:3",    teks:"Serahkanlah perbuatanmu kepada Tuhan maka terlaksanalah segala rencanamu"},
+  {ref:"Mazmur 27:1",   teks:"Tuhan adalah terang dan keselamatanku kepada siapakah aku harus takut"},
+  {ref:"Matius 6:33",   teks:"Carilah dahulu kerajaan Allah dan kebenarannya maka semuanya akan ditambahkan kepadamu"},
+  {ref:"Roma 12:2",     teks:"Janganlah kamu menjadi serupa dengan dunia ini tetapi berubahlah oleh pembaruan budimu"},
+  {ref:"Galatia 5:22",  teks:"Buah roh ialah kasih sukacita damai sejahtera kesabaran kemurahan kebaikan kesetiaan"},
+  {ref:"Mazmur 34:8",   teks:"Kecaplah dan lihatlah betapa baiknya Tuhan berbahagialah orang yang berlindung pada-Nya"},
+  {ref:"Ibrani 11:1",   teks:"Iman adalah dasar dari segala sesuatu yang kita harapkan bukti dari segala sesuatu yang tidak kita lihat"},
+  {ref:"1 Korintus 13:4",teks:"Kasih itu sabar kasih itu murah hati ia tidak cemburu ia tidak memegahkan diri"},
+  {ref:"Mazmur 119:105",teks:"Firman-Mu itu pelita bagi kakiku dan terang bagi jalanku"},
+  {ref:"Efesus 2:8",    teks:"Karena kasih karunia kamu diselamatkan oleh iman itu bukan hasil usahamu tetapi pemberian Allah"},
+  {ref:"Filipi 4:6",    teks:"Janganlah hendaknya kamu kuatir tentang apapun juga tetapi nyatakanlah dalam segala hal keinginanmu kepada Allah"},
+  {ref:"Mazmur 37:4",   teks:"Bergembiralah karena Tuhan maka Ia akan memberikan kepadamu apa yang diinginkan hatimu"},
+  {ref:"2 Timotius 1:7",teks:"Allah memberikan kepada kita roh yang tidak menimbulkan ketakutan tetapi roh yang membangkitkan kekuatan"},
+  {ref:"Mazmur 1:1",    teks:"Berbahagialah orang yang tidak berjalan menurut nasihat orang fasik"},
+  {ref:"Amsal 22:6",    teks:"Didiklah orang muda menurut jalan yang patut baginya maka pada masa tuanya ia tidak akan menyimpang"},
+  {ref:"Yakobus 1:5",   teks:"Apabila di antara kamu ada yang kekurangan hikmat hendaklah ia memintanya kepada Allah"},
+  {ref:"Kolose 3:23",   teks:"Apapun juga yang kamu perbuat perbuatlah dengan segenap hatimu seperti untuk Tuhan"},
+  {ref:"Mazmur 91:1",   teks:"Orang yang duduk dalam lindungan Yang Mahatinggi akan bermalam dalam naungan Yang Mahakuasa"},
 ];
 
 const BANK_TOKOH = [
@@ -64,6 +107,16 @@ const BANK_TOKOH = [
   {jawaban:"Paulus", clues:["Pernah menganiaya orang Kristen dengan giat","Bertobat setelah melihat cahaya di jalan Damaskus","Menulis lebih dari separuh surat dalam Perjanjian Baru"],salah:["Barnabas","Silas","Lukas"]},
   {jawaban:"Nuh",    clues:["Hidup 950 tahun lamanya","Membangun bahtera raksasa atas perintah Tuhan","Menyelamatkan keluarganya dan hewan dari air bah"],      salah:["Abraham","Lot","Sem"]},
   {jawaban:"Yunus",  clues:["Melarikan diri ke Tarsis menghindari tugas Tuhan","Ditelan seekor ikan besar selama tiga hari tiga malam","Memberitakan pertobatan kepada kota Niniwe"],salah:["Elia","Yesaya","Mikha"]},
+  {jawaban:"Abraham",clues:["Dipanggil Tuhan meninggalkan tanah kelahirannya","Disebut bapak segala bangsa yang percaya","Bersedia mempersembahkan anaknya Ishak di Gunung Moria"],salah:["Ishak","Yakub","Lot"]},
+  {jawaban:"Simson",clues:["Kekuatannya terletak pada rambutnya yang panjang","Jatuh cinta pada Delila yang mengkhianatinya","Merobohkan kuil orang Filistin dengan kekuatan terakhirnya"],salah:["Gideon","Boas","Otniel"]},
+  {jawaban:"Salomo",clues:["Anak Daud yang terkenal karena hikmatnya","Membangun Bait Suci pertama di Yerusalem","Menulis kitab Amsal dan Kidung Agung"],salah:["Rehabeam","Daud","Hizkia"]},
+  {jawaban:"Elia",   clues:["Menantang para nabi Baal di Gunung Karmel","Diberi makan burung gagak di tepi sungai Kerit","Naik ke surga dengan kereta dan kuda berapi"],salah:["Elisa","Yesaya","Yeremia"]},
+  {jawaban:"Yakub",  clues:["Adik kembar Esau yang licik merebut berkat sulung","Bermimpi tentang tangga yang sampai ke langit","Namanya diubah menjadi Israel setelah bergumul dengan malaikat"],salah:["Esau","Ishak","Laban"]},
+  {jawaban:"Yohanes Pembaptis",clues:["Anak Zakharia dan Elisabet di masa tuanya","Hidup di padang gurun memakan belalang dan madu hutan","Membaptis Yesus di Sungai Yordan"],salah:["Yohanes Rasul","Elia","Yakobus"]},
+  {jawaban:"Maria",  clues:["Seorang perawan dari Nazaret","Menerima kabar dari malaikat Gabriel bahwa ia akan mengandung","Menjadi ibu dari Yesus Kristus"],salah:["Marta","Elisabet","Maria Magdalena"]},
+  {jawaban:"Yudas Iskariot",clues:["Salah satu dari kedua belas murid Yesus","Memegang kas kelompok murid","Mengkhianati Yesus dengan sebuah ciuman demi tiga puluh keping perak"],salah:["Tomas","Simon Zelot","Matius"]},
+  {jawaban:"Gideon", clues:["Awalnya takut dan meminta tanda bulu domba dari Tuhan","Memimpin hanya 300 orang melawan tentara Midian","Menjadi salah satu hakim Israel"],salah:["Simson","Barak","Yefta"]},
+  {jawaban:"Zakheus",clues:["Seorang kepala pemungut cukai yang kaya","Bertubuh pendek sehingga memanjat pohon ara","Bertobat dan mengembalikan hartanya empat kali lipat setelah bertemu Yesus"],salah:["Matius","Simon","Bartimeus"]},
 ];
 
 const BANK_KARTU = [
@@ -83,6 +136,20 @@ const BANK_KARTU = [
   {a:"Ester",  b:"Menyelamatkan bangsa Yahudi"},
   {a:"Rut",    b:"Setia mengikuti mertua Naomi"},
   {a:"Yosua",  b:"Memimpin Israel masuk Kanaan"},
+  {a:"Adam",   b:"Manusia pertama yang diciptakan"},
+  {a:"Hawa",   b:"Wanita pertama, tergoda ulat"},
+  {a:"Ishak",  b:"Anak perjanjian Abraham dan Sara"},
+  {a:"Yakub",  b:"Bergumul dengan malaikat semalaman"},
+  {a:"Gideon", b:"Menang perang dengan 300 orang"},
+  {a:"Debora", b:"Hakim perempuan Israel"},
+  {a:"Zakheus",b:"Memanjat pohon ara demi melihat Yesus"},
+  {a:"Yohanes Pembaptis",b:"Membaptis Yesus di Sungai Yordan"},
+  {a:"Tomas",  b:"Meragukan kebangkitan Yesus"},
+  {a:"Lazarus",b:"Dibangkitkan setelah empat hari mati"},
+  {a:"Yudas Iskariot",b:"Mengkhianati Yesus demi uang"},
+  {a:"Hizkia", b:"Raja yang sembuh dari sakit parah"},
+  {a:"Yesaya", b:"Menubuatkan kelahiran Mesias"},
+  {a:"Yeremia",b:"Dijuluki nabi yang menangis"},
 ];
 
 const LEADERBOARD = [
@@ -107,10 +174,31 @@ const GAME_DEFS = [
 function shuffle(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=0|Math.random()*(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
 function inisial(n){return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();}
 function warnaDari(n){let h=0;for(let i=0;i<n.length;i++)h=n.charCodeAt(i)+((h<<5)-h);return AVC[Math.abs(h)%AVC.length];}
-function siapkanSoal(n){return shuffle(BANK_SOAL).slice(0,n).map(s=>{const b=s.opsi[s.benar];const o=shuffle(s.opsi);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
-function siapkanAyat(n){return shuffle(BANK_AYAT).slice(0,n).map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffle([...kata])};});}
-function siapkanTokoh(n){return shuffle(BANK_TOKOH).slice(0,n).map(t=>{let op=shuffle([t.jawaban,...t.salah]).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffle(op)};});}
-function siapkanKartu(n=8){const p=shuffle(BANK_KARTU).slice(0,n);return shuffle([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))]);}
+
+/* Anti-pengulangan: catat item yang baru dipakai (per kategori) di localStorage,
+   dan pada pengambilan berikutnya utamakan item yang BELUM ada di riwayat itu
+   dulu sebelum terpaksa mengulang. Riwayat dibatasi supaya begitu bank sudah
+   "habis dijelajahi", item lama otomatis boleh muncul lagi (bukan diblokir permanen). */
+function ambilRiwayat(key){
+  try{return JSON.parse(localStorage.getItem("gf_riwayat_"+key)||"[]");}catch(e){return [];}
+}
+function simpanRiwayat(key,ids){
+  try{localStorage.setItem("gf_riwayat_"+key,JSON.stringify(ids.slice(-200)));}catch(e){/* localStorage penuh/nonaktif, abaikan */}
+}
+function pilihSegar(bank,n,key,idFn){
+  const riwayat=new Set(ambilRiwayat(key));
+  const segar=bank.filter(x=>!riwayat.has(idFn(x)));
+  const kandidat=segar.length>=n?segar:bank; // riwayat penuh -> reset, boleh ulang dari semua
+  const pilihan=shuffle(kandidat).slice(0,Math.min(n,bank.length));
+  const riwayatBaru=[...ambilRiwayat(key),...pilihan.map(idFn)];
+  simpanRiwayat(key,riwayatBaru);
+  return pilihan;
+}
+
+function siapkanSoal(n){return pilihSegar(BANK_SOAL,n,"soal",s=>s.q).map(s=>{const b=s.opsi[s.benar];const o=shuffle(s.opsi);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
+function siapkanAyat(n){return pilihSegar(BANK_AYAT,n,"ayat",a=>a.ref).map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffle([...kata])};});}
+function siapkanTokoh(n){return pilihSegar(BANK_TOKOH,n,"tokoh",t=>t.jawaban).map(t=>{let op=shuffle([t.jawaban,...t.salah]).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffle(op)};});}
+function siapkanKartu(n=8){const p=pilihSegar(BANK_KARTU,n,"kartu",x=>x.a);return shuffle([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))]);}
 function getMembers(){const raw=window.__GAME_MEMBERS__;if(!raw||!raw.length)return [{id:"u1",nama:"Kak Ruth",online:true,menang:24,kalah:9},{id:"u2",nama:"Bang Daniel",online:true,menang:18,kalah:14},{id:"u3",nama:"Mira",online:true,menang:31,kalah:7},{id:"u4",nama:"Kevin",online:false,menang:5,kalah:11}];return raw.map((m,i)=>({...m,online:i%2===0,menang:Math.floor(Math.random()*30),kalah:Math.floor(Math.random()*20)}));}
 
 /* ── GLOBAL STYLES ─────────────────────────────────────────── */
