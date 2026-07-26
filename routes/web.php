@@ -41,19 +41,6 @@ Route::get('/cron/run-scheduler/{token}', function (string $token) {
     return response('OK', 200);
 })->name('cron.run-scheduler');
 
-// TEMP: pemulihan darurat role superadmin diri sendiri, untuk kasus tidak
-// sengaja menurunkan role sendiri lewat dropdown role dan jadi tidak bisa
-// akses halaman /superadmin manapun untuk perbaiki sendiri. Dilindungi
-// auth (harus login sebagai akun yang bersangkutan) + token rahasia sebagai
-// lapisan tambahan. Hapus setelah dijalankan sekali.
-Route::middleware('auth')->get('/_recover-my-superadmin/{token}', function (string $token) {
-    abort_unless(hash_equals((string) config('app.cron_token'), $token), 403);
-
-    $user = auth()->user();
-    $user->update(['role' => \App\Models\User::ROLE_SUPERADMIN, 'tenant_id' => null]);
-
-    return response("OK. Akun \"{$user->name}\" (#{$user->id}) sekarang superadmin lagi.");
-});
 
 Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
     // Identifikasi tenant: dari user login (jika ada) atau dari subdomain.
