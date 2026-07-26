@@ -11,14 +11,17 @@ class GameSession extends Model
     protected $fillable = [
         'code', 'challenger_id', 'opponent_id', 'game_type',
         'status', 'score_challenger', 'score_opponent',
+        'challenger_finished', 'opponent_finished',
         'seed', 'started_at', 'finished_at',
         'tenant_id',
     ];
 
     protected $casts = [
-        'seed'        => 'array',
-        'started_at'  => 'datetime',
-        'finished_at' => 'datetime',
+        'seed'                => 'array',
+        'started_at'          => 'datetime',
+        'finished_at'         => 'datetime',
+        'challenger_finished' => 'boolean',
+        'opponent_finished'   => 'boolean',
     ];
 
     public function challenger()

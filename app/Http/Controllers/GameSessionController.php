@@ -100,12 +100,21 @@ class GameSessionController extends Controller
             $session->refresh();
         }
 
-        // Cek apakah game selesai
+        // Cek apakah game selesai — tandai HANYA sisi pengirim sebagai selesai.
+        // GameEnded baru disiarkan setelah KEDUA pemain melapor selesai, supaya
+        // pemain yang lebih lambat tidak terlempar ke layar hasil di tengah
+        // permainan hanya karena lawannya sudah lebih dulu sampai ronde akhir.
         if (isset($request->payload['finished']) && $request->payload['finished']) {
-            if ($session->status !== 'finished') {
+            $role  = $session->roleOf($userId);
+            $field = $role === 'challenger' ? 'challenger_finished' : 'opponent_finished';
+            $session->update([$field => true]);
+            $session->refresh();
+
+            if ($session->challenger_finished && $session->opponent_finished && $session->status !== 'finished') {
                 $session->update(['status' => 'finished', 'finished_at' => now()]);
                 broadcast(new GameEnded($session));
             }
+
             return response()->json(['status' => 'finished']);
         }
 
