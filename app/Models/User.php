@@ -113,6 +113,45 @@ class User extends Authenticatable
         };
     }
 
+    // ── Identitas per-tenant khusus superadmin ──────────────────────
+    // Murni label/tampilan (mis. tampil sebagai "ICL" di grup A, "Anggota"
+    // di grup B) -- TIDAK memengaruhi hak akses, superadmin tetap punya
+    // akses penuh di mana pun. Lihat SuperadminTenantRole.
+
+    public function superadminTenantRoles()
+    {
+        return $this->hasMany(SuperadminTenantRole::class);
+    }
+
+    /**
+     * Role "tampilan" user di tenant tertentu. Untuk non-superadmin, sama
+     * dengan role biasa (tenant tidak relevan). Untuk superadmin, ambil dari
+     * SuperadminTenantRole kalau sudah pernah di-set untuk tenant itu,
+     * kalau belum fallback ke 'superadmin' (perilaku default/lama).
+     */
+    public function displayRoleFor(?int $tenantId): string
+    {
+        if (! $this->isSuperAdmin() || ! $tenantId) {
+            return $this->role;
+        }
+
+        return $this->superadminTenantRoles()
+            ->where('tenant_id', $tenantId)
+            ->value('role') ?? self::ROLE_SUPERADMIN;
+    }
+
+    /** Label tampilan untuk displayRoleFor() */
+    public function displayRoleLabelFor(?int $tenantId): string
+    {
+        return match ($this->displayRoleFor($tenantId)) {
+            self::ROLE_SUPERADMIN => 'Super Admin',
+            self::ROLE_ADMIN      => 'Admin',
+            self::ROLE_ICL        => 'ICL',
+            self::ROLE_CTL        => 'CTL',
+            default               => 'Anggota',
+        };
+    }
+
     // ── Tenant ─────────────────────────────────────────────────────
     public function tenant()
     {

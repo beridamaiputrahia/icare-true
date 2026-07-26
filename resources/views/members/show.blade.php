@@ -146,9 +146,14 @@
                 </h6>
                 @if($user)
                 <div class="d-flex gap-1 align-items-center">
-                    <span class="badge bg-{{ $user->roleColor() }} text-uppercase" style="font-size:.6rem;letter-spacing:.05em">
-                        {{ $user->roleLabel() }}
+                    <span class="badge bg-{{ $user->isSuperAdmin() ? 'dark' : $user->roleColor() }} text-uppercase" style="font-size:.6rem;letter-spacing:.05em">
+                        {{ $user->displayRoleLabelFor($member->tenant_id) }}
                     </span>
+                    @if($user->isSuperAdmin() && $user->displayRoleFor($member->tenant_id) !== 'superadmin')
+                    <span class="badge bg-dark text-uppercase" style="font-size:.55rem;letter-spacing:.05em" title="Akun ini adalah Super Admin dengan akses penuh">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </span>
+                    @endif
                     @if($user->secondary_role)
                     <span class="badge bg-secondary text-uppercase" style="font-size:.6rem;letter-spacing:.05em">
                         {{ $user->secondaryRoleLabel() }}

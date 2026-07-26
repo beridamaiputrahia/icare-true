@@ -5,13 +5,17 @@ namespace App\Http\Controllers\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\DailyVerse;
+use App\Models\Member;
+use App\Models\SuperadminTenantRole;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Services\BibleApiService;
 use Database\Seeders\AppSettingSeeder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 /**
@@ -123,16 +127,55 @@ class TenantController extends Controller
     {
         $tenants = Tenant::where('is_active', true)->orderBy('nama_perusahaan')->get();
 
-        return view('superadmin.tenants.select', compact('tenants'));
+        // Identitas yang sudah pernah dipilih superadmin ini di tiap grup,
+        // supaya dropdown-nya menunjukkan pilihan terakhir, bukan selalu kosong.
+        $identities = auth()->user()->superadminTenantRoles()->pluck('role', 'tenant_id');
+
+        return view('superadmin.tenants.select', compact('tenants', 'identities'));
     }
 
     public function switch(Request $request): RedirectResponse
     {
-        $request->validate(['tenant_id' => ['required', 'exists:tenants,id']]);
+        $data = $request->validate([
+            'tenant_id'     => ['required', 'exists:tenants,id'],
+            'identity_role' => ['nullable', Rule::in([User::ROLE_ANGGOTA, User::ROLE_ICL, User::ROLE_CTL, User::ROLE_ADMIN])],
+        ]);
 
-        session(['active_tenant_id' => (int) $request->tenant_id]);
+        session(['active_tenant_id' => (int) $data['tenant_id']]);
+
+        if (! empty($data['identity_role'])) {
+            $this->setIdentityRole(auth()->user(), (int) $data['tenant_id'], $data['identity_role']);
+        }
 
         return redirect()->route('dashboard')->with('success', 'Berhasil masuk sebagai I Care Group terpilih.');
+    }
+
+    /**
+     * Simpan/perbarui identitas tampilan superadmin di suatu tenant, dan
+     * pastikan ada Member record di tenant itu supaya profil (nama panggilan,
+     * foto, dst) punya tempat tersimpan per-grup -- sama seperti anggota biasa.
+     */
+    private function setIdentityRole(User $superadmin, int $tenantId, string $role): void
+    {
+        SuperadminTenantRole::updateOrCreate(
+            ['user_id' => $superadmin->id, 'tenant_id' => $tenantId],
+            ['role' => $role]
+        );
+
+        $hasMember = Member::withoutTenantScope()
+            ->where('user_id', $superadmin->id)
+            ->where('tenant_id', $tenantId)
+            ->exists();
+
+        if (! $hasMember) {
+            Member::withoutTenantScope()->create([
+                'user_id'      => $superadmin->id,
+                'nama_lengkap' => $superadmin->name,
+                'is_active'    => true,
+                'created_by'   => $superadmin->id,
+                'tenant_id'    => $tenantId,
+            ]);
+        }
     }
 
     private function generateUniqueSlug(string $name): string
