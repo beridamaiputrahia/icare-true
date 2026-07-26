@@ -867,13 +867,13 @@ function GameFeature(){
     if(!notif)return;
     try{
       const res=await apiPost("/game/respond",{session_code:notif.session_code,accept:true});
-      setNotif(null);
-      // Set game & lawan dari data notif, lalu masuk lobi sebagai penerima
-      setGame(null);
+      // Set game & lawan dari data notif SEBELUM notif dikosongkan
+      setGame({id:res.game_type||notif.game_type});
       setLawan({id:notif.challenger_id,nama:notif.challenger_name});
       setSessionCode(notif.session_code);
       setMode("online");
       setScreen("main");
+      setNotif(null);
     }catch(e){setNotif(null);}
   };
   const tolakNotif=async()=>{
