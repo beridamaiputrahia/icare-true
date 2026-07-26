@@ -411,7 +411,11 @@ function LobiOnline({lawanList,game,sessionCode,onBack,onMulai,onDeclined}){
 
 /* ── NOTIF TANTANGAN MASUK ──────────────────────────────────── */
 function NotifTantangan({notif,onTerima,onTolak}){
-  return(
+  // Di-render lewat portal ke document.body: kartu game punya
+  // overflow:hidden+position:relative di root-nya, yang membuat
+  // position:fixed di dalamnya jadi terikat ke container itu (dipotong,
+  // tidak melebar penuh ke layar) alih-alih ke viewport HP sungguhan.
+  const konten=(
     <div className="gf-pop"style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999,padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
       <div style={{fontWeight:800,fontSize:14,color:P.gold,marginBottom:4}}>🎮 Tantangan Masuk!</div>
       <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.host_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
@@ -421,6 +425,7 @@ function NotifTantangan({notif,onTerima,onTolak}){
       </div>
     </div>
   );
+  return ReactDOM.createPortal(konten,document.body);
 }
 
 /* ── PAPAN PERINGKAT ─────────────────────────────────────────── */

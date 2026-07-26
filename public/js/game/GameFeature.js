@@ -1621,7 +1621,11 @@ function NotifTantangan({
   onTerima,
   onTolak
 }) {
-  return /*#__PURE__*/React.createElement("div", {
+  // Di-render lewat portal ke document.body: kartu game punya
+  // overflow:hidden+position:relative di root-nya, yang membuat
+  // position:fixed di dalamnya jadi terikat ke container itu (dipotong,
+  // tidak melebar penuh ke layar) alih-alih ke viewport HP sungguhan.
+  const konten = /*#__PURE__*/React.createElement("div", {
     className: "gf-pop",
     style: {
       position: "fixed",
@@ -1685,6 +1689,7 @@ function NotifTantangan({
       cursor: "pointer"
     }
   }, "✗ Tolak")));
+  return ReactDOM.createPortal(konten, document.body);
 }
 
 /* ── PAPAN PERINGKAT ─────────────────────────────────────────── */
