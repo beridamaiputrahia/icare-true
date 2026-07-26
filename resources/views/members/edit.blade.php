@@ -125,6 +125,10 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">Role Akun</label>
+                        @if($user->isSuperAdmin())
+                        <input type="text" class="form-control" value="Super Admin" disabled>
+                        <small class="text-muted">Role Super Admin hanya bisa diubah lewat Kelola Pengguna.</small>
+                        @else
                         <select name="role" class="form-select @error('role') is-invalid @enderror">
                             <option value="anggota" {{ old('role', $user->role) === 'anggota' ? 'selected' : '' }}>Anggota</option>
                             <option value="ctl"     {{ old('role', $user->role) === 'ctl'     ? 'selected' : '' }}>CTL (Co-Team Leader)</option>
@@ -132,6 +136,7 @@
                             <option value="admin"   {{ old('role', $user->role) === 'admin'   ? 'selected' : '' }}>Admin</option>
                         </select>
                         @error('role')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        @endif
                     </div>
 
                     <div class="col-12">
@@ -254,7 +259,7 @@
         </div>
 
         {{-- Quick role change (if account exists) --}}
-        @if($user)
+        @if($user && !$user->isSuperAdmin())
         <div class="card mb-3">
             <div class="card-header">
                 <h6 class="mb-0 fw-semibold" style="font-size:.82rem">

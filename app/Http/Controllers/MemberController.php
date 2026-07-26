@@ -160,8 +160,15 @@ class MemberController extends Controller
         if ($member->user) {
             $userUpdate = ['name' => $member->nama_lengkap];
 
-            if ($request->filled('email'))  $userUpdate['email'] = $request->email;
-            if ($request->filled('role'))   $userUpdate['role']  = $request->role;
+            // Role global akun superadmin TIDAK boleh diubah lewat halaman
+            // anggota tenant manapun -- superadmin bisa punya profil/identitas
+            // di banyak grup sekaligus (lihat SuperadminTenantRole), jadi
+            // form "Role Akun" di sini secara tidak sengaja bisa menurunkan
+            // role utama mereka. Ubah role superadmin hanya lewat Kelola
+            // Pengguna superadmin.
+            if ($request->filled('role') && ! $member->user->isSuperAdmin()) {
+                $userUpdate['role'] = $request->role;
+            }
             if ($request->filled('new_password')) {
                 $userUpdate['password'] = Hash::make($request->new_password);
             }
@@ -196,6 +203,12 @@ class MemberController extends Controller
             return back()->with('error', 'Anggota ini belum memiliki akun yang terhubung.');
         }
 
+        // Role global akun superadmin tidak boleh diubah dari sini -- lihat
+        // catatan di MemberController::update().
+        if ($member->user->isSuperAdmin()) {
+            return back()->with('error', 'Role akun Super Admin tidak bisa diubah dari halaman ini.');
+        }
+
         // Pastikan target user ada di tenant yang sama — cegah admin cross-tenant
         abort_unless($member->user->tenant_id === $admin->tenant_id, 403);
 
@@ -220,6 +233,10 @@ class MemberController extends Controller
 
         if (!$member->user) {
             return back()->with('error', 'Anggota ini belum memiliki akun yang terhubung.');
+        }
+
+        if ($member->user->isSuperAdmin()) {
+            return back()->with('error', 'Role akun Super Admin tidak bisa diubah dari halaman ini.');
         }
 
         // Pastikan target user ada di tenant yang sama
