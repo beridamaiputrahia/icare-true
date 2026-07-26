@@ -42,10 +42,19 @@ Route::get('/cron/run-scheduler/{token}', function (string $token) {
 })->name('cron.run-scheduler');
 
 Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
-    // Identifikasi tenant: dari user login (jika ada) atau dari subdomain
+    // Identifikasi tenant: dari user login (jika ada) atau dari subdomain.
+    // Selaras dengan SettingsManager::resolveTenantId() -- superadmin yang
+    // belum "masuk sebagai" grup tertentu jatuh ke tenant sistem khusus
+    // (bukan grup jemaat manapun), bukan null/tenant_id kolom database yang
+    // untuk superadmin memang selalu null by design.
     $tenantId = null;
     if (auth()->check()) {
-        $tenantId = auth()->user()->tenant_id;
+        $user = auth()->user();
+        if ($user->role === 'superadmin') {
+            $tenantId = session('active_tenant_id') ?? \App\Models\Tenant::defaultBrandingTenant()->id;
+        } else {
+            $tenantId = $user->tenant_id;
+        }
     } else {
         // Coba deteksi dari subdomain: {slug}.domain.com
         $host = $request->getHost();
