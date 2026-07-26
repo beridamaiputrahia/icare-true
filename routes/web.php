@@ -28,6 +28,15 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => redirect()->route('dashboard'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
 
+// TEMP: trigger manual notify:daily-verse untuk tes tanpa nunggu jadwal
+// 06:05/12:00/19:00 sungguhan. Bisa dipicu siapa saja yang login (bukan
+// cuma superadmin) supaya semua orang bisa ikut tes penerimaan notifikasi
+// di device masing-masing. Hapus setelah selesai dicoba.
+Route::middleware('auth')->get('/_test-daily-verse-notif', function () {
+    \Illuminate\Support\Facades\Artisan::call('notify:daily-verse');
+    return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+});
+
 // ── Cron eksternal (cron-job.org) ────────────────────────────────────────
 // Render Cron Job butuh kartu kredit terdaftar, jadi Laravel Scheduler
 // dipicu lewat layanan ping gratis (cron-job.org dkk) yang memanggil route
@@ -119,13 +128,6 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
     // sebelum TenantController::store() membuatnya otomatis. Hapus setelah dijalankan sekali.
     Route::get('_backfill-conversations', function () {
         \Illuminate\Support\Facades\Artisan::call('chat:backfill-conversations');
-        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
-    });
-
-    // TEMP: trigger manual notify:daily-verse untuk tes tanpa nunggu jadwal
-    // 06:05/12:00/19:00 sungguhan. Hapus setelah selesai dicoba.
-    Route::get('_test-daily-verse-notif', function () {
-        \Illuminate\Support\Facades\Artisan::call('notify:daily-verse');
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
