@@ -122,6 +122,13 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
+    // TEMP: trigger manual notify:daily-verse untuk tes tanpa nunggu jadwal
+    // 06:05/12:00/19:00 sungguhan. Hapus setelah selesai dicoba.
+    Route::get('_test-daily-verse-notif', function () {
+        \Illuminate\Support\Facades\Artisan::call('notify:daily-verse');
+        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
+    });
+
     // TEMP DEBUG: baca tail laravel.log untuk diagnosa kenapa push notification
     // tidak muncul sebagai pop-up sistem. Hapus setelah selesai.
     Route::get('_debug-log', function () {
