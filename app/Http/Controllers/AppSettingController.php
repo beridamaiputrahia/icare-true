@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Managers\SettingsManager;
 use App\Models\AppSetting;
+use App\Models\Tenant;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -11,16 +12,46 @@ class AppSettingController extends Controller
 {
     public function __construct(private SettingsManager $settings) {}
 
+    /**
+     * Superadmin yang belum "masuk sebagai" tenant tertentu (belum pilih lewat
+     * tenant switcher) tidak punya tenant aktif untuk BelongsToTenant scope --
+     * dalam kasus itu, layani pengaturan tenant utama ("icaretrue") secara
+     * langsung supaya superadmin tetap bisa ubah branding dasar aplikasi
+     * (nama, logo) tanpa harus pilih grup dulu. Admin biasa selalu punya
+     * tenant_id sendiri jadi tidak terpengaruh oleh ini.
+     */
+    private function resolveTenantIdForSuperadmin(): ?int
+    {
+        if (auth()->user()->role !== 'superadmin' || session('active_tenant_id')) {
+            return null;
+        }
+
+        return Tenant::where('slug', 'icaretrue')->value('id');
+    }
+
     public function index()
     {
-        $groups = AppSetting::orderBy('group')->orderBy('sort_order')->get()->groupBy('group');
+        $tenantId = $this->resolveTenantIdForSuperadmin();
+
+        $query = $tenantId
+            ? AppSetting::withoutTenantScope()->where('tenant_id', $tenantId)
+            : AppSetting::query();
+
+        $groups = $query->orderBy('group')->orderBy('sort_order')->get()->groupBy('group');
         return view('settings.index', compact('groups'));
     }
 
     public function update(Request $request)
     {
-        // Ambil setting milik tenant yang sedang login (BelongsToTenant scope aktif)
-        $settings = AppSetting::orderBy('sort_order')->get();
+        $tenantId = $this->resolveTenantIdForSuperadmin();
+
+        // Ambil setting milik tenant yang sedang login (BelongsToTenant scope aktif),
+        // atau tenant utama secara eksplisit kalau superadmin belum pilih tenant.
+        $query = $tenantId
+            ? AppSetting::withoutTenantScope()->where('tenant_id', $tenantId)
+            : AppSetting::query();
+
+        $settings = $query->orderBy('sort_order')->get();
 
         foreach ($settings as $setting) {
             $key = $setting->key;
@@ -61,8 +92,21 @@ class AppSettingController extends Controller
 
     public function maintenanceToggle(Request $request)
     {
-        $current = $this->settings->isMaintenanceMode();
-        $this->settings->set('maintenance_mode', $current ? '0' : '1');
+        $tenantId = $this->resolveTenantIdForSuperadmin();
+
+        if ($tenantId) {
+            $setting = AppSetting::withoutTenantScope()
+                ->where('tenant_id', $tenantId)
+                ->where('key', 'maintenance_mode')
+                ->first();
+
+            $current = (bool) $setting?->value;
+            $setting?->update(['value' => $current ? '0' : '1']);
+        } else {
+            $current = $this->settings->isMaintenanceMode();
+            $this->settings->set('maintenance_mode', $current ? '0' : '1');
+        }
+
         $this->settings->flush();
 
         $status = $current ? 'dinonaktifkan' : 'diaktifkan';

@@ -14,11 +14,28 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureTenantSelected
 {
+    /**
+     * Route yang dikecualikan dari paksaan pilih tenant untuk superadmin --
+     * dilayani lewat tenant utama ("icaretrue") secara langsung oleh
+     * controllernya masing-masing, supaya superadmin bisa ubah branding
+     * dasar aplikasi (nama, logo) tanpa perlu "masuk sebagai" tenant tertentu.
+     */
+    private const EXEMPT_ROUTES = [
+        'settings.index',
+        'settings.update',
+        'settings.maintenance-toggle',
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
-        if ($user && $user->role === 'superadmin' && ! session('active_tenant_id')) {
+        if (
+            $user
+            && $user->role === 'superadmin'
+            && ! session('active_tenant_id')
+            && ! in_array($request->route()?->getName(), self::EXEMPT_ROUTES, true)
+        ) {
             return redirect()->route('superadmin.tenants.select');
         }
 
