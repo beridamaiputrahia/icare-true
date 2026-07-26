@@ -494,13 +494,37 @@ function useOnlineGame(sessionCode,onMove,onEnded){
   onMoveRef.current=onMove;
   onEndedRef.current=onEnded;
 
+  // Pemain yang keluar mid-game (tombol Keluar / tutup tab) — ditangani di
+  // sini (bukan diulang di tiap komponen game) supaya keempat game online
+  // dapat perilaku yang sama: tampilkan siapa yang keluar + dialog pilihan
+  // "lanjutkan tanpa dia" / "akhiri sesi" untuk pemain yang masih tersisa.
+  const [pemainKeluar,setPemainKeluar]=useState(null); // {id,nama} — dialog aktif kalau ada isinya
+  const [pemainDitandaiKeluar,setPemainDitandaiKeluar]=useState(null); // id — tetap tersimpan setelah dialog ditutup, untuk indikator "(keluar)" di papan skor
+  const [sesiDiakhiriKarenaKeluar,setSesiDiakhiriKarenaKeluar]=useState(false);
+
   useEffect(()=>{
     if(!sessionCode)return;
     const pusher=getPusher();
     if(!pusher)return;
     const ch=pusher.subscribe("private-game-session."+sessionCode);
     chRef.current=ch;
-    ch.bind("move",(d)=>onMoveRef.current&&onMoveRef.current(d));
+    ch.bind("move",(d)=>{
+      const p=d.payload||{};
+      if(p.type==="player_left"){
+        setPemainKeluar({id:p.user_id,nama:p.user_name||"Pemain"});
+        setPemainDitandaiKeluar(p.user_id);
+        return; // jangan diteruskan ke onMove — ini bukan gerakan permainan
+      }
+      if(p.type==="session_continued"){
+        setPemainKeluar(null); // dialog tertutup, lanjut seperti biasa
+        return;
+      }
+      if(p.type==="session_ended_by_leave"){
+        setSesiDiakhiriKarenaKeluar(true);
+        return;
+      }
+      onMoveRef.current&&onMoveRef.current(d);
+    });
     ch.bind("ended",(d)=>onEndedRef.current&&onEndedRef.current(d));
     return()=>{pusher.unsubscribe("private-game-session."+sessionCode);};
   },[sessionCode]);
@@ -515,7 +539,50 @@ function useOnlineGame(sessionCode,onMove,onEnded){
     try{await apiPost("/game/move",{session_code:sessionCode,payload:{finished:true,score}});}catch(e){console.error("[Game] Gagal kirim finished:",e);}
   },[sessionCode]);
 
-  return{sendMove,sendFinished};
+  const keluarDariSesi=useCallback(()=>{
+    if(!sessionCode)return;
+    // sendBeacon supaya sinyal tetap terkirim walau tab langsung ditutup
+    // (fetch biasa bisa dibatalkan browser saat halaman unload).
+    const token=document.querySelector('meta[name="csrf-token"]')?.content||"";
+    const data=new Blob([JSON.stringify({session_code:sessionCode})],{type:"application/json"});
+    if(navigator.sendBeacon){
+      navigator.sendBeacon("/game/leave?_token="+encodeURIComponent(token),data);
+    }else{
+      apiPost("/game/leave",{session_code:sessionCode}).catch(()=>{});
+    }
+  },[sessionCode]);
+
+  useEffect(()=>{
+    const handler=()=>keluarDariSesi();
+    window.addEventListener("beforeunload",handler);
+    return()=>window.removeEventListener("beforeunload",handler);
+  },[keluarDariSesi]);
+
+  const putuskanKelanjutan=useCallback(async(action)=>{
+    if(!sessionCode)return;
+    try{await apiPost("/game/resolve-leave",{session_code:sessionCode,action});}catch(e){console.error("[Game] Gagal kirim keputusan:",e);}
+    if(action==="continue")setPemainKeluar(null);
+  },[sessionCode]);
+
+  return{sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan};
+}
+
+/* ── DIALOG: SALAH SATU PEMAIN KELUAR DI TENGAH GAME ─────────── */
+function DialogPemainKeluar({nama,onLanjut,onAkhiri}){
+  const konten=(
+    <div style={{position:"fixed",inset:0,zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.6)",padding:20}}>
+      <div className="gf-pop"style={{width:"100%",maxWidth:380,padding:"22px 20px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)",textAlign:"center"}}>
+        <div style={{fontSize:32,marginBottom:8}}>🚪</div>
+        <div style={{fontWeight:800,fontSize:16,color:P.cream,marginBottom:6}}>{nama} keluar dari game</div>
+        <div style={{fontSize:13,color:P.muted,fontWeight:600,marginBottom:18}}>Lanjutkan permainan tanpa {nama}, atau akhiri sesi ini untuk semua?</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button onClick={onLanjut}className="gf-btn"style={{padding:"12px",borderRadius:12,border:"none",background:P.green,color:"#1A1340",fontWeight:800,fontSize:14,cursor:"pointer"}}>Lanjutkan Tanpa {nama}</button>
+          <button onClick={onAkhiri}className="gf-btn"style={{padding:"12px",borderRadius:12,border:`1px solid ${P.red}`,background:"transparent",color:P.red,fontWeight:800,fontSize:14,cursor:"pointer"}}>Akhiri Sesi</button>
+        </div>
+      </div>
+    </div>
+  );
+  return ReactDOM.createPortal(konten,document.body);
 }
 
 /* ── PAPAN SKOR N-PEMAIN (2-4 orang) ─────────────────────────── */
@@ -523,14 +590,15 @@ function useOnlineGame(sessionCode,onMove,onEnded){
 // scores: {[id]: number}. tengah: elemen opsional (mis. timer) di antara kartu skor.
 const PEMAIN_WARNA=[P.gold,P.p2,P.purple,P.orange];
 function warnaPemain(idx){return PEMAIN_WARNA[idx%PEMAIN_WARNA.length];}
-function PapanSkorN({players,scores,myId,tengah}){
+function PapanSkorN({players,scores,myId,tengah,pemainKeluarId}){
   const urut=[...players].sort((a,b)=>a.id===myId?-1:b.id===myId?1:0);
   return(
     <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginTop:14,gap:8,flexWrap:"wrap"}}>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",flex:1}}>
         {urut.map((p,i)=>{
           const warna=p.id===myId?P.gold:warnaPemain(i);
-          return(<div key={p.id}style={{display:"flex",alignItems:"center",gap:6,padding:"5px 9px 5px 5px",borderRadius:99,background:p.id===myId?`${P.gold}14`:"rgba(255,255,255,0.04)"}}><Avatar nama={p.nama}size={26}ring={warna}/><div><div style={{fontWeight:700,fontSize:10.5,color:warna,maxWidth:70,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.id===myId?"Kamu":p.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:15,color:P.cream,lineHeight:1}}>{scores[p.id]??0}</div></div></div>);
+          const keluar=p.id===pemainKeluarId;
+          return(<div key={p.id}style={{display:"flex",alignItems:"center",gap:6,padding:"5px 9px 5px 5px",borderRadius:99,background:p.id===myId?`${P.gold}14`:"rgba(255,255,255,0.04)",opacity:keluar?.4:1}}><Avatar nama={p.nama}size={26}ring={warna}/><div><div style={{fontWeight:700,fontSize:10.5,color:warna,maxWidth:70,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.id===myId?"Kamu":p.nama}{keluar?" (keluar)":""}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:15,color:P.cream,lineHeight:1}}>{scores[p.id]??0}</div></div></div>);
         })}
       </div>
       {tengah}
@@ -582,7 +650,7 @@ function KuisOnline({players,sessionCode,onExit}){
     else{setIdx(i=>i+1);setPilih(null);setYouLock(false);setPemenangRonde(null);setWaktu(12);}
   },[idx,soal.length]);
 
-  const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
     const p=d.payload||{};
     if(p.type==="answer_correct"&&!resolvedRef.current){
       resolvedRef.current=true;
@@ -593,6 +661,8 @@ function KuisOnline({players,sessionCode,onExit}){
       setTimeout(lanjut,1700);
     }
   },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
+
+  useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
 
   const jawab=useCallback(i=>{
     if(resolvedRef.current||pilih!==null||youLockRef.current)return;
@@ -628,7 +698,7 @@ function KuisOnline({players,sessionCode,onExit}){
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.gold}onExit={onExit}/>;
   const ratio=waktu/12;
   const statusTeks=pemenangRonde==="seri"?"Waktu habis — ronde seri":pemenangRonde?(pemenangRonde.id===myId?"Kamu tercepat! ⚡":`${pemenangRonde.nama} lebih cepat`):youLock?"Jawabanmu salah — tunggu pemain lain…":"Jawab secepat mungkin!";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span></div><PapanSkorN players={players}scores={skor}myId={myId}tengah={<div style={{position:"relative",display:"grid",placeItems:"center",flexShrink:0}}><TimerRing ratio={ratio}danger={ratio<.3}size={48}/><div style={{position:"absolute",fontWeight:800,fontSize:14,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div>}/><div style={{marginTop:10,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div key={idx}className="gf-pop"style={{marginTop:18}}><div style={{fontSize:12,fontWeight:700,color:P.gold,letterSpacing:1,textTransform:"uppercase"}}>Pertanyaan</div><h2 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:21,lineHeight:1.25,margin:"7px 0 0",color:P.cream}}>{s.q}</h2></div><div style={{display:"grid",gap:9,marginTop:16}}>{s.opsi.map((op,i)=>{let st="idle";if(pemenangRonde){st=i===s.benar?"benar":i===pilih?"salah":"redup";}else if(pilih===i)st="salah";else if(youLock)st="redup";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{marginTop:10,textAlign:"center",fontWeight:700,fontSize:13,color:P.red}}>Jawabanmu salah — terkunci ronde ini ✗</div>}</div>);
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}tengah={<div style={{position:"relative",display:"grid",placeItems:"center",flexShrink:0}}><TimerRing ratio={ratio}danger={ratio<.3}size={48}/><div style={{position:"absolute",fontWeight:800,fontSize:14,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div>}/><div style={{marginTop:10,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div key={idx}className="gf-pop"style={{marginTop:18}}><div style={{fontSize:12,fontWeight:700,color:P.gold,letterSpacing:1,textTransform:"uppercase"}}>Pertanyaan</div><h2 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:21,lineHeight:1.25,margin:"7px 0 0",color:P.cream}}>{s.q}</h2></div><div style={{display:"grid",gap:9,marginTop:16}}>{s.opsi.map((op,i)=>{let st="idle";if(pemenangRonde){st=i===s.benar?"benar":i===pilih?"salah":"redup";}else if(pilih===i)st="salah";else if(youLock)st="redup";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{marginTop:10,textAlign:"center",fontWeight:700,fontSize:13,color:P.red}}>Jawabanmu salah — terkunci ronde ini ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -690,7 +760,7 @@ function SusunOnline({players,sessionCode,onExit}){
     else{setIdx(nextIdx);setPemenangRonde(null);setWaktu(90);}
   },[ayat.length]);
 
-  const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
     const p=d.payload||{};
     if(p.type==="ronde_selesai"&&!resolvedRef.current){
       resolvedRef.current=true;
@@ -701,6 +771,8 @@ function SusunOnline({players,sessionCode,onExit}){
       setTimeout(()=>lanjutKe(idx+1),1600);
     }
   },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
+
+  useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
 
   useEffect(()=>{
     setBank(a.acak.map((k,i)=>({kata:k,origIdx:i})));
@@ -758,7 +830,7 @@ function SusunOnline({players,sessionCode,onExit}){
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.p2}onExit={onExit}/>;
   const ratio=waktu/90;
   const statusTeks=pemenangRonde==="seri"?"Waktu habis — ronde seri":pemenangRonde?(pemenangRonde.id===myId?"Kamu berhasil duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Susun secepat mungkin!";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><PapanSkorN players={players}scores={skor}myId={myId}/><div style={{marginTop:10,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!pemenangRonde}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!pemenangRonde}accent={P.muted}/></div></div>);
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{marginTop:10,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!pemenangRonde}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!pemenangRonde}accent={P.muted}/></div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -811,7 +883,7 @@ function TebakOnline({players,sessionCode,onExit}){
     else{setIdx(i=>i+1);setClueIdx(0);setPilih(null);setYouLock(false);setPemenangRonde(null);}
   },[idx,tokoh.length]);
 
-  const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
     const p=d.payload||{};
     if(p.type==="answered_correct"&&!resolvedRef.current){
       resolvedRef.current=true;
@@ -821,6 +893,8 @@ function TebakOnline({players,sessionCode,onExit}){
       setTimeout(lanjut,1600);
     }
   },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
+
+  useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
 
   useEffect(()=>{resolvedRef.current=false;},[idx]);
 
@@ -845,7 +919,7 @@ function TebakOnline({players,sessionCode,onExit}){
 
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.purple}onExit={onExit}/>;
   const statusTeks=pemenangRonde?(pemenangRonde.id===myId?"Kamu benar duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Siapa yang jawab duluan?";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button></div><PapanSkorN players={players}scores={skor}myId={myId}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -892,7 +966,7 @@ function MemoryOnline({players,sessionCode,onExit}){
   useEffect(()=>{matchedRef.current=matched;},[matched]);
   useEffect(()=>{skorRef.current=skor;},[skor]);
 
-  const {sendMove,sendFinished}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
     if(d.user_id===myId)return;
     const p=d.payload||{};
     if(p.type==="flip"){
@@ -911,6 +985,8 @@ function MemoryOnline({players,sessionCode,onExit}){
       },900);
     }
   },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
+
+  useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
 
   const klik=i=>{
     if(!giliranKamu||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
@@ -936,7 +1012,7 @@ function MemoryOnline({players,sessionCode,onExit}){
 
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.orange}onExit={onExit}/>;
   const giliranNama=players.find(p=>p.id===giliranId)?.nama||"?";
-  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/8 pasang ditemukan</div></div>);
+  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/8 pasang ditemukan</div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════

@@ -2325,13 +2325,40 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
   const onEndedRef = useRef(onEnded);
   onMoveRef.current = onMove;
   onEndedRef.current = onEnded;
+
+  // Pemain yang keluar mid-game (tombol Keluar / tutup tab) — ditangani di
+  // sini (bukan diulang di tiap komponen game) supaya keempat game online
+  // dapat perilaku yang sama: tampilkan siapa yang keluar + dialog pilihan
+  // "lanjutkan tanpa dia" / "akhiri sesi" untuk pemain yang masih tersisa.
+  const [pemainKeluar, setPemainKeluar] = useState(null); // {id,nama} — dialog aktif kalau ada isinya
+  const [pemainDitandaiKeluar, setPemainDitandaiKeluar] = useState(null); // id — tetap tersimpan setelah dialog ditutup, untuk indikator "(keluar)" di papan skor
+  const [sesiDiakhiriKarenaKeluar, setSesiDiakhiriKarenaKeluar] = useState(false);
   useEffect(() => {
     if (!sessionCode) return;
     const pusher = getPusher();
     if (!pusher) return;
     const ch = pusher.subscribe("private-game-session." + sessionCode);
     chRef.current = ch;
-    ch.bind("move", d => onMoveRef.current && onMoveRef.current(d));
+    ch.bind("move", d => {
+      const p = d.payload || {};
+      if (p.type === "player_left") {
+        setPemainKeluar({
+          id: p.user_id,
+          nama: p.user_name || "Pemain"
+        });
+        setPemainDitandaiKeluar(p.user_id);
+        return; // jangan diteruskan ke onMove — ini bukan gerakan permainan
+      }
+      if (p.type === "session_continued") {
+        setPemainKeluar(null); // dialog tertutup, lanjut seperti biasa
+        return;
+      }
+      if (p.type === "session_ended_by_leave") {
+        setSesiDiakhiriKarenaKeluar(true);
+        return;
+      }
+      onMoveRef.current && onMoveRef.current(d);
+    });
     ch.bind("ended", d => onEndedRef.current && onEndedRef.current(d));
     return () => {
       pusher.unsubscribe("private-game-session." + sessionCode);
@@ -2362,10 +2389,134 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
       console.error("[Game] Gagal kirim finished:", e);
     }
   }, [sessionCode]);
+  const keluarDariSesi = useCallback(() => {
+    if (!sessionCode) return;
+    // sendBeacon supaya sinyal tetap terkirim walau tab langsung ditutup
+    // (fetch biasa bisa dibatalkan browser saat halaman unload).
+    const token = document.querySelector('meta[name="csrf-token"]')?.content || "";
+    const data = new Blob([JSON.stringify({
+      session_code: sessionCode
+    })], {
+      type: "application/json"
+    });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/game/leave?_token=" + encodeURIComponent(token), data);
+    } else {
+      apiPost("/game/leave", {
+        session_code: sessionCode
+      }).catch(() => {});
+    }
+  }, [sessionCode]);
+  useEffect(() => {
+    const handler = () => keluarDariSesi();
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [keluarDariSesi]);
+  const putuskanKelanjutan = useCallback(async action => {
+    if (!sessionCode) return;
+    try {
+      await apiPost("/game/resolve-leave", {
+        session_code: sessionCode,
+        action
+      });
+    } catch (e) {
+      console.error("[Game] Gagal kirim keputusan:", e);
+    }
+    if (action === "continue") setPemainKeluar(null);
+  }, [sessionCode]);
   return {
     sendMove,
-    sendFinished
+    sendFinished,
+    keluarDariSesi,
+    pemainKeluar,
+    pemainDitandaiKeluar,
+    sesiDiakhiriKarenaKeluar,
+    putuskanKelanjutan
   };
+}
+
+/* ── DIALOG: SALAH SATU PEMAIN KELUAR DI TENGAH GAME ─────────── */
+function DialogPemainKeluar({
+  nama,
+  onLanjut,
+  onAkhiri
+}) {
+  const konten = /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 9998,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "rgba(0,0,0,0.6)",
+      padding: 20
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "gf-pop",
+    style: {
+      width: "100%",
+      maxWidth: 380,
+      padding: "22px 20px",
+      borderRadius: 20,
+      background: "#241A57",
+      border: `1.5px solid ${P.gold}`,
+      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 32,
+      marginBottom: 8
+    }
+  }, "🚪"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontWeight: 800,
+      fontSize: 16,
+      color: P.cream,
+      marginBottom: 6
+    }
+  }, nama, " keluar dari game"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      color: P.muted,
+      fontWeight: 600,
+      marginBottom: 18
+    }
+  }, "Lanjutkan permainan tanpa ", nama, ", atau akhiri sesi ini untuk semua?"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10
+    }
+  }, /*#__PURE__*/React.createElement("button", {
+    onClick: onLanjut,
+    className: "gf-btn",
+    style: {
+      padding: "12px",
+      borderRadius: 12,
+      border: "none",
+      background: P.green,
+      color: "#1A1340",
+      fontWeight: 800,
+      fontSize: 14,
+      cursor: "pointer"
+    }
+  }, "Lanjutkan Tanpa ", nama), /*#__PURE__*/React.createElement("button", {
+    onClick: onAkhiri,
+    className: "gf-btn",
+    style: {
+      padding: "12px",
+      borderRadius: 12,
+      border: `1px solid ${P.red}`,
+      background: "transparent",
+      color: P.red,
+      fontWeight: 800,
+      fontSize: 14,
+      cursor: "pointer"
+    }
+  }, "Akhiri Sesi"))));
+  return ReactDOM.createPortal(konten, document.body);
 }
 
 /* ── PAPAN SKOR N-PEMAIN (2-4 orang) ─────────────────────────── */
@@ -2379,7 +2530,8 @@ function PapanSkorN({
   players,
   scores,
   myId,
-  tengah
+  tengah,
+  pemainKeluarId
 }) {
   const urut = [...players].sort((a, b) => a.id === myId ? -1 : b.id === myId ? 1 : 0);
   return /*#__PURE__*/React.createElement("div", {
@@ -2400,6 +2552,7 @@ function PapanSkorN({
     }
   }, urut.map((p, i) => {
     const warna = p.id === myId ? P.gold : warnaPemain(i);
+    const keluar = p.id === pemainKeluarId;
     return /*#__PURE__*/React.createElement("div", {
       key: p.id,
       style: {
@@ -2408,7 +2561,8 @@ function PapanSkorN({
         gap: 6,
         padding: "5px 9px 5px 5px",
         borderRadius: 99,
-        background: p.id === myId ? `${P.gold}14` : "rgba(255,255,255,0.04)"
+        background: p.id === myId ? `${P.gold}14` : "rgba(255,255,255,0.04)",
+        opacity: keluar ? .4 : 1
       }
     }, /*#__PURE__*/React.createElement(Avatar, {
       nama: p.nama,
@@ -2424,7 +2578,7 @@ function PapanSkorN({
         textOverflow: "ellipsis",
         whiteSpace: "nowrap"
       }
-    }, p.id === myId ? "Kamu" : p.nama), /*#__PURE__*/React.createElement("div", {
+    }, p.id === myId ? "Kamu" : p.nama, keluar ? " (keluar)" : ""), /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: "'Bricolage Grotesque',sans-serif",
         fontWeight: 800,
@@ -2575,7 +2729,12 @@ function KuisOnline({
   }, [idx, soal.length]);
   const {
     sendMove,
-    sendFinished
+    sendFinished,
+    keluarDariSesi,
+    pemainKeluar,
+    pemainDitandaiKeluar,
+    sesiDiakhiriKarenaKeluar,
+    putuskanKelanjutan
   } = useOnlineGame(sessionCode, d => {
     const p = d.payload || {};
     if (p.type === "answer_correct" && !resolvedRef.current) {
@@ -2593,6 +2752,9 @@ function KuisOnline({
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
   });
+  useEffect(() => {
+    if (sesiDiakhiriKarenaKeluar) onExit();
+  }, [sesiDiakhiriKarenaKeluar]);
   const jawab = useCallback(i => {
     if (resolvedRef.current || pilih !== null || youLockRef.current) return;
     setPilih(i);
@@ -2663,14 +2825,21 @@ function KuisOnline({
       maxWidth: 460,
       margin: "0 auto"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, pemainKeluar && /*#__PURE__*/React.createElement(DialogPemainKeluar, {
+    nama: pemainKeluar.nama,
+    onLanjut: () => putuskanKelanjutan("continue"),
+    onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center"
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: onExit,
+    onClick: () => {
+      keluarDariSesi();
+      onExit();
+    },
     className: "gf-btn",
     style: gBtn
   }, "← Keluar"), /*#__PURE__*/React.createElement("span", {
@@ -2684,6 +2853,7 @@ function KuisOnline({
     players: players,
     scores: skor,
     myId: myId,
+    pemainKeluarId: pemainDitandaiKeluar,
     tengah: /*#__PURE__*/React.createElement("div", {
       style: {
         position: "relative",
@@ -3313,7 +3483,12 @@ function SusunOnline({
   }, [ayat.length]);
   const {
     sendMove,
-    sendFinished
+    sendFinished,
+    keluarDariSesi,
+    pemainKeluar,
+    pemainDitandaiKeluar,
+    sesiDiakhiriKarenaKeluar,
+    putuskanKelanjutan
   } = useOnlineGame(sessionCode, d => {
     const p = d.payload || {};
     if (p.type === "ronde_selesai" && !resolvedRef.current) {
@@ -3331,6 +3506,9 @@ function SusunOnline({
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
   });
+  useEffect(() => {
+    if (sesiDiakhiriKarenaKeluar) onExit();
+  }, [sesiDiakhiriKarenaKeluar]);
   useEffect(() => {
     setBank(a.acak.map((k, i) => ({
       kata: k,
@@ -3413,14 +3591,21 @@ function SusunOnline({
       maxWidth: 460,
       margin: "0 auto"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, pemainKeluar && /*#__PURE__*/React.createElement(DialogPemainKeluar, {
+    nama: pemainKeluar.nama,
+    onLanjut: () => putuskanKelanjutan("continue"),
+    onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center"
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: onExit,
+    onClick: () => {
+      keluarDariSesi();
+      onExit();
+    },
     className: "gf-btn",
     style: gBtn
   }, "← Keluar"), /*#__PURE__*/React.createElement("div", {
@@ -3443,7 +3628,8 @@ function SusunOnline({
   }, Math.ceil(waktu)))), /*#__PURE__*/React.createElement(PapanSkorN, {
     players: players,
     scores: skor,
-    myId: myId
+    myId: myId,
+    pemainKeluarId: pemainDitandaiKeluar
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
@@ -3973,7 +4159,12 @@ function TebakOnline({
   }, [idx, tokoh.length]);
   const {
     sendMove,
-    sendFinished
+    sendFinished,
+    keluarDariSesi,
+    pemainKeluar,
+    pemainDitandaiKeluar,
+    sesiDiakhiriKarenaKeluar,
+    putuskanKelanjutan
   } = useOnlineGame(sessionCode, d => {
     const p = d.payload || {};
     if (p.type === "answered_correct" && !resolvedRef.current) {
@@ -3990,6 +4181,9 @@ function TebakOnline({
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
   });
+  useEffect(() => {
+    if (sesiDiakhiriKarenaKeluar) onExit();
+  }, [sesiDiakhiriKarenaKeluar]);
   useEffect(() => {
     resolvedRef.current = false;
   }, [idx]);
@@ -4039,20 +4233,28 @@ function TebakOnline({
       maxWidth: 460,
       margin: "0 auto"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, pemainKeluar && /*#__PURE__*/React.createElement(DialogPemainKeluar, {
+    nama: pemainKeluar.nama,
+    onLanjut: () => putuskanKelanjutan("continue"),
+    onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center"
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: onExit,
+    onClick: () => {
+      keluarDariSesi();
+      onExit();
+    },
     className: "gf-btn",
     style: gBtn
   }, "← Keluar")), /*#__PURE__*/React.createElement(PapanSkorN, {
     players: players,
     scores: skor,
-    myId: myId
+    myId: myId,
+    pemainKeluarId: pemainDitandaiKeluar
   }), /*#__PURE__*/React.createElement("div", {
     key: idx,
     style: {
@@ -4505,7 +4707,12 @@ function MemoryOnline({
   }, [skor]);
   const {
     sendMove,
-    sendFinished
+    sendFinished,
+    keluarDariSesi,
+    pemainKeluar,
+    pemainDitandaiKeluar,
+    sesiDiakhiriKarenaKeluar,
+    putuskanKelanjutan
   } = useOnlineGame(sessionCode, d => {
     if (d.user_id === myId) return;
     const p = d.payload || {};
@@ -4538,6 +4745,9 @@ function MemoryOnline({
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
   });
+  useEffect(() => {
+    if (sesiDiakhiriKarenaKeluar) onExit();
+  }, [sesiDiakhiriKarenaKeluar]);
   const klik = i => {
     if (!giliranKamu || checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
     const next = [...terbuka, i];
@@ -4596,7 +4806,11 @@ function MemoryOnline({
       maxWidth: 460,
       margin: "0 auto"
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, pemainKeluar && /*#__PURE__*/React.createElement(DialogPemainKeluar, {
+    nama: pemainKeluar.nama,
+    onLanjut: () => putuskanKelanjutan("continue"),
+    onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       justifyContent: "space-between",
@@ -4604,7 +4818,10 @@ function MemoryOnline({
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("button", {
-    onClick: onExit,
+    onClick: () => {
+      keluarDariSesi();
+      onExit();
+    },
     className: "gf-btn",
     style: gBtn
   }, "← Keluar"), /*#__PURE__*/React.createElement("div", {
@@ -4616,7 +4833,8 @@ function MemoryOnline({
   }, giliranKamu ? "Giliranmu — buka 2 kartu" : `Giliran ${giliranNama}…`)), /*#__PURE__*/React.createElement(PapanSkorN, {
     players: players,
     scores: skor,
-    myId: myId
+    myId: myId,
+    pemainKeluarId: pemainDitandaiKeluar
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",

@@ -159,6 +159,81 @@ class GameSessionController extends Controller
         return response()->json(['status' => 'ok']);
     }
 
+    // POST /game/leave — pemain sengaja keluar di tengah sesi 'active'
+    // (tombol Keluar / tutup tab, lihat GameFeature.jsx sendBeacon on
+    // beforeunload). Sesi TIDAK langsung diakhiri di sini — status peserta
+    // cuma ditandai 'left' lalu pemain lain diberi tahu lewat GameMove
+    // supaya mereka yang memutuskan lanjut atau akhiri lewat /game/resolve-leave.
+    public function leave(Request $request)
+    {
+        $request->validate(['session_code' => 'required|string']);
+
+        $userId  = Auth::id();
+        $session = GameSession::where('code', $request->session_code)
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        $participant = $session->participants()->where('user_id', $userId)->where('status', 'accepted')->firstOrFail();
+        $participant->update(['status' => 'left']);
+
+        broadcast(new GameMove($session->fresh('participants.user'), $userId, [
+            'type'        => 'player_left',
+            'user_id'     => $userId,
+            'user_name'   => $participant->user->name ?? '',
+        ]));
+
+        return response()->json(['status' => 'left']);
+    }
+
+    // POST /game/resolve-leave — salah satu pemain yang TERSISA memutuskan
+    // kelanjutan sesi setelah ada yang keluar (lihat leave() di atas).
+    // Siapa pun yang tersisa boleh mengirim ini duluan; yang pertama sampai
+    // ke server yang menentukan (session sudah tidak 'active' lagi setelah
+    // diputuskan 'end', jadi request kedua yang menyusul akan gagal wajar).
+    public function resolveLeave(Request $request)
+    {
+        $request->validate([
+            'session_code' => 'required|string',
+            'action'       => 'required|in:continue,end',
+        ]);
+
+        $userId  = Auth::id();
+        $session = GameSession::where('code', $request->session_code)
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        // Pastikan pengirim memang masih peserta aktif (bukan yang sudah keluar).
+        $session->participants()->where('user_id', $userId)->where('status', 'accepted')->firstOrFail();
+
+        if ($request->action === 'end') {
+            $session->update(['status' => 'declined']);
+            broadcast(new GameMove($session->fresh('participants.user'), $userId, [
+                'type' => 'session_ended_by_leave',
+            ]));
+
+            return response()->json(['status' => 'ended']);
+        }
+
+        // "continue": sesi tetap aktif, sisa pemain lanjut. Broadcast supaya
+        // dialog pilihan di layar pemain lain otomatis tertutup.
+        broadcast(new GameMove($session->fresh('participants.user'), $userId, [
+            'type' => 'session_continued',
+        ]));
+
+        // Kalau kebetulan semua pemain yang MASIH 'accepted' sudah selesai
+        // ronde mereka duluan sebelum keputusan ini turun, sesi harus segera
+        // ditutup sekarang (bukan menunggu move berikutnya yang mungkin
+        // tidak akan pernah datang lagi).
+        $session->load('participants');
+        $accepted = $session->participants->where('status', 'accepted');
+        if ($accepted->isNotEmpty() && $accepted->every(fn ($p) => $p->finished) && $session->status !== 'finished') {
+            $session->update(['status' => 'finished', 'finished_at' => now()]);
+            broadcast(new GameEnded($session->fresh('participants.user')));
+        }
+
+        return response()->json(['status' => 'continued']);
+    }
+
     // GET /game/session/{code} — polling fallback & info sesi
     public function show(string $code)
     {
