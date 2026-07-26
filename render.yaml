@@ -16,9 +16,9 @@ services:
       - key: APP_FALLBACK_LOCALE
         value: id
       - key: LOG_CHANNEL
-        value: stack
+        value: stderr
       - key: LOG_LEVEL
-        value: error
+        value: warning
       - key: BCRYPT_ROUNDS
         value: "12"
       - key: APP_KEY
