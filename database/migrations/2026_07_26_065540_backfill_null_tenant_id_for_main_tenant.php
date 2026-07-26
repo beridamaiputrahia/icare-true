@@ -44,6 +44,22 @@ return new class extends Migration
                 continue;
             }
 
+            // app_settings punya unique constraint gabungan (key, tenant_id) --
+            // kalau tenant utama SUDAH punya baris untuk key tertentu (mis. dari
+            // backfill/seeder manual sebelumnya), baris NULL dengan key yang sama
+            // adalah duplikat usang: hapus, jangan di-update (akan melanggar
+            // constraint dan menggagalkan migrasi/deploy).
+            if ($tableName === 'app_settings') {
+                $existingKeys = DB::table('app_settings')
+                    ->where('tenant_id', $mainTenant->id)
+                    ->pluck('key');
+
+                DB::table('app_settings')
+                    ->whereNull('tenant_id')
+                    ->whereIn('key', $existingKeys)
+                    ->delete();
+            }
+
             DB::table($tableName)
                 ->whereNull('tenant_id')
                 ->update(['tenant_id' => $mainTenant->id]);
