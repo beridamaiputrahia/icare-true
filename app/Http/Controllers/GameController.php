@@ -17,7 +17,7 @@ class GameController extends Controller
             ->get();
 
         $finished = GameSession::where('status', 'finished')
-            ->where(function ($q) use ($users) {
+            ->where(function ($q) use ($users, $user) {
                 $ids = $users->pluck('id')->push($user->id);
                 $q->whereIn('challenger_id', $ids)->orWhereIn('opponent_id', $ids);
             })
