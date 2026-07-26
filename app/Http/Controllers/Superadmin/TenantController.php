@@ -24,7 +24,7 @@ class TenantController extends Controller
 {
     public function index(): View
     {
-        $tenants = Tenant::withCount('users')->orderBy('nama_perusahaan')->get();
+        $tenants = Tenant::visible()->withCount('users')->orderBy('nama_perusahaan')->get();
 
         return view('superadmin.tenants.index', compact('tenants'));
     }

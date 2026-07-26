@@ -22,8 +22,8 @@ class SettingsManager
      * $tenantId() mengembalikan 'global' dan AppSetting::get() query tanpa
      * scope tenant sama sekali, sehingga nama/logo aplikasi yang tampil di
      * header/manifest tidak pernah mencerminkan perubahan yang disimpan
-     * AppSettingController untuk tenant utama ("icaretrue"). Selaras dengan
-     * AppSettingController::resolveTenantIdForSuperadmin().
+     * AppSettingController untuk tenant sistem khusus (bukan grup jemaat
+     * manapun). Selaras dengan AppSettingController::resolveTenantIdForSuperadmin().
      */
     private function resolveTenantId(): ?int
     {
@@ -37,7 +37,7 @@ class SettingsManager
             return $user->tenant_id;
         }
 
-        return session('active_tenant_id') ?? Tenant::where('slug', 'icaretrue')->value('id');
+        return session('active_tenant_id') ?? Tenant::defaultBrandingTenant()->id;
     }
 
     private function tenantId(): string

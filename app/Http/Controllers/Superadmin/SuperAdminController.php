@@ -34,7 +34,7 @@ class SuperAdminController extends Controller
             ->orderBy('name')
             ->get();
 
-        $tenants = Tenant::orderBy('nama_perusahaan')->get();
+        $tenants = Tenant::visible()->orderBy('nama_perusahaan')->get();
 
         return view('superadmin.superadmins.index', [
             'users'   => $users,
@@ -45,7 +45,7 @@ class SuperAdminController extends Controller
 
     public function create(): View
     {
-        $tenants = Tenant::orderBy('nama_perusahaan')->get();
+        $tenants = Tenant::visible()->orderBy('nama_perusahaan')->get();
 
         return view('superadmin.superadmins.create', [
             'roles'   => self::ROLES,
@@ -78,7 +78,7 @@ class SuperAdminController extends Controller
 
     public function edit(User $superadmin): View
     {
-        $tenants = Tenant::orderBy('nama_perusahaan')->get();
+        $tenants = Tenant::visible()->orderBy('nama_perusahaan')->get();
 
         return view('superadmin.superadmins.edit', [
             'user'    => $superadmin,

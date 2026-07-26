@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Managers\SettingsManager;
 use App\Models\AppSetting;
 use App\Models\Tenant;
+use Database\Seeders\AppSettingSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -15,10 +16,11 @@ class AppSettingController extends Controller
     /**
      * Superadmin yang belum "masuk sebagai" tenant tertentu (belum pilih lewat
      * tenant switcher) tidak punya tenant aktif untuk BelongsToTenant scope --
-     * dalam kasus itu, layani pengaturan tenant utama ("icaretrue") secara
-     * langsung supaya superadmin tetap bisa ubah branding dasar aplikasi
-     * (nama, logo) tanpa harus pilih grup dulu. Admin biasa selalu punya
-     * tenant_id sendiri jadi tidak terpengaruh oleh ini.
+     * dalam kasus itu, layani pengaturan tenant sistem khusus (bukan grup
+     * jemaat sungguhan manapun) supaya superadmin tetap bisa ubah branding
+     * dasar aplikasi (nama, logo) tanpa harus pilih grup dulu, dan tanpa
+     * menimpa pengaturan grup jemaat asli. Admin biasa selalu punya tenant_id
+     * sendiri jadi tidak terpengaruh oleh ini.
      */
     private function resolveTenantIdForSuperadmin(): ?int
     {
@@ -26,7 +28,13 @@ class AppSettingController extends Controller
             return null;
         }
 
-        return Tenant::where('slug', 'icaretrue')->value('id');
+        $tenant = Tenant::defaultBrandingTenant();
+
+        if (! AppSetting::withoutTenantScope()->where('tenant_id', $tenant->id)->exists()) {
+            (new AppSettingSeeder)->run($tenant->id, $tenant->nama_perusahaan);
+        }
+
+        return $tenant->id;
     }
 
     public function index()
