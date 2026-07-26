@@ -199,7 +199,7 @@ function siapkanSoal(n){return pilihSegar(BANK_SOAL,n,"soal",s=>s.q).map(s=>{con
 function siapkanAyat(n){return pilihSegar(BANK_AYAT,n,"ayat",a=>a.ref).map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffle([...kata])};});}
 function siapkanTokoh(n){return pilihSegar(BANK_TOKOH,n,"tokoh",t=>t.jawaban).map(t=>{let op=shuffle([t.jawaban,...t.salah]).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffle(op)};});}
 function siapkanKartu(n=8){const p=pilihSegar(BANK_KARTU,n,"kartu",x=>x.a);return shuffle([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))]);}
-function getMembers(){const raw=window.__GAME_MEMBERS__;if(!raw||!raw.length)return [{id:"u1",nama:"Kak Ruth",online:true,menang:24,kalah:9},{id:"u2",nama:"Bang Daniel",online:true,menang:18,kalah:14},{id:"u3",nama:"Mira",online:true,menang:31,kalah:7},{id:"u4",nama:"Kevin",online:false,menang:5,kalah:11}];return raw.map((m,i)=>({...m,online:i%2===0,menang:Math.floor(Math.random()*30),kalah:Math.floor(Math.random()*20)}));}
+function getMembers(){const raw=window.__GAME_MEMBERS__;if(!raw||!raw.length)return [];return raw;}
 
 /* ── GLOBAL STYLES ─────────────────────────────────────────── */
 const GStyles = () => (

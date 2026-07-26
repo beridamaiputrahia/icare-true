@@ -150,8 +150,8 @@ function siapkanKartu(n = 8) {
 }
 function getMembers() {
   const raw = window.__GAME_MEMBERS__;
-  if (!raw || !raw.length) return [{ id: "u1", nama: "Kak Ruth", online: true, menang: 24, kalah: 9 }, { id: "u2", nama: "Bang Daniel", online: true, menang: 18, kalah: 14 }, { id: "u3", nama: "Mira", online: true, menang: 31, kalah: 7 }, { id: "u4", nama: "Kevin", online: false, menang: 5, kalah: 11 }];
-  return raw.map((m, i) => __spreadProps(__spreadValues({}, m), { online: i % 2 === 0, menang: Math.floor(Math.random() * 30), kalah: Math.floor(Math.random() * 20) }));
+  if (!raw || !raw.length) return [];
+  return raw;
 }
 const GStyles = () => /* @__PURE__ */ React.createElement("style", null, `
     @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
