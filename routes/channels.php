@@ -22,20 +22,20 @@ Broadcast::channel('game-user.{userId}', function ($user, $userId) {
     return (int) $user->id === (int) $userId;
 });
 
-// Game session channel — hanya challenger atau opponent dari tenant yang sama
+// Game session channel — hanya challenger atau opponent dari sesi tsb yang boleh subscribe.
+// Tidak perlu cek tenant_id di sini: siapa pun yang tercatat sebagai
+// challenger_id/opponent_id pada baris sesi itu SUDAH pasti pihak yang sah
+// (baris itu hanya bisa dibuat lewat GameSessionController::challenge, yang
+// hanya mengizinkan user login menantang user lain). Membandingkan tenant_id
+// di sini dulu jadi bug: superadmin punya users.tenant_id = NULL by design
+// (tenant aktifnya cuma ada di session 'active_tenant_id', lihat
+// BelongsToTenant::resolveTenantId), sehingga NULL !== tenant_id sesi selalu
+// gagal dan otorisasi channel ditolak terus untuk akun superadmin.
 Broadcast::channel('game-session.{code}', function ($user, $code) {
     $session = GameSession::withoutTenantScope()->where('code', $code)->first();
 
     if (! $session) {
         \Illuminate\Support\Facades\Log::warning('[game-session channel] sesi tidak ditemukan', ['code' => $code, 'user_id' => $user->id]);
-        return false;
-    }
-
-    if ((int) $session->tenant_id !== (int) $user->tenant_id) {
-        \Illuminate\Support\Facades\Log::warning('[game-session channel] tenant_id tidak cocok', [
-            'code' => $code, 'user_id' => $user->id,
-            'user_tenant_id' => $user->tenant_id, 'session_tenant_id' => $session->tenant_id,
-        ]);
         return false;
     }
 

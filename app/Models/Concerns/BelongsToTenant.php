@@ -46,7 +46,7 @@ trait BelongsToTenant
      * superadmin memilih tenant lewat tenant switcher (lihat TenantSwitchController
      * dan middleware EnsureTenantSelected).
      */
-    protected static function resolveTenantId(): ?int
+    public static function resolveTenantId(): ?int
     {
         if (! Auth::check()) {
             return null;
