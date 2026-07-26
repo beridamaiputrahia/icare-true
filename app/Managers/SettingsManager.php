@@ -3,6 +3,7 @@
 namespace App\Managers;
 
 use App\Models\AppSetting;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
@@ -15,18 +16,33 @@ class SettingsManager
      */
     private static array $cache = [];
 
-    private function tenantId(): string
+    /**
+     * Superadmin yang belum "masuk sebagai" tenant tertentu (belum pilih
+     * lewat tenant switcher) tidak punya tenant aktif -- tanpa fallback ini,
+     * $tenantId() mengembalikan 'global' dan AppSetting::get() query tanpa
+     * scope tenant sama sekali, sehingga nama/logo aplikasi yang tampil di
+     * header/manifest tidak pernah mencerminkan perubahan yang disimpan
+     * AppSettingController untuk tenant utama ("icaretrue"). Selaras dengan
+     * AppSettingController::resolveTenantIdForSuperadmin().
+     */
+    private function resolveTenantId(): ?int
     {
         if (! Auth::check()) {
-            return 'global';
+            return null;
         }
 
         $user = Auth::user();
 
-        // Superadmin tidak punya tenant_id sendiri; tenant aktifnya dari session switcher.
-        $tenantId = $user->role === 'superadmin' ? session('active_tenant_id') : $user->tenant_id;
+        if ($user->role !== 'superadmin') {
+            return $user->tenant_id;
+        }
 
-        return (string) ($tenantId ?? 'global');
+        return session('active_tenant_id') ?? Tenant::where('slug', 'icaretrue')->value('id');
+    }
+
+    private function tenantId(): string
+    {
+        return (string) ($this->resolveTenantId() ?? 'global');
     }
 
     public function get(string $key, mixed $default = null): mixed
@@ -34,7 +50,7 @@ class SettingsManager
         $tid = $this->tenantId();
 
         if (! isset(self::$cache[$tid][$key])) {
-            self::$cache[$tid][$key] = AppSetting::get($key, $default);
+            self::$cache[$tid][$key] = AppSetting::get($key, $default, $this->resolveTenantId());
         }
 
         return self::$cache[$tid][$key] ?? $default;
