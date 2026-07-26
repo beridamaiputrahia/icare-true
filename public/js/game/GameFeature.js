@@ -111,6 +111,56 @@ function shuffle(arr) {
   }
   return a;
 }
+function buatRng(seed) {
+  let s = 0;
+  for (let i = 0; i < seed.length; i++) s = (s * 31 + seed.charCodeAt(i)) >>> 0;
+  return function() {
+    s |= 0;
+    s = s + 1831565813 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function shuffleSeed(arr, rng) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = 0 | rng() * (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function siapkanSoalSeed(n, seed) {
+  const rng = buatRng(seed);
+  const dipilih = shuffleSeed(BANK_SOAL, rng).slice(0, n);
+  return dipilih.map((s) => {
+    const b = s.opsi[s.benar];
+    const o = shuffleSeed(s.opsi, rng);
+    return { q: s.q, opsi: o, benar: o.indexOf(b) };
+  });
+}
+function siapkanAyatSeed(n, seed) {
+  const rng = buatRng(seed);
+  const dipilih = shuffleSeed(BANK_AYAT, rng).slice(0, n);
+  return dipilih.map((a) => {
+    const kata = a.teks.split(" ");
+    return { ref: a.ref, kata, acak: shuffleSeed([...kata], rng) };
+  });
+}
+function siapkanTokohSeed(n, seed) {
+  const rng = buatRng(seed);
+  const dipilih = shuffleSeed(BANK_TOKOH, rng).slice(0, n);
+  return dipilih.map((t) => {
+    let op = shuffleSeed([t.jawaban, ...t.salah], rng).slice(0, 4);
+    if (!op.includes(t.jawaban)) op[0] = t.jawaban;
+    return __spreadProps(__spreadValues({}, t), { opsi: shuffleSeed(op, rng) });
+  });
+}
+function siapkanKartuSeed(n = 8, seed) {
+  const rng = buatRng(seed);
+  const p = shuffleSeed(BANK_KARTU, rng).slice(0, n);
+  return shuffleSeed([...p.map((x, i) => ({ id: i * 2, pair: i, isi: x.a })), ...p.map((x, i) => ({ id: i * 2 + 1, pair: i, isi: x.b }))], rng);
+}
 function inisial(n) {
   return n.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
@@ -475,7 +525,7 @@ function SkorBarOnline({ namaSaya, namaLawan, skorSaya, skorLawan, tengah }) {
 }
 function KuisOnline({ lawan, sessionCode, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
-  const [soal] = useState(() => siapkanSoal(7));
+  const [soal] = useState(() => siapkanSoalSeed(7, sessionCode + ":kuis"));
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState({ you: 0, op: 0 });
   const [pilih, setPilih] = useState(null);
@@ -723,7 +773,7 @@ function SusunTatap({ lawan, onExit }) {
 }
 function SusunOnline({ lawan, sessionCode, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
-  const [ayat] = useState(() => siapkanAyat(5));
+  const [ayat] = useState(() => siapkanAyatSeed(5, sessionCode + ":susun"));
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState({ you: 0, op: 0 });
   const skorRef = useRef({ you: 0, op: 0 });
@@ -926,7 +976,7 @@ function TebakTatap({ lawan, onExit }) {
 }
 function TebakOnline({ lawan, sessionCode, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
-  const [tokoh] = useState(() => siapkanTokoh(6));
+  const [tokoh] = useState(() => siapkanTokohSeed(6, sessionCode + ":tebak"));
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState({ you: 0, op: 0 });
   const skorRef = useRef({ you: 0, op: 0 });
@@ -1098,7 +1148,7 @@ function MemoryTatap({ lawan, onExit }) {
 }
 function MemoryOnline({ lawan, sessionCode, onExit }) {
   const namaSaya = (window.__GAME_USER__ || { nama: "Kamu" }).nama;
-  const [cards] = useState(() => siapkanKartu(8));
+  const [cards] = useState(() => siapkanKartuSeed(8, sessionCode + ":memory"));
   const [terbuka, setTerbuka] = useState([]);
   const [matched, setMatched] = useState([]);
   const [giliranKamu, setGiliranKamu] = useState(true);
