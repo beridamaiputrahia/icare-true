@@ -81,8 +81,12 @@ class GameSessionController extends Controller
         ]);
 
         $userId  = Auth::id();
+        // Terima juga status 'finished': pemain yang lebih lambat menyelesaikan
+        // ronde terakhirnya bisa saja mengirim gerakan SETELAH lawannya sudah
+        // menandai sesi selesai duluan. Menolak request itu (404) membuat sisi
+        // yang lebih lambat macet permanen karena movenya tak pernah terkirim.
         $session = GameSession::where('code', $request->session_code)
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'finished'])
             ->where(function ($q) use ($userId) {
                 $q->where('challenger_id', $userId)->orWhere('opponent_id', $userId);
             })
@@ -98,8 +102,10 @@ class GameSessionController extends Controller
 
         // Cek apakah game selesai
         if (isset($request->payload['finished']) && $request->payload['finished']) {
-            $session->update(['status' => 'finished', 'finished_at' => now()]);
-            broadcast(new GameEnded($session));
+            if ($session->status !== 'finished') {
+                $session->update(['status' => 'finished', 'finished_at' => now()]);
+                broadcast(new GameEnded($session));
+            }
             return response()->json(['status' => 'finished']);
         }
 

@@ -539,6 +539,7 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
     try {
       await apiPost("/game/move", { session_code: sessionCode, payload });
     } catch (e) {
+      console.error("[Game] Gagal kirim move:", e);
     }
   }, [sessionCode]);
   const sendFinished = useCallback(async (score) => {
@@ -546,6 +547,7 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
     try {
       await apiPost("/game/move", { session_code: sessionCode, payload: { finished: true, score } });
     } catch (e) {
+      console.error("[Game] Gagal kirim finished:", e);
     }
   }, [sessionCode]);
   return { sendMove, sendFinished };

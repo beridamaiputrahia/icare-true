@@ -448,12 +448,12 @@ function useOnlineGame(sessionCode,onMove,onEnded){
 
   const sendMove=useCallback(async(payload)=>{
     if(!sessionCode)return;
-    try{await apiPost("/game/move",{session_code:sessionCode,payload});}catch(e){}
+    try{await apiPost("/game/move",{session_code:sessionCode,payload});}catch(e){console.error("[Game] Gagal kirim move:",e);}
   },[sessionCode]);
 
   const sendFinished=useCallback(async(score)=>{
     if(!sessionCode)return;
-    try{await apiPost("/game/move",{session_code:sessionCode,payload:{finished:true,score}});}catch(e){}
+    try{await apiPost("/game/move",{session_code:sessionCode,payload:{finished:true,score}});}catch(e){console.error("[Game] Gagal kirim finished:",e);}
   },[sessionCode]);
 
   return{sendMove,sendFinished};
