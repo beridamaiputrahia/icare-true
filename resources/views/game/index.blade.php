@@ -27,5 +27,5 @@ window.__PUSHER_CONFIG__ = {
     cluster: "{{ config('broadcasting.connections.pusher.options.cluster', 'ap1') }}"
 };
 </script>
-<script src="{{ asset('js/game/GameFeature.js') }}"></script>
+<script src="{{ asset('js/game/GameFeature.js') }}?v={{ file_exists(public_path('js/game/GameFeature.js')) ? filemtime(public_path('js/game/GameFeature.js')) : time() }}"></script>
 @endpush

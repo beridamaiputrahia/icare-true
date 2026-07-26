@@ -268,12 +268,15 @@ function PilihLawan({game,mode,onBack,onPick}){
 function getPusher(){
   if(window.__PUSHER_INSTANCE__)return window.__PUSHER_INSTANCE__;
   const cfg=window.__PUSHER_CONFIG__||{};
-  if(!cfg.key)return null;
-  window.__PUSHER_INSTANCE__=new window.Pusher(cfg.key,{
+  if(!cfg.key){console.error("[Game] PUSHER_APP_KEY tidak terkonfigurasi — mode online tidak akan realtime.");return null;}
+  const p=new window.Pusher(cfg.key,{
     cluster:cfg.cluster||"ap1",
     authEndpoint:"/broadcasting/auth",
     auth:{headers:{"X-CSRF-TOKEN":document.querySelector('meta[name="csrf-token"]')?.content||""}},
   });
+  p.connection.bind("error",(e)=>console.error("[Game] Pusher connection error:",e));
+  p.connection.bind("state_change",(s)=>console.log("[Game] Pusher state:",s.previous,"→",s.current));
+  window.__PUSHER_INSTANCE__=p;
   return window.__PUSHER_INSTANCE__;
 }
 
