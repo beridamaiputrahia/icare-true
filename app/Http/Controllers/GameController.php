@@ -10,12 +10,33 @@ class GameController extends Controller
 {
     public function index()
     {
+        $user    = Auth::user();
+        $users   = $this->otherUsers($user);
+        $members = $this->buildMembers($user, $users);
+
+        $leaderboard = $this->buildWeeklyLeaderboard($user, $users);
+
+        return view('game.index', compact('user', 'members', 'leaderboard'));
+    }
+
+    public function members()
+    {
         $user  = Auth::user();
-        $users = \App\Models\User::select('id', 'name', 'role', 'is_online')
+        $users = $this->otherUsers($user);
+
+        return response()->json($this->buildMembers($user, $users));
+    }
+
+    private function otherUsers($user)
+    {
+        return \App\Models\User::select('id', 'name', 'role', 'is_online', 'last_seen')
             ->where('id', '!=', $user->id)
             ->orderBy('name')
             ->get();
+    }
 
+    private function buildMembers($user, $users)
+    {
         $finished = GameSession::where('status', 'finished')
             ->where(function ($q) use ($users, $user) {
                 $ids = $users->pluck('id')->push($user->id);
@@ -42,18 +63,14 @@ class GameController extends Controller
             $stats[$loserId]['kalah']++;
         }
 
-        $members = $users->map(fn($u) => [
+        return $users->map(fn($u) => [
             'id'       => $u->id,
             'nama'     => $u->name,
             'role'     => $u->role ?? 'anggota',
-            'online'   => (bool) $u->is_online,
+            'online'   => (bool) $u->is_online && $u->last_seen && $u->last_seen->gt(now()->subMinutes(3)),
             'menang'   => $stats[$u->id]['menang'] ?? 0,
             'kalah'    => $stats[$u->id]['kalah'] ?? 0,
-        ]);
-
-        $leaderboard = $this->buildWeeklyLeaderboard($user, $users);
-
-        return view('game.index', compact('user', 'members', 'leaderboard'));
+        ])->values();
     }
 
     private function buildWeeklyLeaderboard($user, $users)

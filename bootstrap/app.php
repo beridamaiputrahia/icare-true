@@ -26,6 +26,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.selected' => \App\Http\Middleware\EnsureTenantSelected::class,
         ]);
         // Apply globally on all web routes
+        $middleware->appendToGroup('web', \App\Http\Middleware\TrackOnlineStatus::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\MaintenanceMiddleware::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\BirthdayMiddleware::class);
         $middleware->appendToGroup('web', \App\Http\Middleware\DailyVersePopupMiddleware::class);

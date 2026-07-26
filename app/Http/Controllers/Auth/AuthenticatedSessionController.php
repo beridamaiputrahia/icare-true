@@ -28,6 +28,8 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        $request->user()->markOnline();
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
@@ -36,6 +38,8 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        $request->user()?->markOffline();
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

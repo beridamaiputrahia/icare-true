@@ -240,7 +240,13 @@ function PilihCara({game,onBack,onPick}){return(<div style={{padding:"24px 20px"
 
 function PilihLawan({game,mode,onBack,onPick}){
   const [cari,setCari]=useState("");
-  const members=getMembers();
+  const [members,setMembers]=useState(getMembers());
+  useEffect(()=>{
+    let batal=false;
+    const muat=()=>apiGet("/game/members").then(data=>{if(!batal)setMembers(data);}).catch(()=>{});
+    const id=setInterval(muat,15000);
+    return()=>{batal=true;clearInterval(id);};
+  },[]);
   const list=members.filter(m=>m.nama.toLowerCase().includes(cari.toLowerCase())).sort((a,b)=>b.online-a.online);
   return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Pilih Lawan"subtitle={mode==="online"?"Hanya anggota online bisa ditantang":"Pilih lawan bermain"}/><div style={{position:"relative",marginTop:14,marginBottom:12}}><span style={{position:"absolute",left:14,top:14,fontSize:16}}>🔍</span><input value={cari}onChange={e=>setCari(e.target.value)}placeholder="Cari anggota…"style={{width:"100%",boxSizing:"border-box",padding:"12px 14px 12px 40px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.04)",color:P.cream,fontFamily:"inherit",fontWeight:600,fontSize:14.5,outline:"none"}}/></div><div style={{display:"grid",gap:8}}>{list.map((m,i)=>{const bisa=mode!=="online"||m.online;return(<button key={m.id||i}disabled={!bisa}onClick={()=>bisa&&onPick(m)}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:13,borderRadius:16,border:"1px solid rgba(255,255,255,0.09)",background:"rgba(255,255,255,0.03)",cursor:bisa?"pointer":"default",color:P.cream,textAlign:"left",opacity:bisa?1:.4,animationDelay:`${i*.04}s`}}><div style={{position:"relative"}}><Avatar nama={m.nama}/><span style={{position:"absolute",right:-1,bottom:-1,width:11,height:11,borderRadius:99,background:m.online?P.green:"#6B6391",border:`2px solid ${P.night}`}}/></div><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15}}>{m.nama}</div><div style={{color:P.muted,fontSize:12,fontWeight:600}}>{m.online?"Online":"Offline"} · {m.menang||0}M/{m.kalah||0}K</div></div>{bisa&&<span style={{fontSize:12,fontWeight:800,color:"#1A1340",background:game.warna,padding:"6px 14px",borderRadius:99}}>Pilih</span>}</button>);})}{!list.length&&<div style={{textAlign:"center",color:P.muted,fontWeight:600,padding:30}}>Tidak ada anggota ditemukan.</div>}</div></div>);
 }

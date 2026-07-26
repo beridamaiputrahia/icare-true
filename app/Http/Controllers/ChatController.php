@@ -69,7 +69,10 @@ class ChatController extends Controller
                 ->values();
         }
 
-        $onlineUsers = User::where('is_online', true)->where('id', '!=', $user->id)->get();
+        $onlineUsers = User::where('is_online', true)
+            ->where('last_seen', '>=', now()->subMinutes(3))
+            ->where('id', '!=', $user->id)
+            ->get();
 
         return view('chat.index', compact(
             'global', 'leader', 'privates', 'activeConv', 'messages', 'onlineUsers'

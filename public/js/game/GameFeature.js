@@ -202,7 +202,19 @@ function PilihCara({ game, onBack, onPick }) {
 }
 function PilihLawan({ game, mode, onBack, onPick }) {
   const [cari, setCari] = useState("");
-  const members = getMembers();
+  const [members, setMembers] = useState(getMembers());
+  useEffect(() => {
+    let batal = false;
+    const muat = () => apiGet("/game/members").then((data) => {
+      if (!batal) setMembers(data);
+    }).catch(() => {
+    });
+    const id = setInterval(muat, 15000);
+    return () => {
+      batal = true;
+      clearInterval(id);
+    };
+  }, []);
   const list = members.filter((m) => m.nama.toLowerCase().includes(cari.toLowerCase())).sort((a, b) => b.online - a.online);
   return /* @__PURE__ */ React.createElement("div", { style: { padding: "24px 20px", maxWidth: 460, margin: "0 auto" } }, /* @__PURE__ */ React.createElement(TopBar, { onBack, title: "Pilih Lawan", subtitle: mode === "online" ? "Hanya anggota online bisa ditantang" : "Pilih lawan bermain" }), /* @__PURE__ */ React.createElement("div", { style: { position: "relative", marginTop: 14, marginBottom: 12 } }, /* @__PURE__ */ React.createElement("span", { style: { position: "absolute", left: 14, top: 14, fontSize: 16 } }, "\u{1F50D}"), /* @__PURE__ */ React.createElement("input", { value: cari, onChange: (e) => setCari(e.target.value), placeholder: "Cari anggota\u2026", style: { width: "100%", boxSizing: "border-box", padding: "12px 14px 12px 40px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.12)", background: "rgba(255,255,255,0.04)", color: P.cream, fontFamily: "inherit", fontWeight: 600, fontSize: 14.5, outline: "none" } })), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gap: 8 } }, list.map((m, i) => {
     const bisa = mode !== "online" || m.online;

@@ -292,6 +292,7 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
 
     // ── Game Hub ─────────────────────────────────────────────────────────
     Route::get('game', [GameController::class, 'index'])->name('game.index');
+    Route::get('game/members', [GameController::class, 'members'])->name('game.members');
     Route::post('game/challenge',     [\App\Http\Controllers\GameSessionController::class, 'challenge'])->name('game.challenge');
     Route::post('game/respond',       [\App\Http\Controllers\GameSessionController::class, 'respond'])->name('game.respond');
     Route::post('game/move',          [\App\Http\Controllers\GameSessionController::class, 'move'])->name('game.move');
