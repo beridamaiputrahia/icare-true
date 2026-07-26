@@ -498,14 +498,18 @@ function KuisTatap({ lawan, onExit }) {
 function useOnlineGame(sessionCode, onMove, onEnded) {
   const pusherRef = useRef(null);
   const chRef = useRef(null);
+  const onMoveRef = useRef(onMove);
+  const onEndedRef = useRef(onEnded);
+  onMoveRef.current = onMove;
+  onEndedRef.current = onEnded;
   useEffect(() => {
     if (!sessionCode) return;
     const pusher = getPusher();
     if (!pusher) return;
     const ch = pusher.subscribe("private-game-session." + sessionCode);
     chRef.current = ch;
-    ch.bind("move", (d) => onMove && onMove(d));
-    ch.bind("ended", (d) => onEnded && onEnded(d));
+    ch.bind("move", (d) => onMoveRef.current && onMoveRef.current(d));
+    ch.bind("ended", (d) => onEndedRef.current && onEndedRef.current(d));
     return () => {
       pusher.unsubscribe("private-game-session." + sessionCode);
     };
