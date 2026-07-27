@@ -80,7 +80,7 @@
                     </h6>
                     <div class="rounded-3 overflow-hidden border" style="height:240px">
                         <iframe
-                            src="https://maps.google.com/maps?q={{ urlencode($schedule->lokasi) }}&output=embed"
+                            src="{{ $schedule->maps_embed_url }}"
                             width="100%" height="240" style="border:0;display:block"
                             allowfullscreen loading="lazy" referrerpolicy="no-referrer-when-downgrade">
                         </iframe>
