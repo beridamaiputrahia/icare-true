@@ -784,9 +784,11 @@ const GStyles = () => /*#__PURE__*/React.createElement("style", null, `
     @keyframes gf-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
     @keyframes gf-blink{0%,100%{opacity:.3}50%{opacity:1}}
     @keyframes gf-flip {0%{transform:rotateY(0)}100%{transform:rotateY(180deg)}}
+    @keyframes gf-float-emoji{0%{transform:translateY(0) scale(.6);opacity:0}15%{transform:translateY(-10px) scale(1.1);opacity:1}100%{transform:translateY(-160px) scale(1);opacity:0}}
     .gf-pop  {animation:gf-pop  .28s ease both}
     .gf-rise {animation:gf-rise .32s ease both}
     .gf-shake{animation:gf-shake .3s ease}
+    .gf-float-emoji{animation:gf-float-emoji 1.8s ease-out both}
     .gf-btn  {transition:transform .1s ease,filter .15s ease;font-family:inherit;}
     .gf-btn:active{transform:scale(.96)}
     .gf-btn:focus-visible{outline:3px solid #FFE08A;outline-offset:2px}
@@ -795,7 +797,7 @@ const GStyles = () => /*#__PURE__*/React.createElement("style", null, `
     .gf-card-inner.flipped{transform:rotateY(180deg)}
     .gf-card-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;display:grid;place-items:center;padding:6px;text-align:center;}
     .gf-card-back{transform:rotateY(180deg)}
-    @media(prefers-reduced-motion:reduce){.gf-pop,.gf-rise,.gf-shake,.gf-btn{animation:none!important;transition:none!important}}
+    @media(prefers-reduced-motion:reduce){.gf-pop,.gf-rise,.gf-shake,.gf-btn,.gf-float-emoji{animation:none!important;transition:none!important}}
   `);
 
 /* ── SHARED COMPONENTS ──────────────────────────────────────── */
@@ -2485,6 +2487,12 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
   const [pemainKeluar, setPemainKeluar] = useState(null); // {id,nama} — dialog aktif kalau ada isinya
   const [pemainDitandaiKeluar, setPemainDitandaiKeluar] = useState(null); // id — tetap tersimpan setelah dialog ditutup, untuk indikator "(keluar)" di papan skor
   const [sesiDiakhiriKarenaKeluar, setSesiDiakhiriKarenaKeluar] = useState(false);
+
+  // Emoji reaction — murni ephemeral (tidak disimpan ke database), numpang
+  // lewat channel "move" yang sama seperti player_left dkk. reaksiMasuk
+  // dipakai ReactionOverlay untuk animasikan lalu otomatis hilang sendiri.
+  const [reaksiMasuk, setReaksiMasuk] = useState(null); // {id (unik per kemunculan), userId, emoji}
+  const reaksiIdRef = useRef(0);
   useEffect(() => {
     if (!sessionCode) return;
     const pusher = getPusher();
@@ -2508,6 +2516,15 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
       if (p.type === "session_ended_by_leave") {
         setSesiDiakhiriKarenaKeluar(true);
         return;
+      }
+      if (p.type === "reaction") {
+        reaksiIdRef.current += 1;
+        setReaksiMasuk({
+          id: reaksiIdRef.current,
+          userId: p.user_id,
+          emoji: p.emoji
+        });
+        return; // ephemeral — jangan diteruskan ke onMove
       }
       onMoveRef.current && onMoveRef.current(d);
     });
@@ -2576,6 +2593,28 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
     }
     if (action === "continue") setPemainKeluar(null);
   }, [sessionCode]);
+
+  // Cooldown 2 detik per pemain supaya tidak spam — dicek di sisi PENGIRIM
+  // saja (client-side), cukup untuk mencegah tap beruntun tak sengaja;
+  // ini fitur sosial ringan, bukan sesuatu yang perlu ditegakkan server.
+  // TIDAK optimistic-update: broadcast GameMove selalu dikirim balik ke
+  // pengirimnya sendiri juga (lihat pola answer_correct di KuisOnline dkk),
+  // jadi cukup kirim ke server dan biarkan semua pemain — termasuk diri
+  // sendiri — menerima & menampilkannya lewat listener "move" yang sama.
+  const kirimReaksiCooldownRef = useRef(0);
+  const kirimReaksi = useCallback(emoji => {
+    if (!sessionCode) return;
+    const sekarang = Date.now();
+    if (sekarang - kirimReaksiCooldownRef.current < 2000) return;
+    kirimReaksiCooldownRef.current = sekarang;
+    apiPost("/game/move", {
+      session_code: sessionCode,
+      payload: {
+        type: "reaction",
+        emoji
+      }
+    }).catch(() => {});
+  }, [sessionCode]);
   return {
     sendMove,
     sendFinished,
@@ -2583,7 +2622,9 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
     pemainKeluar,
     pemainDitandaiKeluar,
     sesiDiakhiriKarenaKeluar,
-    putuskanKelanjutan
+    putuskanKelanjutan,
+    reaksiMasuk,
+    kirimReaksi
   };
 }
 
@@ -2668,6 +2709,106 @@ function DialogPemainKeluar({
       cursor: "pointer"
     }
   }, "Akhiri Sesi"))));
+  return ReactDOM.createPortal(konten, document.body);
+}
+
+/* ── EMOJI REACTION — baris tetap 5 emoji + overlay animasi terapung ── */
+const REACTION_EMOJI = ["😂", "😮", "🔥", "👏", "😢"];
+function EmojiReactionBar({
+  onKirim
+}) {
+  const konten = /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 9997,
+      display: "flex",
+      justifyContent: "center",
+      padding: "10px 14px calc(10px + env(safe-area-inset-bottom))",
+      pointerEvents: "none"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex",
+      gap: 8,
+      padding: "8px 10px",
+      borderRadius: 99,
+      background: "rgba(26,19,64,0.85)",
+      backdropFilter: "blur(8px)",
+      border: "1px solid rgba(255,255,255,0.1)",
+      boxShadow: "0 6px 24px rgba(0,0,0,0.35)",
+      pointerEvents: "auto"
+    }
+  }, REACTION_EMOJI.map(e => /*#__PURE__*/React.createElement("button", {
+    key: e,
+    onClick: () => onKirim(e),
+    style: {
+      width: 38,
+      height: 38,
+      borderRadius: "50%",
+      border: "none",
+      background: "rgba(255,255,255,0.06)",
+      fontSize: 19,
+      cursor: "pointer",
+      display: "grid",
+      placeItems: "center"
+    }
+  }, e))));
+  return ReactDOM.createPortal(konten, document.body);
+}
+function ReactionOverlay({
+  reaksi,
+  players
+}) {
+  const [tampil, setTampil] = useState([]);
+  useEffect(() => {
+    if (!reaksi) return;
+    const item = {
+      ...reaksi,
+      left: 10 + Math.random() * 70
+    };
+    setTampil(prev => [...prev, item]);
+    const timer = setTimeout(() => {
+      setTampil(prev => prev.filter(x => x.id !== item.id));
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, [reaksi]);
+  if (tampil.length === 0) return null;
+  const namaFor = userId => players.find(p => p.id === userId)?.nama || "";
+  const konten = /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "fixed",
+      inset: 0,
+      zIndex: 9996,
+      pointerEvents: "none",
+      overflow: "hidden"
+    }
+  }, tampil.map(t => /*#__PURE__*/React.createElement("div", {
+    key: t.id,
+    className: "gf-float-emoji",
+    style: {
+      position: "absolute",
+      left: `${t.left}%`,
+      bottom: 70,
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 34,
+      lineHeight: 1
+    }
+  }, t.emoji), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: P.cream,
+      opacity: .85,
+      marginTop: 2,
+      whiteSpace: "nowrap"
+    }
+  }, namaFor(t.userId)))));
   return ReactDOM.createPortal(konten, document.body);
 }
 
@@ -2894,7 +3035,9 @@ function KuisOnline({
     pemainKeluar,
     pemainDitandaiKeluar,
     sesiDiakhiriKarenaKeluar,
-    putuskanKelanjutan
+    putuskanKelanjutan,
+    reaksiMasuk,
+    kirimReaksi
   } = useOnlineGame(sessionCode, d => {
     const p = d.payload || {};
     if (p.type === "answer_correct" && !resolvedRef.current) {
@@ -2989,6 +3132,11 @@ function KuisOnline({
     nama: pemainKeluar.nama,
     onLanjut: () => putuskanKelanjutan("continue"),
     onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement(EmojiReactionBar, {
+    onKirim: kirimReaksi
+  }), /*#__PURE__*/React.createElement(ReactionOverlay, {
+    reaksi: reaksiMasuk,
+    players: players
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -3656,7 +3804,9 @@ function SusunOnline({
     pemainKeluar,
     pemainDitandaiKeluar,
     sesiDiakhiriKarenaKeluar,
-    putuskanKelanjutan
+    putuskanKelanjutan,
+    reaksiMasuk,
+    kirimReaksi
   } = useOnlineGame(sessionCode, d => {
     const p = d.payload || {};
     if (p.type === "ronde_selesai" && !resolvedRef.current) {
@@ -3763,6 +3913,11 @@ function SusunOnline({
     nama: pemainKeluar.nama,
     onLanjut: () => putuskanKelanjutan("continue"),
     onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement(EmojiReactionBar, {
+    onKirim: kirimReaksi
+  }), /*#__PURE__*/React.createElement(ReactionOverlay, {
+    reaksi: reaksiMasuk,
+    players: players
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -4340,7 +4495,9 @@ function TebakOnline({
     pemainKeluar,
     pemainDitandaiKeluar,
     sesiDiakhiriKarenaKeluar,
-    putuskanKelanjutan
+    putuskanKelanjutan,
+    reaksiMasuk,
+    kirimReaksi
   } = useOnlineGame(sessionCode, d => {
     const p = d.payload || {};
     if (p.type === "answered_correct" && !resolvedRef.current) {
@@ -4413,6 +4570,11 @@ function TebakOnline({
     nama: pemainKeluar.nama,
     onLanjut: () => putuskanKelanjutan("continue"),
     onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement(EmojiReactionBar, {
+    onKirim: kirimReaksi
+  }), /*#__PURE__*/React.createElement(ReactionOverlay, {
+    reaksi: reaksiMasuk,
+    players: players
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
@@ -5035,7 +5197,9 @@ function MemoryOnline({
     pemainKeluar,
     pemainDitandaiKeluar,
     sesiDiakhiriKarenaKeluar,
-    putuskanKelanjutan
+    putuskanKelanjutan,
+    reaksiMasuk,
+    kirimReaksi
   } = useOnlineGame(sessionCode, d => {
     if (d.user_id === myId) return;
     const p = d.payload || {};
@@ -5133,6 +5297,11 @@ function MemoryOnline({
     nama: pemainKeluar.nama,
     onLanjut: () => putuskanKelanjutan("continue"),
     onAkhiri: () => putuskanKelanjutan("end")
+  }), /*#__PURE__*/React.createElement(EmojiReactionBar, {
+    onKirim: kirimReaksi
+  }), /*#__PURE__*/React.createElement(ReactionOverlay, {
+    reaksi: reaksiMasuk,
+    players: players
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",

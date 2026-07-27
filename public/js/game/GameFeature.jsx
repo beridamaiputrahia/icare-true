@@ -256,9 +256,11 @@ const GStyles = () => (
     @keyframes gf-shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
     @keyframes gf-blink{0%,100%{opacity:.3}50%{opacity:1}}
     @keyframes gf-flip {0%{transform:rotateY(0)}100%{transform:rotateY(180deg)}}
+    @keyframes gf-float-emoji{0%{transform:translateY(0) scale(.6);opacity:0}15%{transform:translateY(-10px) scale(1.1);opacity:1}100%{transform:translateY(-160px) scale(1);opacity:0}}
     .gf-pop  {animation:gf-pop  .28s ease both}
     .gf-rise {animation:gf-rise .32s ease both}
     .gf-shake{animation:gf-shake .3s ease}
+    .gf-float-emoji{animation:gf-float-emoji 1.8s ease-out both}
     .gf-btn  {transition:transform .1s ease,filter .15s ease;font-family:inherit;}
     .gf-btn:active{transform:scale(.96)}
     .gf-btn:focus-visible{outline:3px solid #FFE08A;outline-offset:2px}
@@ -267,7 +269,7 @@ const GStyles = () => (
     .gf-card-inner.flipped{transform:rotateY(180deg)}
     .gf-card-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:12px;display:grid;place-items:center;padding:6px;text-align:center;}
     .gf-card-back{transform:rotateY(180deg)}
-    @media(prefers-reduced-motion:reduce){.gf-pop,.gf-rise,.gf-shake,.gf-btn{animation:none!important;transition:none!important}}
+    @media(prefers-reduced-motion:reduce){.gf-pop,.gf-rise,.gf-shake,.gf-btn,.gf-float-emoji{animation:none!important;transition:none!important}}
   `}</style>
 );
 
@@ -538,6 +540,12 @@ function useOnlineGame(sessionCode,onMove,onEnded){
   const [pemainDitandaiKeluar,setPemainDitandaiKeluar]=useState(null); // id — tetap tersimpan setelah dialog ditutup, untuk indikator "(keluar)" di papan skor
   const [sesiDiakhiriKarenaKeluar,setSesiDiakhiriKarenaKeluar]=useState(false);
 
+  // Emoji reaction — murni ephemeral (tidak disimpan ke database), numpang
+  // lewat channel "move" yang sama seperti player_left dkk. reaksiMasuk
+  // dipakai ReactionOverlay untuk animasikan lalu otomatis hilang sendiri.
+  const [reaksiMasuk,setReaksiMasuk]=useState(null); // {id (unik per kemunculan), userId, emoji}
+  const reaksiIdRef=useRef(0);
+
   useEffect(()=>{
     if(!sessionCode)return;
     const pusher=getPusher();
@@ -558,6 +566,11 @@ function useOnlineGame(sessionCode,onMove,onEnded){
       if(p.type==="session_ended_by_leave"){
         setSesiDiakhiriKarenaKeluar(true);
         return;
+      }
+      if(p.type==="reaction"){
+        reaksiIdRef.current+=1;
+        setReaksiMasuk({id:reaksiIdRef.current,userId:p.user_id,emoji:p.emoji});
+        return; // ephemeral — jangan diteruskan ke onMove
       }
       onMoveRef.current&&onMoveRef.current(d);
     });
@@ -600,7 +613,23 @@ function useOnlineGame(sessionCode,onMove,onEnded){
     if(action==="continue")setPemainKeluar(null);
   },[sessionCode]);
 
-  return{sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan};
+  // Cooldown 2 detik per pemain supaya tidak spam — dicek di sisi PENGIRIM
+  // saja (client-side), cukup untuk mencegah tap beruntun tak sengaja;
+  // ini fitur sosial ringan, bukan sesuatu yang perlu ditegakkan server.
+  // TIDAK optimistic-update: broadcast GameMove selalu dikirim balik ke
+  // pengirimnya sendiri juga (lihat pola answer_correct di KuisOnline dkk),
+  // jadi cukup kirim ke server dan biarkan semua pemain — termasuk diri
+  // sendiri — menerima & menampilkannya lewat listener "move" yang sama.
+  const kirimReaksiCooldownRef=useRef(0);
+  const kirimReaksi=useCallback((emoji)=>{
+    if(!sessionCode)return;
+    const sekarang=Date.now();
+    if(sekarang-kirimReaksiCooldownRef.current<2000)return;
+    kirimReaksiCooldownRef.current=sekarang;
+    apiPost("/game/move",{session_code:sessionCode,payload:{type:"reaction",emoji}}).catch(()=>{});
+  },[sessionCode]);
+
+  return{sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan,reaksiMasuk,kirimReaksi};
 }
 
 /* ── DIALOG: SALAH SATU PEMAIN KELUAR DI TENGAH GAME ─────────── */
@@ -616,6 +645,47 @@ function DialogPemainKeluar({nama,onLanjut,onAkhiri}){
           <button onClick={onAkhiri}className="gf-btn"style={{padding:"12px",borderRadius:12,border:`1px solid ${P.red}`,background:"transparent",color:P.red,fontWeight:800,fontSize:14,cursor:"pointer"}}>Akhiri Sesi</button>
         </div>
       </div>
+    </div>
+  );
+  return ReactDOM.createPortal(konten,document.body);
+}
+
+/* ── EMOJI REACTION — baris tetap 5 emoji + overlay animasi terapung ── */
+const REACTION_EMOJI=["😂","😮","🔥","👏","😢"];
+function EmojiReactionBar({onKirim}){
+  const konten=(
+    <div style={{position:"fixed",left:0,right:0,bottom:0,zIndex:9997,display:"flex",justifyContent:"center",padding:"10px 14px calc(10px + env(safe-area-inset-bottom))",pointerEvents:"none"}}>
+      <div style={{display:"flex",gap:8,padding:"8px 10px",borderRadius:99,background:"rgba(26,19,64,0.85)",backdropFilter:"blur(8px)",border:"1px solid rgba(255,255,255,0.1)",boxShadow:"0 6px 24px rgba(0,0,0,0.35)",pointerEvents:"auto"}}>
+        {REACTION_EMOJI.map((e)=>(
+          <button key={e}onClick={()=>onKirim(e)}style={{width:38,height:38,borderRadius:"50%",border:"none",background:"rgba(255,255,255,0.06)",fontSize:19,cursor:"pointer",display:"grid",placeItems:"center"}}>{e}</button>
+        ))}
+      </div>
+    </div>
+  );
+  return ReactDOM.createPortal(konten,document.body);
+}
+
+function ReactionOverlay({reaksi,players}){
+  const[tampil,setTampil]=useState([]);
+  useEffect(()=>{
+    if(!reaksi)return;
+    const item={...reaksi,left:10+Math.random()*70};
+    setTampil((prev)=>[...prev,item]);
+    const timer=setTimeout(()=>{
+      setTampil((prev)=>prev.filter((x)=>x.id!==item.id));
+    },1800);
+    return()=>clearTimeout(timer);
+  },[reaksi]);
+  if(tampil.length===0)return null;
+  const namaFor=(userId)=>players.find((p)=>p.id===userId)?.nama||"";
+  const konten=(
+    <div style={{position:"fixed",inset:0,zIndex:9996,pointerEvents:"none",overflow:"hidden"}}>
+      {tampil.map((t)=>(
+        <div key={t.id}className="gf-float-emoji"style={{position:"absolute",left:`${t.left}%`,bottom:70,textAlign:"center"}}>
+          <div style={{fontSize:34,lineHeight:1}}>{t.emoji}</div>
+          <div style={{fontSize:10,fontWeight:700,color:P.cream,opacity:.85,marginTop:2,whiteSpace:"nowrap"}}>{namaFor(t.userId)}</div>
+        </div>
+      ))}
     </div>
   );
   return ReactDOM.createPortal(konten,document.body);
@@ -687,7 +757,7 @@ function KuisOnline({players,sessionCode,hindariKeys,hostId,onExit}){
     else{setIdx(i=>i+1);setPilih(null);setYouLock(false);setPemenangRonde(null);setWaktu(12);}
   },[idx,soal.length]);
 
-  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan,reaksiMasuk,kirimReaksi}=useOnlineGame(sessionCode,(d)=>{
     const p=d.payload||{};
     if(p.type==="answer_correct"&&!resolvedRef.current){
       resolvedRef.current=true;
@@ -735,7 +805,7 @@ function KuisOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.gold}onExit={onExit}/>;
   const ratio=waktu/12;
   const statusTeks=pemenangRonde==="seri"?"Waktu habis — ronde seri":pemenangRonde?(pemenangRonde.id===myId?"Kamu tercepat! ⚡":`${pemenangRonde.nama} lebih cepat`):youLock?"Jawabanmu salah — tunggu pemain lain…":"Jawab secepat mungkin!";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}tengah={<div style={{position:"relative",display:"grid",placeItems:"center",flexShrink:0}}><TimerRing ratio={ratio}danger={ratio<.3}size={48}/><div style={{position:"absolute",fontWeight:800,fontSize:14,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div>}/><div style={{marginTop:10,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div key={idx}className="gf-pop"style={{marginTop:18}}><div style={{fontSize:12,fontWeight:700,color:P.gold,letterSpacing:1,textTransform:"uppercase"}}>Pertanyaan</div><h2 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:21,lineHeight:1.25,margin:"7px 0 0",color:P.cream}}>{s.q}</h2></div><div style={{display:"grid",gap:9,marginTop:16}}>{s.opsi.map((op,i)=>{let st="idle";if(pemenangRonde){st=i===s.benar?"benar":i===pilih?"salah":"redup";}else if(pilih===i)st="salah";else if(youLock)st="redup";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{marginTop:10,textAlign:"center",fontWeight:700,fontSize:13,color:P.red}}>Jawabanmu salah — terkunci ronde ini ✗</div>}</div>);
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<EmojiReactionBar onKirim={kirimReaksi}/><ReactionOverlay reaksi={reaksiMasuk}players={players}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><span style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>RONDE {idx+1}/{soal.length}</span></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}tengah={<div style={{position:"relative",display:"grid",placeItems:"center",flexShrink:0}}><TimerRing ratio={ratio}danger={ratio<.3}size={48}/><div style={{position:"absolute",fontWeight:800,fontSize:14,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div>}/><div style={{marginTop:10,padding:"9px 14px",borderRadius:12,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div key={idx}className="gf-pop"style={{marginTop:18}}><div style={{fontSize:12,fontWeight:700,color:P.gold,letterSpacing:1,textTransform:"uppercase"}}>Pertanyaan</div><h2 style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:21,lineHeight:1.25,margin:"7px 0 0",color:P.cream}}>{s.q}</h2></div><div style={{display:"grid",gap:9,marginTop:16}}>{s.opsi.map((op,i)=>{let st="idle";if(pemenangRonde){st=i===s.benar?"benar":i===pilih?"salah":"redup";}else if(pilih===i)st="salah";else if(youLock)st="redup";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{marginTop:10,textAlign:"center",fontWeight:700,fontSize:13,color:P.red}}>Jawabanmu salah — terkunci ronde ini ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -798,7 +868,7 @@ function SusunOnline({players,sessionCode,hindariKeys,hostId,onExit}){
     else{setIdx(nextIdx);setPemenangRonde(null);setWaktu(90);}
   },[ayat.length]);
 
-  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan,reaksiMasuk,kirimReaksi}=useOnlineGame(sessionCode,(d)=>{
     const p=d.payload||{};
     if(p.type==="ronde_selesai"&&!resolvedRef.current){
       resolvedRef.current=true;
@@ -868,7 +938,7 @@ function SusunOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.p2}onExit={onExit}/>;
   const ratio=waktu/90;
   const statusTeks=pemenangRonde==="seri"?"Waktu habis — ronde seri":pemenangRonde?(pemenangRonde.id===myId?"Kamu berhasil duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Susun secepat mungkin!";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{marginTop:10,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!pemenangRonde}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!pemenangRonde}accent={P.muted}/></div></div>);
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<EmojiReactionBar onKirim={kirimReaksi}/><ReactionOverlay reaksi={reaksiMasuk}players={players}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{marginTop:10,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde&&pemenangRonde!=="seri"?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{marginTop:14,fontSize:12,fontWeight:700,color:P.p2,letterSpacing:1}}>{a.ref}</div><div style={{marginTop:8,marginBottom:8}}><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Susunanmu:</div><WordArea kata={disusun.map(x=>x.kata)}onKlik={hapus}disabled={!!pemenangRonde}accent={P.p2}/></div><div><div style={{fontSize:12,color:P.muted,marginBottom:6}}>Bank Kata:</div><WordArea kata={bank.map(x=>x.kata)}onKlik={tambah}disabled={!!pemenangRonde}accent={P.muted}/></div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -922,7 +992,7 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
     else{setIdx(i=>i+1);setClueIdx(0);setPilih(null);setYouLock(false);setPemenangRonde(null);}
   },[idx,tokoh.length]);
 
-  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan,reaksiMasuk,kirimReaksi}=useOnlineGame(sessionCode,(d)=>{
     const p=d.payload||{};
     if(p.type==="answered_correct"&&!resolvedRef.current){
       resolvedRef.current=true;
@@ -958,7 +1028,7 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
 
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.purple}onExit={onExit}/>;
   const statusTeks=pemenangRonde?(pemenangRonde.id===myId?"Kamu benar duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Siapa yang jawab duluan?";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<EmojiReactionBar onKirim={kirimReaksi}/><ReactionOverlay reaksi={reaksiMasuk}players={players}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1119,7 +1189,7 @@ function MemoryOnline({players,sessionCode,hindariKeys,hostId,level,onExit}){
     return()=>clearTimeout(t);
   },[giliranIdx]);
 
-  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
+  const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan,reaksiMasuk,kirimReaksi}=useOnlineGame(sessionCode,(d)=>{
     if(d.user_id===myId)return;
     const p=d.payload||{};
     if(p.type==="flip"){
@@ -1165,7 +1235,7 @@ function MemoryOnline({players,sessionCode,hindariKeys,hostId,level,onExit}){
 
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.orange}onExit={onExit}/>;
   const giliranNama=players.find(p=>p.id===giliranId)?.nama||"?";
-  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{previewAwal?"Hafalkan posisi kartu… 👀":giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{display:"grid",gridTemplateColumns:`repeat(${cfg.kolom},1fr)`,gap:cfg.kolom>4?5:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}kecil={cfg.kolom>4}terbuka={previewAwal||terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={previewAwal||!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/{cfg.pasang} pasang ditemukan</div></div>);
+  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<EmojiReactionBar onKirim={kirimReaksi}/><ReactionOverlay reaksi={reaksiMasuk}players={players}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{previewAwal?"Hafalkan posisi kartu… 👀":giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{display:"grid",gridTemplateColumns:`repeat(${cfg.kolom},1fr)`,gap:cfg.kolom>4?5:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}kecil={cfg.kolom>4}terbuka={previewAwal||terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={previewAwal||!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/{cfg.pasang} pasang ditemukan</div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════
