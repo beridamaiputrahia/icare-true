@@ -6,6 +6,7 @@ use App\Events\GameChallenged;
 use App\Events\GameEnded;
 use App\Events\GameMove;
 use App\Events\GameStarted;
+use App\Models\GameQuestionHistory;
 use App\Models\GameSession;
 use App\Models\GameSessionParticipant;
 use App\Models\User;
@@ -14,6 +15,61 @@ use Illuminate\Support\Facades\Auth;
 
 class GameSessionController extends Controller
 {
+    // Berapa banyak soal terakhir (per game_type per tenant) yang harus
+    // dihindari supaya tidak muncul lagi di match berikutnya. Dipatok relatif
+    // terhadap kebutuhan per match (lihat SOAL_PER_MATCH) bukan angka tetap,
+    // supaya bank kecil pun tidak langsung habis di 1-2 match seperti dulu.
+    private const SOAL_PER_MATCH = [
+        'kuis'   => 7,
+        'susun'  => 5,
+        'tebak'  => 10,
+        'memory' => 32,
+    ];
+    private const HINDARI_KELIPATAN = 3; // hindari soal dari 3 match terakhir
+
+    private function ambilKeyDihindari(int $tenantId, string $gameType): array
+    {
+        $batas = (self::SOAL_PER_MATCH[$gameType] ?? 10) * self::HINDARI_KELIPATAN;
+
+        return GameQuestionHistory::where('tenant_id', $tenantId)
+            ->where('game_type', $gameType)
+            ->orderByDesc('used_at')
+            ->limit($batas)
+            ->pluck('question_key')
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    private function catatKeyDipakai(int $tenantId, string $gameType, array $keys): void
+    {
+        if (empty($keys)) {
+            return;
+        }
+
+        $now  = now();
+        $rows = array_map(fn ($key) => [
+            'tenant_id'    => $tenantId,
+            'game_type'    => $gameType,
+            'question_key' => (string) $key,
+            'used_at'      => $now,
+        ], array_values(array_unique($keys)));
+
+        GameQuestionHistory::insert($rows);
+
+        // Rumah tangga ringan: buang riwayat lama yang sudah jauh melebihi
+        // kebutuhan anti-repeat, supaya tabel ini tidak bertumbuh tak terbatas.
+        $batas = (self::SOAL_PER_MATCH[$gameType] ?? 10) * self::HINDARI_KELIPATAN * 5;
+        $idLama = GameQuestionHistory::where('tenant_id', $tenantId)
+            ->where('game_type', $gameType)
+            ->orderByDesc('used_at')
+            ->skip($batas)->take(500)
+            ->pluck('id');
+        if ($idLama->isNotEmpty()) {
+            GameQuestionHistory::whereIn('id', $idLama)->delete();
+        }
+    }
+
     // POST /game/challenge — host mengundang 1-3 orang sekaligus (total 2-4 pemain termasuk host)
     public function challenge(Request $request)
     {
@@ -21,6 +77,7 @@ class GameSessionController extends Controller
             'opponent_ids'   => 'required|array|min:1|max:3',
             'opponent_ids.*' => 'required|integer|exists:users,id',
             'game_type'      => 'required|in:kuis,susun,tebak,memory',
+            'level'          => 'nullable|integer|in:1,2,3', // Memory Match: 1=4x4, 2=8x8, 3=8x8+reshuffle. Diabaikan utk game_type lain.
         ]);
 
         $hostId = Auth::id();
@@ -43,7 +100,10 @@ class GameSessionController extends Controller
             'host_id'   => $hostId,
             'game_type' => $request->game_type,
             'status'    => 'waiting',
-            'seed'      => ['shuffle_key' => rand(1000, 9999)],
+            'seed'      => [
+                'shuffle_key' => rand(1000, 9999),
+                'level'       => $request->game_type === 'memory' ? ($request->level ?? 1) : null,
+            ],
         ]);
 
         // Host otomatis "accepted" — dia sudah pasti ikut main.
@@ -109,11 +169,53 @@ class GameSessionController extends Controller
             return response()->json(['message' => 'Minimal 1 lawan harus menerima tantangan dulu.'], 422);
         }
 
-        $session->update(['status' => 'active', 'started_at' => now()]);
+        // Sisipkan daftar soal yang harus dihindari (baru dipakai tenant ini
+        // beberapa match terakhir) ke dalam seed, supaya semua pemain di
+        // sesi ini menyaring bank soal yang SAMA sebelum seeded-shuffle —
+        // kalau tiap device menyaring sendiri-sendiri pakai riwayat lokal,
+        // hasilnya bisa beda dan soal antar pemain jadi tidak sinkron lagi.
+        $tenantId = GameSession::resolveTenantId();
+        $seed     = $session->seed ?? [];
+        if ($tenantId) {
+            $seed['avoid_keys'] = $this->ambilKeyDihindari($tenantId, $session->game_type);
+        }
+        $session->update(['status' => 'active', 'started_at' => now(), 'seed' => $seed]);
 
         broadcast(new GameStarted($session->fresh('participants.user')));
 
         return response()->json(['status' => 'active']);
+    }
+
+    // POST /game/record-questions — dipanggil frontend segera setelah
+    // siapkanXSeed() memilih daftar soal final untuk match yang baru dimulai,
+    // supaya soal2 itu tercatat sebagai "baru dipakai" dan otomatis dihindari
+    // di match2 berikutnya (lihat ambilKeyDihindari/start() di atas).
+    public function recordQuestions(Request $request)
+    {
+        $request->validate([
+            'session_code' => 'required|string',
+            'keys'         => 'required|array|min:1',
+            'keys.*'       => 'required|string',
+        ]);
+
+        $userId  = Auth::id();
+        $session = GameSession::where('code', $request->session_code)
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        // Semua pemain menerima soal yang identik (seeded shuffle), jadi
+        // cukup HOST yang mencatat — kalau semua pemain ikut mencatat,
+        // soal yang sama akan tercatat 2-4x (duplikat per pemain di sesi ini).
+        if ($session->host_id !== $userId) {
+            return response()->json(['status' => 'ok']);
+        }
+
+        $tenantId = GameSession::resolveTenantId();
+        if ($tenantId) {
+            $this->catatKeyDipakai($tenantId, $session->game_type, $request->keys);
+        }
+
+        return response()->json(['status' => 'ok']);
     }
 
     // POST /game/move — kirim gerakan/skor pemain

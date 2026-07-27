@@ -302,6 +302,7 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::post('game/challenge',     [\App\Http\Controllers\GameSessionController::class, 'challenge'])->name('game.challenge');
     Route::post('game/respond',       [\App\Http\Controllers\GameSessionController::class, 'respond'])->name('game.respond');
     Route::post('game/start',         [\App\Http\Controllers\GameSessionController::class, 'start'])->name('game.start');
+    Route::post('game/record-questions', [\App\Http\Controllers\GameSessionController::class, 'recordQuestions'])->name('game.record-questions');
     Route::post('game/leave',         [\App\Http\Controllers\GameSessionController::class, 'leave'])->name('game.leave');
     Route::post('game/resolve-leave', [\App\Http\Controllers\GameSessionController::class, 'resolveLeave'])->name('game.resolve-leave');
     Route::post('game/move',          [\App\Http\Controllers\GameSessionController::class, 'move'])->name('game.move');

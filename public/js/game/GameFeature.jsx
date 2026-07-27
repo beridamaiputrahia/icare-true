@@ -150,6 +150,8 @@ const BANK_KARTU = [
   {a:"Hizkia", b:"Raja yang sembuh dari sakit parah"},
   {a:"Yesaya", b:"Menubuatkan kelahiran Mesias"},
   {a:"Yeremia",b:"Dijuluki nabi yang menangis"},
+  {a:"Yohanes Rasul",b:"Menulis Kitab Wahyu di Pulau Patmos"},
+  {a:"Timotius",b:"Murid muda yang dibina Rasul Paulus"},
 ];
 
 function getLeaderboard(){const raw=window.__GAME_LEADERBOARD__;if(!raw||!raw.length)return [];return raw;}
@@ -185,10 +187,37 @@ function buatRng(seed){
   return function(){s|=0;s=(s+0x6D2B79F5)|0;let t=Math.imul(s^s>>>15,1|s);t=(t+Math.imul(t^t>>>7,61|t))^t;return((t^t>>>14)>>>0)/4294967296;};
 }
 function shuffleSeed(arr,rng){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=0|rng()*(i+1);[a[i],a[j]]=[a[j],a[i]];}return a;}
-function siapkanSoalSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(bankSoal(),rng).slice(0,n);return dipilih.map(s=>{const b=s.opsi[s.benar];const o=shuffleSeed(s.opsi,rng);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
-function siapkanAyatSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(bankAyat(),rng).slice(0,n);return dipilih.map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffleSeed([...kata],rng)};});}
-function siapkanTokohSeed(n,seed){const rng=buatRng(seed);const dipilih=shuffleSeed(bankTokoh(),rng).slice(0,n);return dipilih.map(t=>{let op=shuffleSeed([t.jawaban,...t.salah],rng).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffleSeed(op,rng)};});}
-function siapkanKartuSeed(n=8,seed){const rng=buatRng(seed);const p=shuffleSeed(bankKartu(),rng).slice(0,n);return shuffleSeed([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))],rng);}
+
+/* Saring bank sebelum seeded-shuffle supaya soal yang baru dipakai tenant ini
+   beberapa match terakhir (avoid_keys dari server, lihat GameSessionController)
+   tidak muncul lagi dulu. Kalau kandidat setelah disaring kurang dari
+   kebutuhan (bank kecil dibanding hindariKeys), fallback ke bank penuh —
+   lebih baik ada sedikit pengulangan daripada macet karena kandidat < n. */
+function saringHindari(bank,idFn,hindariKeys){
+  if(!hindariKeys||!hindariKeys.length)return bank;
+  const set=new Set(hindariKeys);
+  const segar=bank.filter(x=>!set.has(idFn(x)));
+  return segar;
+}
+function siapkanSoalSeed(n,seed,hindariKeys){const rng=buatRng(seed);const bank=bankSoal();let kandidat=saringHindari(bank,s=>s.q,hindariKeys);if(kandidat.length<n)kandidat=bank;const dipilih=shuffleSeed(kandidat,rng).slice(0,n);return dipilih.map(s=>{const b=s.opsi[s.benar];const o=shuffleSeed(s.opsi,rng);return{q:s.q,opsi:o,benar:o.indexOf(b)};});}
+function siapkanAyatSeed(n,seed,hindariKeys){const rng=buatRng(seed);const bank=bankAyat();let kandidat=saringHindari(bank,a=>a.ref,hindariKeys);if(kandidat.length<n)kandidat=bank;const dipilih=shuffleSeed(kandidat,rng).slice(0,n);return dipilih.map(a=>{const kata=a.teks.split(" ");return{ref:a.ref,kata,acak:shuffleSeed([...kata],rng)};});}
+function siapkanTokohSeed(n,seed,hindariKeys){const rng=buatRng(seed);const bank=bankTokoh();let kandidat=saringHindari(bank,t=>t.jawaban,hindariKeys);if(kandidat.length<n)kandidat=bank;const dipilih=shuffleSeed(kandidat,rng).slice(0,n);return dipilih.map(t=>{let op=shuffleSeed([t.jawaban,...t.salah],rng).slice(0,4);if(!op.includes(t.jawaban))op[0]=t.jawaban;return{...t,opsi:shuffleSeed(op,rng)};});}
+function siapkanKartuSeed(n=8,seed,hindariKeys){const rng=buatRng(seed);const bank=bankKartu();let kandidat=saringHindari(bank,x=>x.a,hindariKeys);if(kandidat.length<n)kandidat=bank;const p=shuffleSeed(kandidat,rng).slice(0,n);return shuffleSeed([...p.map((x,i)=>({id:i*2,pair:i,isi:x.a})),...p.map((x,i)=>({id:i*2+1,pair:i,isi:x.b}))],rng);}
+
+/* Ekstrak question_key dari hasil siapkanXSeed, untuk dikirim ke server
+   (POST /game/record-questions) supaya tercatat sebagai "baru dipakai". */
+function keyDariSoal(soal){return soal.map(s=>s.q);}
+function keyDariAyat(ayat){return ayat.map(a=>a.ref);}
+function keyDariTokoh(tokoh){return tokoh.map(t=>t.jawaban);}
+// cards (hasil siapkanKartuSeed) berisi 2 entri per pasang: id genap berasal
+// dari sisi "a" (x.a — inilah idFn yang dipakai saringHindari(bankKartu,...)),
+// id ganjil dari sisi "b". Ambil isi sisi "a" per pasang sebagai key,
+// supaya konsisten dengan key yang dipakai server saat menyaring bank.
+function keyDariKartu(cards){
+  const seen=new Set();const keys=[];
+  cards.forEach(c=>{if(c.id%2===0&&!seen.has(c.pair)){seen.add(c.pair);keys.push(c.isi);}});
+  return keys;
+}
 function inisial(n){return n.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();}
 function warnaDari(n){let h=0;for(let i=0;i<n.length;i++)h=n.charCodeAt(i)+((h<<5)-h);return AVC[Math.abs(h)%AVC.length];}
 
@@ -264,6 +293,13 @@ function Hasil({judul,skor,baris,custom,accent,onExit}){return(<div style={{padd
 /* ── SHARED SCREENS ─────────────────────────────────────────── */
 function PilihCara({game,onBack,onPick}){return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Cara Bermain"subtitle={`${game.judul} — pilih mode`}/><div style={{display:"grid",gap:12,marginTop:20}}>{[{id:"solo",ikon:"👤",judul:"Main Solo",desc:"Lawan waktu, kejar skor & streak"},{id:"tatap",ikon:"📱",judul:"Hadap-hadapan",desc:"Satu HP berdua, layar terbagi 2"},{id:"online",ikon:"🌐",judul:"HP Masing-masing",desc:"Beda HP, main bareng secara online"}].map((m,i)=>{const [h,setH]=useState(false);return(<button key={m.id}onClick={()=>onPick(m.id)}onMouseEnter={()=>setH(true)}onMouseLeave={()=>setH(false)}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:14,padding:18,borderRadius:20,border:`1px solid ${h?game.warna:"rgba(255,255,255,0.1)"}`,background:h?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.03)",cursor:"pointer",textAlign:"left",color:P.cream,animationDelay:`${i*.06}s`}}><div style={{width:50,height:50,borderRadius:16,background:`${game.warna}22`,display:"grid",placeItems:"center",fontSize:22,flexShrink:0}}>{m.ikon}</div><div style={{flex:1}}><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17}}>{m.judul}</div><div style={{color:P.muted,fontSize:13,fontWeight:600,marginTop:2}}>{m.desc}</div></div><span style={{color:game.warna,fontSize:18}}>›</span></button>);})}</div></div>);}
 
+const MEMORY_LEVELS=[
+  {id:1,judul:"Level 1 — Pemula",desc:"Grid 4x4 · 8 pasang kartu",ikon:"🟢"},
+  {id:2,judul:"Level 2 — Menengah",desc:"Grid 8x8 · 32 pasang kartu",ikon:"🟡"},
+  {id:3,judul:"Level 3 — Sulit",desc:"Grid 8x8 · kartu diacak ulang tiap 3 giliran",ikon:"🔴"},
+];
+function PilihLevelMemory({onBack,onPick}){return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto"}}><TopBar onBack={onBack}title="Pilih Level"subtitle="Memory Match — makin tinggi makin menantang"/><div style={{display:"grid",gap:12,marginTop:20}}>{MEMORY_LEVELS.map((lv,i)=>{const [h,setH]=useState(false);return(<button key={lv.id}onClick={()=>onPick(lv.id)}onMouseEnter={()=>setH(true)}onMouseLeave={()=>setH(false)}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:14,padding:18,borderRadius:20,border:`1px solid ${h?P.orange:"rgba(255,255,255,0.1)"}`,background:h?"rgba(255,255,255,0.06)":"rgba(255,255,255,0.03)",cursor:"pointer",textAlign:"left",color:P.cream,animationDelay:`${i*.06}s`}}><div style={{width:50,height:50,borderRadius:16,background:`${P.orange}22`,display:"grid",placeItems:"center",fontSize:22,flexShrink:0}}>{lv.ikon}</div><div style={{flex:1}}><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17}}>{lv.judul}</div><div style={{color:P.muted,fontSize:13,fontWeight:600,marginTop:2}}>{lv.desc}</div></div><span style={{color:P.orange,fontSize:18}}>›</span></button>);})}</div></div>);}
+
 /* Untuk mode "tatap" (satu HP, 2 pemain) tetap pilih 1 lawan seperti biasa
    (klik langsung). Untuk mode "online" bisa pilih 1-3 lawan sekaligus
    (checkbox + tombol lanjut), supaya total sampai 4 pemain per sesi. */
@@ -322,7 +358,7 @@ async function apiGet(url){
 }
 
 /* ── LOBI ONLINE (realtime via Pusher, sampai 3 lawan sekaligus) ────────── */
-function LobiOnline({lawanList,game,sessionCode,onBack,onMulai,onDeclined}){
+function LobiOnline({lawanList,game,level,sessionCode,onBack,onMulai,onDeclined}){
   const [fase,setFase]=useState(sessionCode?"tunggu":"kirim");
   const [kode,setKode]=useState(sessionCode||null);
   const [players,setPlayers]=useState([]); // dari GET /game/session/{code}: [{id,nama,status,...}]
@@ -340,7 +376,7 @@ function LobiOnline({lawanList,game,sessionCode,onBack,onMulai,onDeclined}){
       try{
         let kodeAktif=sessionCode;
         if(!kodeAktif){
-          const res=await apiPost("/game/challenge",{opponent_ids:lawanList.map(l=>l.id),game_type:game.id});
+          const res=await apiPost("/game/challenge",{opponent_ids:lawanList.map(l=>l.id),game_type:game.id,level:game.id==="memory"?level:undefined});
           if(cancelled)return;
           kodeAktif=res.session_code;
           setKode(kodeAktif);
@@ -629,9 +665,10 @@ function HasilN({players,scores,myId,accent,onExit}){
   </div>);
 }
 
-function KuisOnline({players,sessionCode,onExit}){
+function KuisOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   const myId=window.__GAME_USER__?.id;
-  const [soal]=useState(()=>siapkanSoalSeed(7,sessionCode+":kuis"));
+  const [soal]=useState(()=>siapkanSoalSeed(7,sessionCode+":kuis",hindariKeys));
+  useEffect(()=>{if(myId===hostId)apiPost("/game/record-questions",{session_code:sessionCode,keys:keyDariSoal(soal)}).catch(()=>{});},[]);
   const [idx,setIdx]=useState(0);
   const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
   const [pilih,setPilih]=useState(null);
@@ -737,9 +774,10 @@ function SusunTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{padding:"7px 14px",background:"rgba(0,0,0,0.3)",display:"flex",alignItems:"center",justifyContent:"center",gap:12,position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"4px 10px",position:"absolute",left:8}}>←</button><span style={{fontSize:11,fontWeight:800,color:P.muted}}>RONDE {idx+1}/{ayat.length}</span><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={44}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-function SusunOnline({players,sessionCode,onExit}){
+function SusunOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   const myId=window.__GAME_USER__?.id;
-  const [ayat]=useState(()=>siapkanAyatSeed(5,sessionCode+":susun"));
+  const [ayat]=useState(()=>siapkanAyatSeed(5,sessionCode+":susun",hindariKeys));
+  useEffect(()=>{if(myId===hostId)apiPost("/game/record-questions",{session_code:sessionCode,keys:keyDariAyat(ayat)}).catch(()=>{});},[]);
   const [idx,setIdx]=useState(0);
   const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
   const skorRef=useRef(skor);
@@ -862,9 +900,10 @@ function TebakTatap({lawan,onExit}){
   return(<div style={{display:"flex",flexDirection:"column",minHeight:560}}><Panel pem="p2"nama={lawan.nama}color={P.p2}flip/><div style={{background:"rgba(0,0,0,0.3)",padding:"8px 14px"}}><div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,position:"relative"}}><button onClick={onExit}className="gf-btn"style={{...gBtn,padding:"4px 10px",position:"absolute",left:0}}>←</button><div style={{textAlign:"center"}}><div style={{fontSize:11,fontWeight:800,color:P.muted,letterSpacing:1}}>TOKOH {idx+1}/{tokoh.length}</div></div></div><div style={{marginTop:8,padding:"10px 12px",borderRadius:14,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:11,fontWeight:700,color:P.purple,marginBottom:6}}>Clue terlihat semua pemain:</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{fontSize:13,color:P.cream,fontWeight:600,marginBottom:4}}>#{i+1} {c}</div>)}{clueIdx<t.clues.length-1&&!winner&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:8,width:"100%",padding:"8px",borderRadius:10,border:`1px solid ${P.purple}44`,background:`${P.purple}10`,color:P.purple,fontWeight:700,fontSize:12}}>Buka Clue Berikutnya</button>}</div></div><Panel pem="p1"nama="Kamu"color={P.p1}/></div>);
 }
 
-function TebakOnline({players,sessionCode,onExit}){
+function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   const myId=window.__GAME_USER__?.id;
-  const [tokoh]=useState(()=>siapkanTokohSeed(10,sessionCode+":tebak"));
+  const [tokoh]=useState(()=>siapkanTokohSeed(10,sessionCode+":tebak",hindariKeys));
+  useEffect(()=>{if(myId===hostId)apiPost("/game/record-questions",{session_code:sessionCode,keys:keyDariTokoh(tokoh)}).catch(()=>{});},[]);
   const [idx,setIdx]=useState(0);
   const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
   const skorRef=useRef(skor);
@@ -925,38 +964,139 @@ function TebakOnline({players,sessionCode,onExit}){
 /* ════════════════════════════════════════════════════════════
    GAME 4: MEMORY MATCH
 ════════════════════════════════════════════════════════════ */
-function KartuView({kartu,terbuka,matched,onClick,disabled}){const show=terbuka||matched;return(<div onClick={disabled||matched?undefined:onClick}className="gf-card-wrap"style={{cursor:disabled||matched?"default":"pointer",height:80}}><div className={`gf-card-inner${show?" flipped":""}`}style={{height:"100%"}}><div className="gf-card-face"style={{background:"rgba(255,255,255,0.06)",border:"1.5px solid rgba(255,255,255,0.12)"}}><span style={{fontSize:22}}>✦</span></div><div className="gf-card-face gf-card-back"style={{background:matched?"rgba(74,222,128,0.15)":"rgba(37,99,235,0.15)",border:`1.5px solid ${matched?P.green:"rgba(99,102,241,0.4)"}`}}><span style={{fontSize:11.5,fontWeight:700,color:matched?P.green:P.cream,lineHeight:1.3,textAlign:"center",padding:"4px"}}>{kartu.isi}</span></div></div></div>);}
+// Level 1: 4x4 (8 pasang). Level 2: 8x8 (32 pasang), tanpa reshuffle.
+// Level 3: 8x8 (32 pasang) + reshuffle kartu yang belum ketemu tiap 3
+// giliran gagal (juga preview semua kartu 3 detik di awal permainan).
+const MEMORY_LEVEL_CFG={
+  1:{pasang:8, kolom:4},
+  2:{pasang:32,kolom:8},
+  3:{pasang:32,kolom:8,reshuffle:true},
+};
+function cfgLevel(level){return MEMORY_LEVEL_CFG[level]||MEMORY_LEVEL_CFG[1];}
 
-function MemorySolo({onExit}){
-  const [cards]=useState(()=>siapkanKartu(8));const [terbuka,setTerbuka]=useState([]);const [matched,setMatched]=useState([]);
-  const [langkah,setLangkah]=useState(0);const [waktu,setWaktu]=useState(0);const [selesai,setSelesai]=useState(false);const checkRef=useRef(false);const timerRef=useRef();
-  useEffect(()=>{timerRef.current=setInterval(()=>setWaktu(w=>w+1),1000);return()=>clearInterval(timerRef.current);},[]);
-  useEffect(()=>{if(matched.length===cards.length&&cards.length>0){clearInterval(timerRef.current);setSelesai(true);}},[matched,cards.length]);
-  const klik=i=>{if(checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;const next=[...terbuka,i];setTerbuka(next);setLangkah(l=>l+1);if(next.length===2){checkRef.current=true;const[a,b]=next;if(cards[a].pair===cards[b].pair){setMatched(m=>[...m,a,b]);setTerbuka([]);checkRef.current=false;}else{setTimeout(()=>{setTerbuka([]);checkRef.current=false;},900);}}};
-  const mnt=String(Math.floor(waktu/60)).padStart(2,"0"),dtk=String(waktu%60).padStart(2,"0");
-  const skor=Math.max(0,2000-langkah*20-waktu*5);
-  if(selesai)return<Hasil judul="Semua Cocok! 🃏"skor={skor}accent={P.orange}onExit={onExit}baris={[{label:"Waktu",val:`${mnt}:${dtk}`},{label:"Langkah",val:langkah},{label:"Pasangan",val:`${matched.length/2}/8`}]}/>;
-  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{display:"flex",gap:12}}><Pill color={P.orange}label={`⏱ ${mnt}:${dtk}`}/><Pill color={P.green}label={`${matched.length/2}/8 ✓`}/></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={terbuka.length===2&&!terbuka.includes(i)}/>)}</div><div style={{marginTop:12,textAlign:"center",color:P.muted,fontSize:13,fontWeight:600}}>{langkah} langkah · Skor estimasi: {Math.max(0,2000-langkah*20-waktu*5)}</div></div>);
+function KartuView({kartu,terbuka,matched,onClick,disabled,kecil}){const show=terbuka||matched;return(<div onClick={disabled||matched?undefined:onClick}className="gf-card-wrap"style={{cursor:disabled||matched?"default":"pointer",height:kecil?52:80}}><div className={`gf-card-inner${show?" flipped":""}`}style={{height:"100%"}}><div className="gf-card-face"style={{background:"rgba(255,255,255,0.06)",border:"1.5px solid rgba(255,255,255,0.12)"}}><span style={{fontSize:kecil?15:22}}>✦</span></div><div className="gf-card-face gf-card-back"style={{background:matched?"rgba(74,222,128,0.15)":"rgba(37,99,235,0.15)",border:`1.5px solid ${matched?P.green:"rgba(99,102,241,0.4)"}`}}><span style={{fontSize:kecil?9:11.5,fontWeight:700,color:matched?P.green:P.cream,lineHeight:1.2,textAlign:"center",padding:kecil?"2px":"4px"}}>{kartu.isi}</span></div></div></div>);}
+
+/* Reshuffle level 3: acak ULANG POSISI kartu yang BELUM matched (kartu yang
+   sudah matched tetap di tempat & tetap terbuka), lalu tampilkan semua
+   sebentar sebelum ditutup lagi. Mengembalikan array cards baru. */
+function acakUlangBelumMatched(cards,matchedIdx,seed){
+  const belum=cards.map((c,i)=>({c,i})).filter(({i})=>!matchedIdx.includes(i));
+  const posisi=belum.map(({i})=>i);
+  // seed diberikan HANYA di mode online (supaya hasil acak identik di semua
+  // device tanpa koordinasi server) — mode Solo/Tatap satu perangkat, jadi
+  // Math.random() biasa sudah cukup dan tidak perlu deterministik.
+  const kartuAcak=seed?shuffleSeed(belum.map(({c})=>c),buatRng(seed)):shuffle(belum.map(({c})=>c));
+  const hasil=[...cards];
+  posisi.forEach((pos,j)=>{hasil[pos]=kartuAcak[j];});
+  return hasil;
 }
 
-function MemoryTatap({lawan,onExit}){
-  const [cards]=useState(()=>siapkanKartu(8));const [terbuka,setTerbuka]=useState([]);const [matched,setMatched]=useState([]);
+function MemorySolo({level,onExit}){
+  const cfg=cfgLevel(level);
+  const [cards,setCards]=useState(()=>siapkanKartu(cfg.pasang));
+  const [terbuka,setTerbuka]=useState([]);const [matched,setMatched]=useState([]);
+  const [langkah,setLangkah]=useState(0);const [waktu,setWaktu]=useState(0);const [selesai,setSelesai]=useState(false);const checkRef=useRef(false);const timerRef=useRef();
+  const [gagalBerturut,setGagalBerturut]=useState(0);
+  const [previewAwal,setPreviewAwal]=useState(!!cfg.reshuffle); // level 3: tampilkan semua kartu 3 detik di awal
+  const matchedRef=useRef([]);
+  useEffect(()=>{matchedRef.current=matched;},[matched]);
+
+  useEffect(()=>{
+    if(!previewAwal)return;
+    const t=setTimeout(()=>setPreviewAwal(false),3000);
+    return()=>clearTimeout(t);
+  },[]);
+
+  useEffect(()=>{if(previewAwal)return;timerRef.current=setInterval(()=>setWaktu(w=>w+1),1000);return()=>clearInterval(timerRef.current);},[previewAwal]);
+  useEffect(()=>{if(matched.length===cards.length&&cards.length>0){clearInterval(timerRef.current);setSelesai(true);}},[matched,cards.length]);
+
+  const klik=i=>{
+    if(previewAwal||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
+    const next=[...terbuka,i];setTerbuka(next);setLangkah(l=>l+1);
+    if(next.length===2){
+      checkRef.current=true;
+      const[a,b]=next;
+      if(cards[a].pair===cards[b].pair){
+        setMatched(m=>[...m,a,b]);setTerbuka([]);checkRef.current=false;
+      }else{
+        setTimeout(()=>{
+          setTerbuka([]);checkRef.current=false;
+          if(cfg.reshuffle){
+            setGagalBerturut(g=>{
+              const ng=g+1;
+              if(ng>=3){
+                setCards(cs=>acakUlangBelumMatched(cs,matchedRef.current));
+                setPreviewAwal(true);
+                setTimeout(()=>setPreviewAwal(false),3000);
+                return 0;
+              }
+              return ng;
+            });
+          }
+        },900);
+      }
+    }
+  };
+  const mnt=String(Math.floor(waktu/60)).padStart(2,"0"),dtk=String(waktu%60).padStart(2,"0");
+  const skor=Math.max(0,cfg.pasang*250-langkah*20-waktu*5);
+  if(selesai)return<Hasil judul="Semua Cocok! 🃏"skor={skor}accent={P.orange}onExit={onExit}baris={[{label:"Waktu",val:`${mnt}:${dtk}`},{label:"Langkah",val:langkah},{label:"Pasangan",val:`${matched.length/2}/${cfg.pasang}`}]}/>;
+  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{display:"flex",gap:12}}><Pill color={P.orange}label={`⏱ ${mnt}:${dtk}`}/><Pill color={P.green}label={`${matched.length/2}/${cfg.pasang} ✓`}/></div></div>{previewAwal&&<div style={{textAlign:"center",marginBottom:10,color:P.gold,fontWeight:800,fontSize:13}}>Hafalkan posisi kartu… 👀</div>}<div style={{display:"grid",gridTemplateColumns:`repeat(${cfg.kolom},1fr)`,gap:cfg.kolom>4?5:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}kecil={cfg.kolom>4}terbuka={previewAwal||terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={previewAwal||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:12,textAlign:"center",color:P.muted,fontSize:13,fontWeight:600}}>{langkah} langkah · Skor estimasi: {skor}</div></div>);
+}
+
+function MemoryTatap({lawan,level,onExit}){
+  const cfg=cfgLevel(level);
+  const [cards,setCards]=useState(()=>siapkanKartu(cfg.pasang));
+  const [terbuka,setTerbuka]=useState([]);const [matched,setMatched]=useState([]);
   const [giliranP,setGiliranP]=useState("p1");const [skor,setSkor]=useState({p1:0,p2:0});const [langkah,setLangkah]=useState(0);
   const [selesai,setSelesai]=useState(false);const checkRef=useRef(false);
+  const [gagalBerturut,setGagalBerturut]=useState(0);
+  const [previewAwal,setPreviewAwal]=useState(!!cfg.reshuffle);
+  const matchedRef=useRef([]);
+  useEffect(()=>{matchedRef.current=matched;},[matched]);
+  useEffect(()=>{if(!previewAwal)return;const t=setTimeout(()=>setPreviewAwal(false),3000);return()=>clearTimeout(t);},[]);
   useEffect(()=>{if(matched.length===cards.length&&cards.length>0)setSelesai(true);},[matched,cards.length]);
-  const klik=i=>{if(checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;const next=[...terbuka,i];setTerbuka(next);setLangkah(l=>l+1);if(next.length===2){checkRef.current=true;const[a,b]=next;if(cards[a].pair===cards[b].pair){setSkor(s=>({...s,[giliranP]:s[giliranP]+1}));setMatched(m=>[...m,a,b]);setTerbuka([]);checkRef.current=false;}else{setTimeout(()=>{setTerbuka([]);setGiliranP(g=>g==="p1"?"p2":"p1");checkRef.current=false;},900);}}};
+  const klik=i=>{
+    if(previewAwal||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
+    const next=[...terbuka,i];setTerbuka(next);setLangkah(l=>l+1);
+    if(next.length===2){
+      checkRef.current=true;
+      const[a,b]=next;
+      if(cards[a].pair===cards[b].pair){
+        setSkor(s=>({...s,[giliranP]:s[giliranP]+1}));setMatched(m=>[...m,a,b]);setTerbuka([]);checkRef.current=false;
+      }else{
+        setTimeout(()=>{
+          setTerbuka([]);setGiliranP(g=>g==="p1"?"p2":"p1");checkRef.current=false;
+          if(cfg.reshuffle){
+            setGagalBerturut(g=>{
+              const ng=g+1;
+              if(ng>=3){
+                setCards(cs=>acakUlangBelumMatched(cs,matchedRef.current));
+                setPreviewAwal(true);
+                setTimeout(()=>setPreviewAwal(false),3000);
+                return 0;
+              }
+              return ng;
+            });
+          }
+        },900);
+      }
+    }
+  };
   if(selesai){const w=skor.p1===skor.p2?"Seri!":skor.p1>skor.p2?"Kamu Menang! 🏆":`${lawan.nama} Menang! 🏆`;return<Hasil judul={w}skor={null}accent={skor.p1>=skor.p2?P.p1:P.p2}onExit={onExit}custom={<div style={{display:"flex",gap:12,justifyContent:"center",marginTop:8}}><ScorePill name="Kamu"val={skor.p1}color={P.p1}win={skor.p1>=skor.p2}/><ScorePill name={lawan.nama}val={skor.p2}color={P.p2}win={skor.p2>=skor.p1}/></div>}/>;}
-  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:P.muted,letterSpacing:1}}>MEMORY MATCH</div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:12,padding:"10px 14px",borderRadius:14,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar nama="Kamu"size={28}ring={giliranP==="p1"?P.orange:undefined}/><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p1"?P.orange:P.cream}}>Kamu {giliranP==="p1"?"← giliran":""}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.orange}}>{skor.p1} pasang</div></div></div><div style={{textAlign:"right",display:"flex",alignItems:"center",gap:8}}><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p2"?P.p2:P.cream}}>{giliranP==="p2"?"giliran →":""} {lawan.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.p2}}>{skor.p2} pasang</div></div><Avatar nama={lawan.nama}size={28}ring={giliranP==="p2"?P.p2:undefined}/></div></div><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={terbuka.length===2&&!terbuka.includes(i)}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:700,color:P.muted}}>{langkah} langkah · {matched.length/2}/8 pasang ditemukan</div></div>);
+  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={onExit}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:P.muted,letterSpacing:1}}>MEMORY MATCH</div></div><div style={{display:"flex",justifyContent:"space-between",marginBottom:12,padding:"10px 14px",borderRadius:14,background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.08)"}}><div style={{display:"flex",alignItems:"center",gap:8}}><Avatar nama="Kamu"size={28}ring={giliranP==="p1"?P.orange:undefined}/><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p1"?P.orange:P.cream}}>Kamu {giliranP==="p1"?"← giliran":""}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.orange}}>{skor.p1} pasang</div></div></div><div style={{textAlign:"right",display:"flex",alignItems:"center",gap:8}}><div><div style={{fontWeight:800,fontSize:13,color:giliranP==="p2"?P.p2:P.cream}}>{giliranP==="p2"?"giliran →":""} {lawan.nama}</div><div style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:18,color:P.p2}}>{skor.p2} pasang</div></div><Avatar nama={lawan.nama}size={28}ring={giliranP==="p2"?P.p2:undefined}/></div></div>{previewAwal&&<div style={{textAlign:"center",marginBottom:10,color:P.gold,fontWeight:800,fontSize:13}}>Hafalkan posisi kartu… 👀</div>}<div style={{display:"grid",gridTemplateColumns:`repeat(${cfg.kolom},1fr)`,gap:cfg.kolom>4?5:8}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}kecil={cfg.kolom>4}terbuka={previewAwal||terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={previewAwal||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:700,color:P.muted}}>{langkah} langkah · {matched.length/2}/{cfg.pasang} pasang ditemukan</div></div>);
 }
 
-function MemoryOnline({players,sessionCode,onExit}){
+function MemoryOnline({players,sessionCode,hindariKeys,hostId,level,onExit}){
   const myId=window.__GAME_USER__?.id;
-  const [cards]=useState(()=>siapkanKartuSeed(8,sessionCode+":memory"));
+  const cfg=cfgLevel(level);
+  const [cards,setCards]=useState(()=>siapkanKartuSeed(cfg.pasang,sessionCode+":memory",hindariKeys));
+  useEffect(()=>{if(myId===hostId)apiPost("/game/record-questions",{session_code:sessionCode,keys:keyDariKartu(cards)}).catch(()=>{});},[]);
   const [terbuka,setTerbuka]=useState([]);
   const [matched,setMatched]=useState([]);
   const [giliranIdx,setGiliranIdx]=useState(0); // index ke players — sama urutannya di semua klien
   const [skor,setSkor]=useState(()=>Object.fromEntries(players.map(p=>[p.id,0])));
   const [selesai,setSelesai]=useState(false);
+  const [previewAwal,setPreviewAwal]=useState(!!cfg.reshuffle);
   const checkRef=useRef(false);
   const matchedRef=useRef([]);
   const skorRef=useRef(skor);
@@ -965,6 +1105,19 @@ function MemoryOnline({players,sessionCode,onExit}){
 
   useEffect(()=>{matchedRef.current=matched;},[matched]);
   useEffect(()=>{skorRef.current=skor;},[skor]);
+  useEffect(()=>{if(!previewAwal)return;const t=setTimeout(()=>setPreviewAwal(false),3000);return()=>clearTimeout(t);},[]);
+
+  // Reshuffle level 3 dipicu dari giliranIdx (naik lewat event "flip" gagal
+  // yang di-broadcast, jadi nilainya SAMA di semua klien pada saat yang
+  // sama) dan diacak pakai RNG seeded (bukan Math.random()) supaya urutan
+  // hasil acak ulang tetap identik di semua device tanpa koordinasi server.
+  useEffect(()=>{
+    if(!cfg.reshuffle||giliranIdx===0||giliranIdx%3!==0)return;
+    setCards(cs=>acakUlangBelumMatched(cs,matchedRef.current,sessionCode+":reshuffle:"+giliranIdx));
+    setPreviewAwal(true);
+    const t=setTimeout(()=>setPreviewAwal(false),3000);
+    return()=>clearTimeout(t);
+  },[giliranIdx]);
 
   const {sendMove,sendFinished,keluarDariSesi,pemainKeluar,pemainDitandaiKeluar,sesiDiakhiriKarenaKeluar,putuskanKelanjutan}=useOnlineGame(sessionCode,(d)=>{
     if(d.user_id===myId)return;
@@ -989,7 +1142,7 @@ function MemoryOnline({players,sessionCode,onExit}){
   useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
 
   const klik=i=>{
-    if(!giliranKamu||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
+    if(previewAwal||!giliranKamu||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
     const next=[...terbuka,i];
     setTerbuka(next);
     if(next.length===2){
@@ -1012,7 +1165,7 @@ function MemoryOnline({players,sessionCode,onExit}){
 
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.orange}onExit={onExit}/>;
   const giliranNama=players.find(p=>p.id===giliranId)?.nama||"?";
-  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}terbuka={terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/8 pasang ditemukan</div></div>);
+  return(<div style={{padding:"18px 20px 28px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{fontSize:12,fontWeight:800,color:giliranKamu?P.orange:P.p2}}>{previewAwal?"Hafalkan posisi kartu… 👀":giliranKamu?"Giliranmu — buka 2 kartu":`Giliran ${giliranNama}…`}</div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div style={{display:"grid",gridTemplateColumns:`repeat(${cfg.kolom},1fr)`,gap:cfg.kolom>4?5:8,marginTop:12}}>{cards.map((c,i)=><KartuView key={c.id}kartu={c}kecil={cfg.kolom>4}terbuka={previewAwal||terbuka.includes(i)}matched={matched.includes(i)}onClick={()=>klik(i)}disabled={previewAwal||!giliranKamu||(terbuka.length===2&&!terbuka.includes(i))}/>)}</div><div style={{marginTop:10,textAlign:"center",fontSize:13,fontWeight:600,color:P.muted}}>{matched.length/2}/{cfg.pasang} pasang ditemukan</div></div>);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1035,11 +1188,22 @@ function GameFeature(){
   const [lawanList,setLawanList]=useState([]); // 1-3 lawan (mode "online")
   const [sessionCode,setSessionCode]=useState(null);
   const [players,setPlayers]=useState(null); // semua peserta 'accepted' termasuk diri sendiri, diisi begitu sesi online aktif
+  const [hindariKeys,setHindariKeys]=useState([]); // soal yang harus dihindari (baru dipakai tenant ini beberapa match terakhir)
+  const [hostId,setHostId]=useState(null); // hanya host yang mencatat soal terpakai ke server (lihat GameSessionController::recordQuestions)
   const [notif,setNotif]=useState(null);
+  const [memoryLevel,setMemoryLevel]=useState(1); // 1=4x4, 2=8x8, 3=8x8+reshuffle — dipakai Solo/Tatap/Online
 
-  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setLawanList([]);setSessionCode(null);setPlayers(null);};
+  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setLawanList([]);setSessionCode(null);setPlayers(null);setHindariKeys([]);setHostId(null);setMemoryLevel(1);};
   const mulaiGame=g=>{setGame(g);setScreen("cara");};
-  const pilihCara=m=>{setMode(m);if(m==="solo")setScreen("main");else setScreen("lawan");};
+  const pilihCara=m=>{
+    setMode(m);
+    if(game?.id==="memory"){setScreen("level");return;} // Memory Match: pilih level dulu di semua mode
+    if(m==="solo")setScreen("main");else setScreen("lawan");
+  };
+  const pilihLevel=lvl=>{
+    setMemoryLevel(lvl);
+    if(mode==="solo")setScreen("main");else setScreen("lawan");
+  };
   const pilihLawan=picked=>{
     if(mode==="online"){setLawanList(Array.isArray(picked)?picked:[picked]);setScreen("lobi");}
     else{setLawan(picked);setScreen("main");}
@@ -1056,6 +1220,9 @@ function GameFeature(){
       if(batal)return;
       const aktif=(s.players||[]).filter(p=>p.status==="accepted");
       setPlayers(aktif.map(p=>({id:p.id,nama:p.nama})));
+      setHindariKeys(s.seed?.avoid_keys||[]);
+      setHostId(s.host?.id??null);
+      if(s.seed?.level)setMemoryLevel(s.seed.level);
     }).catch(()=>{});
     return()=>{batal=true;};
   },[mode,sessionCode,screen]);
@@ -1092,15 +1259,15 @@ function GameFeature(){
 
   const GameMain=()=>{
     if(!game)return null;
-    if(mode==="solo"){if(game.id==="kuis")return<KuisSolo onExit={pulang}/>;if(game.id==="susun")return<SusunSolo onExit={pulang}/>;if(game.id==="tebak")return<TebakSolo onExit={pulang}/>;if(game.id==="memory")return<MemorySolo onExit={pulang}/>;}
-    if(mode==="tatap"){if(game.id==="kuis")return<KuisTatap lawan={lawan}onExit={pulang}/>;if(game.id==="susun")return<SusunTatap lawan={lawan}onExit={pulang}/>;if(game.id==="tebak")return<TebakTatap lawan={lawan}onExit={pulang}/>;if(game.id==="memory")return<MemoryTatap lawan={lawan}onExit={pulang}/>;}
+    if(mode==="solo"){if(game.id==="kuis")return<KuisSolo onExit={pulang}/>;if(game.id==="susun")return<SusunSolo onExit={pulang}/>;if(game.id==="tebak")return<TebakSolo onExit={pulang}/>;if(game.id==="memory")return<MemorySolo level={memoryLevel}onExit={pulang}/>;}
+    if(mode==="tatap"){if(game.id==="kuis")return<KuisTatap lawan={lawan}onExit={pulang}/>;if(game.id==="susun")return<SusunTatap lawan={lawan}onExit={pulang}/>;if(game.id==="tebak")return<TebakTatap lawan={lawan}onExit={pulang}/>;if(game.id==="memory")return<MemoryTatap lawan={lawan}level={memoryLevel}onExit={pulang}/>;}
     if(mode==="online"){
       if(!players)return<div style={{padding:60,textAlign:"center",color:P.muted,fontWeight:600}}>Memuat pemain…</div>;
       const gType=game.id;
-      if(gType==="kuis")return<KuisOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
-      if(gType==="susun")return<SusunOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
-      if(gType==="tebak")return<TebakOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
-      if(gType==="memory")return<MemoryOnline players={players}sessionCode={sessionCode}onExit={pulang}/>;
+      if(gType==="kuis")return<KuisOnline players={players}sessionCode={sessionCode}hindariKeys={hindariKeys}hostId={hostId}onExit={pulang}/>;
+      if(gType==="susun")return<SusunOnline players={players}sessionCode={sessionCode}hindariKeys={hindariKeys}hostId={hostId}onExit={pulang}/>;
+      if(gType==="tebak")return<TebakOnline players={players}sessionCode={sessionCode}hindariKeys={hindariKeys}hostId={hostId}onExit={pulang}/>;
+      if(gType==="memory")return<MemoryOnline players={players}sessionCode={sessionCode}hindariKeys={hindariKeys}hostId={hostId}level={memoryLevel}onExit={pulang}/>;
     }
     return null;
   };
@@ -1111,8 +1278,9 @@ function GameFeature(){
       {screen==="hub"    &&<Hub onGame={mulaiGame}onLeaderboard={()=>setScreen("leaderboard")}/>}
       {screen==="leaderboard"&&<PapanPeringkat onBack={pulang}/>}
       {screen==="cara"   &&game&&<PilihCara game={game}onBack={pulang}onPick={pilihCara}/>}
-      {screen==="lawan"  &&game&&<PilihLawan game={game}mode={mode}onBack={()=>setScreen("cara")}onPick={pilihLawan}/>}
-      {screen==="lobi"   &&game&&lawanList.length>0&&<LobiOnline lawanList={lawanList}game={game}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
+      {screen==="level"  &&game&&<PilihLevelMemory onBack={()=>setScreen("cara")}onPick={pilihLevel}/>}
+      {screen==="lawan"  &&game&&<PilihLawan game={game}mode={mode}onBack={()=>setScreen(game.id==="memory"?"level":"cara")}onPick={pilihLawan}/>}
+      {screen==="lobi"   &&game&&lawanList.length>0&&<LobiOnline lawanList={lawanList}game={game}level={memoryLevel}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
       {screen==="main"   &&<GameMain/>}
       {notif&&screen!=="main"&&<NotifTantangan notif={notif}onTerima={terimaNotif}onTolak={tolakNotif}/>}
     </div>

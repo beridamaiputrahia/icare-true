@@ -501,6 +501,12 @@ const BANK_KARTU = [{
 }, {
   a: "Yeremia",
   b: "Dijuluki nabi yang menangis"
+}, {
+  a: "Yohanes Rasul",
+  b: "Menulis Kitab Wahyu di Pulau Patmos"
+}, {
+  a: "Timotius",
+  b: "Murid muda yang dibina Rasul Paulus"
 }];
 function getLeaderboard() {
   const raw = window.__GAME_LEADERBOARD__;
@@ -586,9 +592,24 @@ function shuffleSeed(arr, rng) {
   }
   return a;
 }
-function siapkanSoalSeed(n, seed) {
+
+/* Saring bank sebelum seeded-shuffle supaya soal yang baru dipakai tenant ini
+   beberapa match terakhir (avoid_keys dari server, lihat GameSessionController)
+   tidak muncul lagi dulu. Kalau kandidat setelah disaring kurang dari
+   kebutuhan (bank kecil dibanding hindariKeys), fallback ke bank penuh —
+   lebih baik ada sedikit pengulangan daripada macet karena kandidat < n. */
+function saringHindari(bank, idFn, hindariKeys) {
+  if (!hindariKeys || !hindariKeys.length) return bank;
+  const set = new Set(hindariKeys);
+  const segar = bank.filter(x => !set.has(idFn(x)));
+  return segar;
+}
+function siapkanSoalSeed(n, seed, hindariKeys) {
   const rng = buatRng(seed);
-  const dipilih = shuffleSeed(bankSoal(), rng).slice(0, n);
+  const bank = bankSoal();
+  let kandidat = saringHindari(bank, s => s.q, hindariKeys);
+  if (kandidat.length < n) kandidat = bank;
+  const dipilih = shuffleSeed(kandidat, rng).slice(0, n);
   return dipilih.map(s => {
     const b = s.opsi[s.benar];
     const o = shuffleSeed(s.opsi, rng);
@@ -599,9 +620,12 @@ function siapkanSoalSeed(n, seed) {
     };
   });
 }
-function siapkanAyatSeed(n, seed) {
+function siapkanAyatSeed(n, seed, hindariKeys) {
   const rng = buatRng(seed);
-  const dipilih = shuffleSeed(bankAyat(), rng).slice(0, n);
+  const bank = bankAyat();
+  let kandidat = saringHindari(bank, a => a.ref, hindariKeys);
+  if (kandidat.length < n) kandidat = bank;
+  const dipilih = shuffleSeed(kandidat, rng).slice(0, n);
   return dipilih.map(a => {
     const kata = a.teks.split(" ");
     return {
@@ -611,9 +635,12 @@ function siapkanAyatSeed(n, seed) {
     };
   });
 }
-function siapkanTokohSeed(n, seed) {
+function siapkanTokohSeed(n, seed, hindariKeys) {
   const rng = buatRng(seed);
-  const dipilih = shuffleSeed(bankTokoh(), rng).slice(0, n);
+  const bank = bankTokoh();
+  let kandidat = saringHindari(bank, t => t.jawaban, hindariKeys);
+  if (kandidat.length < n) kandidat = bank;
+  const dipilih = shuffleSeed(kandidat, rng).slice(0, n);
   return dipilih.map(t => {
     let op = shuffleSeed([t.jawaban, ...t.salah], rng).slice(0, 4);
     if (!op.includes(t.jawaban)) op[0] = t.jawaban;
@@ -623,9 +650,12 @@ function siapkanTokohSeed(n, seed) {
     };
   });
 }
-function siapkanKartuSeed(n = 8, seed) {
+function siapkanKartuSeed(n = 8, seed, hindariKeys) {
   const rng = buatRng(seed);
-  const p = shuffleSeed(bankKartu(), rng).slice(0, n);
+  const bank = bankKartu();
+  let kandidat = saringHindari(bank, x => x.a, hindariKeys);
+  if (kandidat.length < n) kandidat = bank;
+  const p = shuffleSeed(kandidat, rng).slice(0, n);
   return shuffleSeed([...p.map((x, i) => ({
     id: i * 2,
     pair: i,
@@ -635,6 +665,33 @@ function siapkanKartuSeed(n = 8, seed) {
     pair: i,
     isi: x.b
   }))], rng);
+}
+
+/* Ekstrak question_key dari hasil siapkanXSeed, untuk dikirim ke server
+   (POST /game/record-questions) supaya tercatat sebagai "baru dipakai". */
+function keyDariSoal(soal) {
+  return soal.map(s => s.q);
+}
+function keyDariAyat(ayat) {
+  return ayat.map(a => a.ref);
+}
+function keyDariTokoh(tokoh) {
+  return tokoh.map(t => t.jawaban);
+}
+// cards (hasil siapkanKartuSeed) berisi 2 entri per pasang: id genap berasal
+// dari sisi "a" (x.a — inilah idFn yang dipakai saringHindari(bankKartu,...)),
+// id ganjil dari sisi "b". Ambil isi sisi "a" per pasang sebagai key,
+// supaya konsisten dengan key yang dipakai server saat menyaring bank.
+function keyDariKartu(cards) {
+  const seen = new Set();
+  const keys = [];
+  cards.forEach(c => {
+    if (c.id % 2 === 0 && !seen.has(c.pair)) {
+      seen.add(c.pair);
+      keys.push(c.isi);
+    }
+  });
+  return keys;
 }
 function inisial(n) {
   return n.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -1167,6 +1224,99 @@ function PilihCara({
     }, "›"));
   })));
 }
+const MEMORY_LEVELS = [{
+  id: 1,
+  judul: "Level 1 — Pemula",
+  desc: "Grid 4x4 · 8 pasang kartu",
+  ikon: "🟢"
+}, {
+  id: 2,
+  judul: "Level 2 — Menengah",
+  desc: "Grid 8x8 · 32 pasang kartu",
+  ikon: "🟡"
+}, {
+  id: 3,
+  judul: "Level 3 — Sulit",
+  desc: "Grid 8x8 · kartu diacak ulang tiap 3 giliran",
+  ikon: "🔴"
+}];
+function PilihLevelMemory({
+  onBack,
+  onPick
+}) {
+  return /*#__PURE__*/React.createElement("div", {
+    style: {
+      padding: "24px 20px",
+      maxWidth: 460,
+      margin: "0 auto"
+    }
+  }, /*#__PURE__*/React.createElement(TopBar, {
+    onBack: onBack,
+    title: "Pilih Level",
+    subtitle: "Memory Match — makin tinggi makin menantang"
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "grid",
+      gap: 12,
+      marginTop: 20
+    }
+  }, MEMORY_LEVELS.map((lv, i) => {
+    const [h, setH] = useState(false);
+    return /*#__PURE__*/React.createElement("button", {
+      key: lv.id,
+      onClick: () => onPick(lv.id),
+      onMouseEnter: () => setH(true),
+      onMouseLeave: () => setH(false),
+      className: "gf-btn gf-rise",
+      style: {
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        padding: 18,
+        borderRadius: 20,
+        border: `1px solid ${h ? P.orange : "rgba(255,255,255,0.1)"}`,
+        background: h ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.03)",
+        cursor: "pointer",
+        textAlign: "left",
+        color: P.cream,
+        animationDelay: `${i * .06}s`
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        width: 50,
+        height: 50,
+        borderRadius: 16,
+        background: `${P.orange}22`,
+        display: "grid",
+        placeItems: "center",
+        fontSize: 22,
+        flexShrink: 0
+      }
+    }, lv.ikon), /*#__PURE__*/React.createElement("div", {
+      style: {
+        flex: 1
+      }
+    }, /*#__PURE__*/React.createElement("div", {
+      style: {
+        fontFamily: "'Bricolage Grotesque',sans-serif",
+        fontWeight: 800,
+        fontSize: 17
+      }
+    }, lv.judul), /*#__PURE__*/React.createElement("div", {
+      style: {
+        color: P.muted,
+        fontSize: 13,
+        fontWeight: 600,
+        marginTop: 2
+      }
+    }, lv.desc)), /*#__PURE__*/React.createElement("span", {
+      style: {
+        color: P.orange,
+        fontSize: 18
+      }
+    }, "›"));
+  })));
+}
 
 /* Untuk mode "tatap" (satu HP, 2 pemain) tetap pilih 1 lawan seperti biasa
    (klik langsung). Untuk mode "online" bisa pilih 1-3 lawan sekaligus
@@ -1410,6 +1560,7 @@ async function apiGet(url) {
 function LobiOnline({
   lawanList,
   game,
+  level,
   sessionCode,
   onBack,
   onMulai,
@@ -1434,7 +1585,8 @@ function LobiOnline({
         if (!kodeAktif) {
           const res = await apiPost("/game/challenge", {
             opponent_ids: lawanList.map(l => l.id),
-            game_type: game.id
+            game_type: game.id,
+            level: game.id === "memory" ? level : undefined
           });
           if (cancelled) return;
           kodeAktif = res.session_code;
@@ -2702,10 +2854,18 @@ function HasilN({
 function KuisOnline({
   players,
   sessionCode,
+  hindariKeys,
+  hostId,
   onExit
 }) {
   const myId = window.__GAME_USER__?.id;
-  const [soal] = useState(() => siapkanSoalSeed(7, sessionCode + ":kuis"));
+  const [soal] = useState(() => siapkanSoalSeed(7, sessionCode + ":kuis", hindariKeys));
+  useEffect(() => {
+    if (myId === hostId) apiPost("/game/record-questions", {
+      session_code: sessionCode,
+      keys: keyDariSoal(soal)
+    }).catch(() => {});
+  }, []);
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState(() => Object.fromEntries(players.map(p => [p.id, 0])));
   const [pilih, setPilih] = useState(null);
@@ -3455,10 +3615,18 @@ function SusunTatap({
 function SusunOnline({
   players,
   sessionCode,
+  hindariKeys,
+  hostId,
   onExit
 }) {
   const myId = window.__GAME_USER__?.id;
-  const [ayat] = useState(() => siapkanAyatSeed(5, sessionCode + ":susun"));
+  const [ayat] = useState(() => siapkanAyatSeed(5, sessionCode + ":susun", hindariKeys));
+  useEffect(() => {
+    if (myId === hostId) apiPost("/game/record-questions", {
+      session_code: sessionCode,
+      keys: keyDariAyat(ayat)
+    }).catch(() => {});
+  }, []);
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState(() => Object.fromEntries(players.map(p => [p.id, 0])));
   const skorRef = useRef(skor);
@@ -4131,10 +4299,18 @@ function TebakTatap({
 function TebakOnline({
   players,
   sessionCode,
+  hindariKeys,
+  hostId,
   onExit
 }) {
   const myId = window.__GAME_USER__?.id;
-  const [tokoh] = useState(() => siapkanTokohSeed(10, sessionCode + ":tebak"));
+  const [tokoh] = useState(() => siapkanTokohSeed(10, sessionCode + ":tebak", hindariKeys));
+  useEffect(() => {
+    if (myId === hostId) apiPost("/game/record-questions", {
+      session_code: sessionCode,
+      keys: keyDariTokoh(tokoh)
+    }).catch(() => {});
+  }, []);
   const [idx, setIdx] = useState(0);
   const [skor, setSkor] = useState(() => Object.fromEntries(players.map(p => [p.id, 0])));
   const skorRef = useRef(skor);
@@ -4350,12 +4526,34 @@ function TebakOnline({
 /* ════════════════════════════════════════════════════════════
    GAME 4: MEMORY MATCH
 ════════════════════════════════════════════════════════════ */
+// Level 1: 4x4 (8 pasang). Level 2: 8x8 (32 pasang), tanpa reshuffle.
+// Level 3: 8x8 (32 pasang) + reshuffle kartu yang belum ketemu tiap 3
+// giliran gagal (juga preview semua kartu 3 detik di awal permainan).
+const MEMORY_LEVEL_CFG = {
+  1: {
+    pasang: 8,
+    kolom: 4
+  },
+  2: {
+    pasang: 32,
+    kolom: 8
+  },
+  3: {
+    pasang: 32,
+    kolom: 8,
+    reshuffle: true
+  }
+};
+function cfgLevel(level) {
+  return MEMORY_LEVEL_CFG[level] || MEMORY_LEVEL_CFG[1];
+}
 function KartuView({
   kartu,
   terbuka,
   matched,
   onClick,
-  disabled
+  disabled,
+  kecil
 }) {
   const show = terbuka || matched;
   return /*#__PURE__*/React.createElement("div", {
@@ -4363,7 +4561,7 @@ function KartuView({
     className: "gf-card-wrap",
     style: {
       cursor: disabled || matched ? "default" : "pointer",
-      height: 80
+      height: kecil ? 52 : 80
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: `gf-card-inner${show ? " flipped" : ""}`,
@@ -4378,7 +4576,7 @@ function KartuView({
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 22
+      fontSize: kecil ? 15 : 22
     }
   }, "✦")), /*#__PURE__*/React.createElement("div", {
     className: "gf-card-face gf-card-back",
@@ -4388,19 +4586,49 @@ function KartuView({
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 11.5,
+      fontSize: kecil ? 9 : 11.5,
       fontWeight: 700,
       color: matched ? P.green : P.cream,
-      lineHeight: 1.3,
+      lineHeight: 1.2,
       textAlign: "center",
-      padding: "4px"
+      padding: kecil ? "2px" : "4px"
     }
   }, kartu.isi))));
 }
+
+/* Reshuffle level 3: acak ULANG POSISI kartu yang BELUM matched (kartu yang
+   sudah matched tetap di tempat & tetap terbuka), lalu tampilkan semua
+   sebentar sebelum ditutup lagi. Mengembalikan array cards baru. */
+function acakUlangBelumMatched(cards, matchedIdx, seed) {
+  const belum = cards.map((c, i) => ({
+    c,
+    i
+  })).filter(({
+    i
+  }) => !matchedIdx.includes(i));
+  const posisi = belum.map(({
+    i
+  }) => i);
+  // seed diberikan HANYA di mode online (supaya hasil acak identik di semua
+  // device tanpa koordinasi server) — mode Solo/Tatap satu perangkat, jadi
+  // Math.random() biasa sudah cukup dan tidak perlu deterministik.
+  const kartuAcak = seed ? shuffleSeed(belum.map(({
+    c
+  }) => c), buatRng(seed)) : shuffle(belum.map(({
+    c
+  }) => c));
+  const hasil = [...cards];
+  posisi.forEach((pos, j) => {
+    hasil[pos] = kartuAcak[j];
+  });
+  return hasil;
+}
 function MemorySolo({
+  level,
   onExit
 }) {
-  const [cards] = useState(() => siapkanKartu(8));
+  const cfg = cfgLevel(level);
+  const [cards, setCards] = useState(() => siapkanKartu(cfg.pasang));
   const [terbuka, setTerbuka] = useState([]);
   const [matched, setMatched] = useState([]);
   const [langkah, setLangkah] = useState(0);
@@ -4408,10 +4636,22 @@ function MemorySolo({
   const [selesai, setSelesai] = useState(false);
   const checkRef = useRef(false);
   const timerRef = useRef();
+  const [gagalBerturut, setGagalBerturut] = useState(0);
+  const [previewAwal, setPreviewAwal] = useState(!!cfg.reshuffle); // level 3: tampilkan semua kartu 3 detik di awal
+  const matchedRef = useRef([]);
   useEffect(() => {
+    matchedRef.current = matched;
+  }, [matched]);
+  useEffect(() => {
+    if (!previewAwal) return;
+    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    return () => clearTimeout(t);
+  }, []);
+  useEffect(() => {
+    if (previewAwal) return;
     timerRef.current = setInterval(() => setWaktu(w => w + 1), 1000);
     return () => clearInterval(timerRef.current);
-  }, []);
+  }, [previewAwal]);
   useEffect(() => {
     if (matched.length === cards.length && cards.length > 0) {
       clearInterval(timerRef.current);
@@ -4419,7 +4659,7 @@ function MemorySolo({
     }
   }, [matched, cards.length]);
   const klik = i => {
-    if (checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
+    if (previewAwal || checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
     const next = [...terbuka, i];
     setTerbuka(next);
     setLangkah(l => l + 1);
@@ -4434,13 +4674,25 @@ function MemorySolo({
         setTimeout(() => {
           setTerbuka([]);
           checkRef.current = false;
+          if (cfg.reshuffle) {
+            setGagalBerturut(g => {
+              const ng = g + 1;
+              if (ng >= 3) {
+                setCards(cs => acakUlangBelumMatched(cs, matchedRef.current));
+                setPreviewAwal(true);
+                setTimeout(() => setPreviewAwal(false), 3000);
+                return 0;
+              }
+              return ng;
+            });
+          }
         }, 900);
       }
     }
   };
   const mnt = String(Math.floor(waktu / 60)).padStart(2, "0"),
     dtk = String(waktu % 60).padStart(2, "0");
-  const skor = Math.max(0, 2000 - langkah * 20 - waktu * 5);
+  const skor = Math.max(0, cfg.pasang * 250 - langkah * 20 - waktu * 5);
   if (selesai) return /*#__PURE__*/React.createElement(Hasil, {
     judul: "Semua Cocok! 🃏",
     skor: skor,
@@ -4454,7 +4706,7 @@ function MemorySolo({
       val: langkah
     }, {
       label: "Pasangan",
-      val: `${matched.length / 2}/8`
+      val: `${matched.length / 2}/${cfg.pasang}`
     }]
   });
   return /*#__PURE__*/React.createElement("div", {
@@ -4484,20 +4736,29 @@ function MemorySolo({
     label: `⏱ ${mnt}:${dtk}`
   }), /*#__PURE__*/React.createElement(Pill, {
     color: P.green,
-    label: `${matched.length / 2}/8 ✓`
-  }))), /*#__PURE__*/React.createElement("div", {
+    label: `${matched.length / 2}/${cfg.pasang} ✓`
+  }))), previewAwal && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      marginBottom: 10,
+      color: P.gold,
+      fontWeight: 800,
+      fontSize: 13
+    }
+  }, "Hafalkan posisi kartu… 👀"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "repeat(4,1fr)",
-      gap: 8
+      gridTemplateColumns: `repeat(${cfg.kolom},1fr)`,
+      gap: cfg.kolom > 4 ? 5 : 8
     }
   }, cards.map((c, i) => /*#__PURE__*/React.createElement(KartuView, {
     key: c.id,
     kartu: c,
-    terbuka: terbuka.includes(i),
+    kecil: cfg.kolom > 4,
+    terbuka: previewAwal || terbuka.includes(i),
     matched: matched.includes(i),
     onClick: () => klik(i),
-    disabled: terbuka.length === 2 && !terbuka.includes(i)
+    disabled: previewAwal || terbuka.length === 2 && !terbuka.includes(i)
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 12,
@@ -4506,13 +4767,15 @@ function MemorySolo({
       fontSize: 13,
       fontWeight: 600
     }
-  }, langkah, " langkah · Skor estimasi: ", Math.max(0, 2000 - langkah * 20 - waktu * 5)));
+  }, langkah, " langkah · Skor estimasi: ", skor));
 }
 function MemoryTatap({
   lawan,
+  level,
   onExit
 }) {
-  const [cards] = useState(() => siapkanKartu(8));
+  const cfg = cfgLevel(level);
+  const [cards, setCards] = useState(() => siapkanKartu(cfg.pasang));
   const [terbuka, setTerbuka] = useState([]);
   const [matched, setMatched] = useState([]);
   const [giliranP, setGiliranP] = useState("p1");
@@ -4523,11 +4786,22 @@ function MemoryTatap({
   const [langkah, setLangkah] = useState(0);
   const [selesai, setSelesai] = useState(false);
   const checkRef = useRef(false);
+  const [gagalBerturut, setGagalBerturut] = useState(0);
+  const [previewAwal, setPreviewAwal] = useState(!!cfg.reshuffle);
+  const matchedRef = useRef([]);
+  useEffect(() => {
+    matchedRef.current = matched;
+  }, [matched]);
+  useEffect(() => {
+    if (!previewAwal) return;
+    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    return () => clearTimeout(t);
+  }, []);
   useEffect(() => {
     if (matched.length === cards.length && cards.length > 0) setSelesai(true);
   }, [matched, cards.length]);
   const klik = i => {
-    if (checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
+    if (previewAwal || checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
     const next = [...terbuka, i];
     setTerbuka(next);
     setLangkah(l => l + 1);
@@ -4547,6 +4821,18 @@ function MemoryTatap({
           setTerbuka([]);
           setGiliranP(g => g === "p1" ? "p2" : "p1");
           checkRef.current = false;
+          if (cfg.reshuffle) {
+            setGagalBerturut(g => {
+              const ng = g + 1;
+              if (ng >= 3) {
+                setCards(cs => acakUlangBelumMatched(cs, matchedRef.current));
+                setPreviewAwal(true);
+                setTimeout(() => setPreviewAwal(false), 3000);
+                return 0;
+              }
+              return ng;
+            });
+          }
         }, 900);
       }
     }
@@ -4659,19 +4945,28 @@ function MemoryTatap({
     nama: lawan.nama,
     size: 28,
     ring: giliranP === "p2" ? P.p2 : undefined
-  }))), /*#__PURE__*/React.createElement("div", {
+  }))), previewAwal && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center",
+      marginBottom: 10,
+      color: P.gold,
+      fontWeight: 800,
+      fontSize: 13
+    }
+  }, "Hafalkan posisi kartu… 👀"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "repeat(4,1fr)",
-      gap: 8
+      gridTemplateColumns: `repeat(${cfg.kolom},1fr)`,
+      gap: cfg.kolom > 4 ? 5 : 8
     }
   }, cards.map((c, i) => /*#__PURE__*/React.createElement(KartuView, {
     key: c.id,
     kartu: c,
-    terbuka: terbuka.includes(i),
+    kecil: cfg.kolom > 4,
+    terbuka: previewAwal || terbuka.includes(i),
     matched: matched.includes(i),
     onClick: () => klik(i),
-    disabled: terbuka.length === 2 && !terbuka.includes(i)
+    disabled: previewAwal || terbuka.length === 2 && !terbuka.includes(i)
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
@@ -4680,20 +4975,31 @@ function MemoryTatap({
       fontWeight: 700,
       color: P.muted
     }
-  }, langkah, " langkah · ", matched.length / 2, "/8 pasang ditemukan"));
+  }, langkah, " langkah · ", matched.length / 2, "/", cfg.pasang, " pasang ditemukan"));
 }
 function MemoryOnline({
   players,
   sessionCode,
+  hindariKeys,
+  hostId,
+  level,
   onExit
 }) {
   const myId = window.__GAME_USER__?.id;
-  const [cards] = useState(() => siapkanKartuSeed(8, sessionCode + ":memory"));
+  const cfg = cfgLevel(level);
+  const [cards, setCards] = useState(() => siapkanKartuSeed(cfg.pasang, sessionCode + ":memory", hindariKeys));
+  useEffect(() => {
+    if (myId === hostId) apiPost("/game/record-questions", {
+      session_code: sessionCode,
+      keys: keyDariKartu(cards)
+    }).catch(() => {});
+  }, []);
   const [terbuka, setTerbuka] = useState([]);
   const [matched, setMatched] = useState([]);
   const [giliranIdx, setGiliranIdx] = useState(0); // index ke players — sama urutannya di semua klien
   const [skor, setSkor] = useState(() => Object.fromEntries(players.map(p => [p.id, 0])));
   const [selesai, setSelesai] = useState(false);
+  const [previewAwal, setPreviewAwal] = useState(!!cfg.reshuffle);
   const checkRef = useRef(false);
   const matchedRef = useRef([]);
   const skorRef = useRef(skor);
@@ -4705,6 +5011,23 @@ function MemoryOnline({
   useEffect(() => {
     skorRef.current = skor;
   }, [skor]);
+  useEffect(() => {
+    if (!previewAwal) return;
+    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Reshuffle level 3 dipicu dari giliranIdx (naik lewat event "flip" gagal
+  // yang di-broadcast, jadi nilainya SAMA di semua klien pada saat yang
+  // sama) dan diacak pakai RNG seeded (bukan Math.random()) supaya urutan
+  // hasil acak ulang tetap identik di semua device tanpa koordinasi server.
+  useEffect(() => {
+    if (!cfg.reshuffle || giliranIdx === 0 || giliranIdx % 3 !== 0) return;
+    setCards(cs => acakUlangBelumMatched(cs, matchedRef.current, sessionCode + ":reshuffle:" + giliranIdx));
+    setPreviewAwal(true);
+    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    return () => clearTimeout(t);
+  }, [giliranIdx]);
   const {
     sendMove,
     sendFinished,
@@ -4749,7 +5072,7 @@ function MemoryOnline({
     if (sesiDiakhiriKarenaKeluar) onExit();
   }, [sesiDiakhiriKarenaKeluar]);
   const klik = i => {
-    if (!giliranKamu || checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
+    if (previewAwal || !giliranKamu || checkRef.current || terbuka.includes(i) || matched.includes(i) || terbuka.length >= 2) return;
     const next = [...terbuka, i];
     setTerbuka(next);
     if (next.length === 2) {
@@ -4830,7 +5153,7 @@ function MemoryOnline({
       fontWeight: 800,
       color: giliranKamu ? P.orange : P.p2
     }
-  }, giliranKamu ? "Giliranmu — buka 2 kartu" : `Giliran ${giliranNama}…`)), /*#__PURE__*/React.createElement(PapanSkorN, {
+  }, previewAwal ? "Hafalkan posisi kartu… 👀" : giliranKamu ? "Giliranmu — buka 2 kartu" : `Giliran ${giliranNama}…`)), /*#__PURE__*/React.createElement(PapanSkorN, {
     players: players,
     scores: skor,
     myId: myId,
@@ -4838,17 +5161,18 @@ function MemoryOnline({
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
-      gridTemplateColumns: "repeat(4,1fr)",
-      gap: 8,
+      gridTemplateColumns: `repeat(${cfg.kolom},1fr)`,
+      gap: cfg.kolom > 4 ? 5 : 8,
       marginTop: 12
     }
   }, cards.map((c, i) => /*#__PURE__*/React.createElement(KartuView, {
     key: c.id,
     kartu: c,
-    terbuka: terbuka.includes(i),
+    kecil: cfg.kolom > 4,
+    terbuka: previewAwal || terbuka.includes(i),
     matched: matched.includes(i),
     onClick: () => klik(i),
-    disabled: !giliranKamu || terbuka.length === 2 && !terbuka.includes(i)
+    disabled: previewAwal || !giliranKamu || terbuka.length === 2 && !terbuka.includes(i)
   }))), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 10,
@@ -4857,7 +5181,7 @@ function MemoryOnline({
       fontWeight: 600,
       color: P.muted
     }
-  }, matched.length / 2, "/8 pasang ditemukan"));
+  }, matched.length / 2, "/", cfg.pasang, " pasang ditemukan"));
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -5006,7 +5330,11 @@ function GameFeature() {
   const [lawanList, setLawanList] = useState([]); // 1-3 lawan (mode "online")
   const [sessionCode, setSessionCode] = useState(null);
   const [players, setPlayers] = useState(null); // semua peserta 'accepted' termasuk diri sendiri, diisi begitu sesi online aktif
+  const [hindariKeys, setHindariKeys] = useState([]); // soal yang harus dihindari (baru dipakai tenant ini beberapa match terakhir)
+  const [hostId, setHostId] = useState(null); // hanya host yang mencatat soal terpakai ke server (lihat GameSessionController::recordQuestions)
   const [notif, setNotif] = useState(null);
+  const [memoryLevel, setMemoryLevel] = useState(1); // 1=4x4, 2=8x8, 3=8x8+reshuffle — dipakai Solo/Tatap/Online
+
   const pulang = () => {
     setScreen("hub");
     setGame(null);
@@ -5015,6 +5343,9 @@ function GameFeature() {
     setLawanList([]);
     setSessionCode(null);
     setPlayers(null);
+    setHindariKeys([]);
+    setHostId(null);
+    setMemoryLevel(1);
   };
   const mulaiGame = g => {
     setGame(g);
@@ -5022,7 +5353,15 @@ function GameFeature() {
   };
   const pilihCara = m => {
     setMode(m);
+    if (game?.id === "memory") {
+      setScreen("level");
+      return;
+    } // Memory Match: pilih level dulu di semua mode
     if (m === "solo") setScreen("main");else setScreen("lawan");
+  };
+  const pilihLevel = lvl => {
+    setMemoryLevel(lvl);
+    if (mode === "solo") setScreen("main");else setScreen("lawan");
   };
   const pilihLawan = picked => {
     if (mode === "online") {
@@ -5048,6 +5387,9 @@ function GameFeature() {
         id: p.id,
         nama: p.nama
       })));
+      setHindariKeys(s.seed?.avoid_keys || []);
+      setHostId(s.host?.id ?? null);
+      if (s.seed?.level) setMemoryLevel(s.seed.level);
     }).catch(() => {});
     return () => {
       batal = true;
@@ -5109,6 +5451,7 @@ function GameFeature() {
         onExit: pulang
       });
       if (game.id === "memory") return /*#__PURE__*/React.createElement(MemorySolo, {
+        level: memoryLevel,
         onExit: pulang
       });
     }
@@ -5127,6 +5470,7 @@ function GameFeature() {
       });
       if (game.id === "memory") return /*#__PURE__*/React.createElement(MemoryTatap, {
         lawan: lawan,
+        level: memoryLevel,
         onExit: pulang
       });
     }
@@ -5143,21 +5487,30 @@ function GameFeature() {
       if (gType === "kuis") return /*#__PURE__*/React.createElement(KuisOnline, {
         players: players,
         sessionCode: sessionCode,
+        hindariKeys: hindariKeys,
+        hostId: hostId,
         onExit: pulang
       });
       if (gType === "susun") return /*#__PURE__*/React.createElement(SusunOnline, {
         players: players,
         sessionCode: sessionCode,
+        hindariKeys: hindariKeys,
+        hostId: hostId,
         onExit: pulang
       });
       if (gType === "tebak") return /*#__PURE__*/React.createElement(TebakOnline, {
         players: players,
         sessionCode: sessionCode,
+        hindariKeys: hindariKeys,
+        hostId: hostId,
         onExit: pulang
       });
       if (gType === "memory") return /*#__PURE__*/React.createElement(MemoryOnline, {
         players: players,
         sessionCode: sessionCode,
+        hindariKeys: hindariKeys,
+        hostId: hostId,
+        level: memoryLevel,
         onExit: pulang
       });
     }
@@ -5183,14 +5536,18 @@ function GameFeature() {
     game: game,
     onBack: pulang,
     onPick: pilihCara
+  }), screen === "level" && game && /*#__PURE__*/React.createElement(PilihLevelMemory, {
+    onBack: () => setScreen("cara"),
+    onPick: pilihLevel
   }), screen === "lawan" && game && /*#__PURE__*/React.createElement(PilihLawan, {
     game: game,
     mode: mode,
-    onBack: () => setScreen("cara"),
+    onBack: () => setScreen(game.id === "memory" ? "level" : "cara"),
     onPick: pilihLawan
   }), screen === "lobi" && game && lawanList.length > 0 && /*#__PURE__*/React.createElement(LobiOnline, {
     lawanList: lawanList,
     game: game,
+    level: memoryLevel,
     onBack: () => setScreen("lawan"),
     onMulai: code => {
       setSessionCode(code);
