@@ -1358,7 +1358,7 @@ function PilihLawan({
   }, /*#__PURE__*/React.createElement(TopBar, {
     onBack: onBack,
     title: "Pilih Lawan",
-    subtitle: multi ? "Hanya anggota online bisa ditantang · maks 3 lawan" : "Pilih lawan bermain"
+    subtitle: multi ? "Hanya anggota online & tidak sedang main bisa ditantang · maks 3 lawan" : "Pilih lawan bermain"
   }), /*#__PURE__*/React.createElement("div", {
     style: {
       position: "relative",
@@ -1395,12 +1395,13 @@ function PilihLawan({
       gap: 8
     }
   }, list.map((m, i) => {
-    const bisa = mode !== "online" || m.online;
+    const bisa = (mode !== "online" || m.online) && !m.sedangMain;
     const aktif = dipilih.some(x => x.id === m.id);
     const handleClick = () => {
       if (!bisa) return;
       if (multi) toggle(m);else onPick(m);
     };
+    const keterangan = m.sedangMain ? "Sedang main 🎮" : m.online ? "Online" : "Offline";
     return /*#__PURE__*/React.createElement("button", {
       key: m.id || i,
       disabled: !bisa,
@@ -1434,7 +1435,7 @@ function PilihLawan({
         width: 11,
         height: 11,
         borderRadius: 99,
-        background: m.online ? P.green : "#6B6391",
+        background: m.sedangMain ? P.orange : m.online ? P.green : "#6B6391",
         border: `2px solid ${P.night}`
       }
     })), /*#__PURE__*/React.createElement("div", {
@@ -1448,11 +1449,11 @@ function PilihLawan({
       }
     }, m.nama), /*#__PURE__*/React.createElement("div", {
       style: {
-        color: P.muted,
+        color: m.sedangMain ? P.orange : P.muted,
         fontSize: 12,
         fontWeight: 600
       }
-    }, m.online ? "Online" : "Offline", " · ", m.menang || 0, "M/", m.kalah || 0, "K")), bisa && (multi ? /*#__PURE__*/React.createElement("span", {
+    }, keterangan, " · ", m.menang || 0, "M/", m.kalah || 0, "K")), bisa && (multi ? /*#__PURE__*/React.createElement("span", {
       style: {
         width: 24,
         height: 24,
@@ -1564,6 +1565,8 @@ function LobiOnline({
   game,
   level,
   sessionCode,
+  isHost = true,
+  hostName,
   onBack,
   onMulai,
   onDeclined
@@ -1694,7 +1697,7 @@ function LobiOnline({
       fontSize: 12,
       color: P.cream
     }
-  }, "Kamu")), lawanList.map(l => {
+  }, "Kamu")), isHost ? lawanList.map(l => {
     const st = lawanStatus.find(p => p.id === l.id)?.status || "invited";
     const ring = st === "accepted" ? P.green : st === "declined" ? P.red : game.warna;
     return /*#__PURE__*/React.createElement("div", {
@@ -1721,7 +1724,28 @@ function LobiOnline({
         color: ring
       }
     }, st === "accepted" ? "Siap ✓" : st === "declined" ? "Menolak" : "Menunggu…"));
-  })), /*#__PURE__*/React.createElement("div", {
+  }) : hostName && /*#__PURE__*/React.createElement("div", {
+    style: {
+      textAlign: "center"
+    }
+  }, /*#__PURE__*/React.createElement(Avatar, {
+    nama: hostName,
+    size: 54,
+    ring: game.warna
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      marginTop: 6,
+      fontWeight: 800,
+      fontSize: 12,
+      color: P.cream
+    }
+  }, hostName), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 10,
+      fontWeight: 700,
+      color: game.warna
+    }
+  }, "Host"))), /*#__PURE__*/React.createElement("div", {
     key: fase,
     className: "gf-pop",
     style: {
@@ -1731,7 +1755,7 @@ function LobiOnline({
       textAlign: "center",
       color: fase === "diterima" ? P.green : fase === "error" ? P.red : P.cream
     }
-  }, teks[fase]), (fase === "kirim" || fase === "tunggu") && /*#__PURE__*/React.createElement("div", {
+  }, isHost ? teks[fase] : fase === "diterima" ? teks.diterima : `Menunggu ${hostName || "host"} memulai…`), (fase === "kirim" || fase === "tunggu") && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6
@@ -1745,13 +1769,13 @@ function LobiOnline({
       background: P.gold,
       animation: `gf-blink 1.2s ${i * .4}s ease infinite`
     }
-  }))), kode && fase === "tunggu" && /*#__PURE__*/React.createElement("div", {
+  }))), kode && fase === "tunggu" && isHost && /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
       color: P.muted,
       fontWeight: 600
     }
-  }, "Kode sesi: ", kode), fase === "tunggu" && /*#__PURE__*/React.createElement("button", {
+  }, "Kode sesi: ", kode), fase === "tunggu" && isHost && /*#__PURE__*/React.createElement("button", {
     onClick: mulaiSekarang,
     disabled: !bisaMulai,
     className: "gf-btn",
@@ -4514,6 +4538,12 @@ function TebakOnline({
       if (d.scores) setSkor(d.scores);
       setTimeout(lanjut, 1600);
     }
+    if (p.type === "round_timeout" && p.ronde === idx && !resolvedRef.current) {
+      resolvedRef.current = true;
+      clearInterval(timerRef.current);
+      setPemenangRonde("seri");
+      setTimeout(lanjut, 1700);
+    }
   }, d => {
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
@@ -4531,16 +4561,28 @@ function TebakOnline({
   // (mis. semua pemain jawab salah), ronde SEBELUMNYA stuck selamanya
   // menunggu jawaban benar yang tidak akan pernah datang. Auto-resolve
   // ke "seri" supaya game selalu lanjut ke tokoh berikutnya.
+  //
+  // PENTING: tiap client menjalankan setInterval sendiri-sendiri (tidak ada
+  // jam server bersama), jadi timer di device yang berbeda TIDAK dijamin
+  // menyentuh nol di tick yang sama (background tab throttling dkk). Kalau
+  // kedua sisi cuma resolve "seri" secara lokal tanpa saling kabari, sisi
+  // yang timer-nya sedikit lebih lambat tidak akan pernah tahu ronde sudah
+  // berakhir dan macet selamanya menunggu event yang tak kunjung datang.
+  // Solusi: HANYA host yang broadcast round_timeout (mencegah race 2 sisi
+  // saling kirim barengan); kedua sisi (termasuk host sendiri) baru
+  // mengubah state lewat handler round_timeout di useOnlineGame di atas,
+  // sama seperti pola answered_correct.
   useEffect(() => {
     if (selesai) return;
     timerRef.current = setInterval(() => {
       setWaktu(w => {
         const n = w <= 0.1 ? 0 : +(w - .1).toFixed(1);
         waktuRef.current = n;
-        if (n === 0 && !resolvedRef.current) {
-          resolvedRef.current = true;
-          setPemenangRonde("seri");
-          setTimeout(lanjut, 1700);
+        if (n === 0 && !resolvedRef.current && myId === hostId) {
+          sendMove({
+            type: "round_timeout",
+            ronde: idx
+          });
         }
         return n;
       });
@@ -5548,6 +5590,7 @@ function GameFeature() {
   const [hindariKeys, setHindariKeys] = useState([]); // soal yang harus dihindari (baru dipakai tenant ini beberapa match terakhir)
   const [hostId, setHostId] = useState(null); // hanya host yang mencatat soal terpakai ke server (lihat GameSessionController::recordQuestions)
   const [notif, setNotif] = useState(null);
+  const [notifHostName, setNotifHostName] = useState(null); // disalin dari notif saat diterima — dipakai LobiOnline invitee, karena notif sendiri langsung di-null-kan
   const [memoryLevel, setMemoryLevel] = useState(1); // 1=4x4, 2=8x8, 3=8x8+reshuffle — dipakai Solo/Tatap/Online
 
   const pulang = () => {
@@ -5561,6 +5604,7 @@ function GameFeature() {
     setHindariKeys([]);
     setHostId(null);
     setMemoryLevel(1);
+    setNotifHostName(null);
   };
   const mulaiGame = g => {
     setGame(g);
@@ -5632,12 +5676,20 @@ function GameFeature() {
         session_code: notif.session_code,
         accept: true
       });
-      setGame({
-        id: notif.game_type
+      setGame(GAME_DEFS.find(g => g.id === notif.game_type) || {
+        id: notif.game_type,
+        warna: P.gold
       });
       setSessionCode(notif.session_code);
+      setNotifHostName(notif.host_name);
       setMode("online");
-      setScreen("main");
+      // JANGAN langsung ke "main" — host mungkin belum menekan "Mulai" (masih
+      // menunggu peserta lain merespons). Arahkan ke lobi tunggu yang sama
+      // dengan sisi host, tapi tanpa tombol "Mulai" (hanya host yang boleh
+      // memicu /game/start) — supaya kedua sisi baru masuk game bersamaan
+      // begitu host benar-benar menekan Mulai.
+      setLawanList([]);
+      setScreen("lobi-invitee");
       setNotif(null);
     } catch (e) {
       setNotif(null);
@@ -5769,6 +5821,18 @@ function GameFeature() {
       setScreen("main");
     },
     onDeclined: () => setScreen("lawan")
+  }), screen === "lobi-invitee" && game && sessionCode && /*#__PURE__*/React.createElement(LobiOnline, {
+    lawanList: [],
+    game: game,
+    sessionCode: sessionCode,
+    isHost: false,
+    hostName: notifHostName,
+    onBack: pulang,
+    onMulai: code => {
+      setSessionCode(code);
+      setScreen("main");
+    },
+    onDeclined: pulang
   }), screen === "main" && /*#__PURE__*/React.createElement(GameMain, null), notif && screen !== "main" && /*#__PURE__*/React.createElement(NotifTantangan, {
     notif: notif,
     onTerima: terimaNotif,

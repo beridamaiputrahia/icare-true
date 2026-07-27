@@ -320,14 +320,15 @@ function PilihLawan({game,mode,onBack,onPick}){
   const toggle=m=>{
     setDipilih(d=>d.some(x=>x.id===m.id)?d.filter(x=>x.id!==m.id):d.length<3?[...d,m]:d);
   };
-  return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto",paddingBottom:multi?96:24}}><TopBar onBack={onBack}title="Pilih Lawan"subtitle={multi?"Hanya anggota online bisa ditantang · maks 3 lawan":"Pilih lawan bermain"}/><div style={{position:"relative",marginTop:14,marginBottom:12}}><span style={{position:"absolute",left:14,top:14,fontSize:16}}>🔍</span><input value={cari}onChange={e=>setCari(e.target.value)}placeholder="Cari anggota…"style={{width:"100%",boxSizing:"border-box",padding:"12px 14px 12px 40px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.04)",color:P.cream,fontFamily:"inherit",fontWeight:600,fontSize:14.5,outline:"none"}}/></div><div style={{display:"grid",gap:8}}>{list.map((m,i)=>{
-    const bisa=mode!=="online"||m.online;
+  return(<div style={{padding:"24px 20px",maxWidth:460,margin:"0 auto",paddingBottom:multi?96:24}}><TopBar onBack={onBack}title="Pilih Lawan"subtitle={multi?"Hanya anggota online & tidak sedang main bisa ditantang · maks 3 lawan":"Pilih lawan bermain"}/><div style={{position:"relative",marginTop:14,marginBottom:12}}><span style={{position:"absolute",left:14,top:14,fontSize:16}}>🔍</span><input value={cari}onChange={e=>setCari(e.target.value)}placeholder="Cari anggota…"style={{width:"100%",boxSizing:"border-box",padding:"12px 14px 12px 40px",borderRadius:14,border:"1px solid rgba(255,255,255,0.12)",background:"rgba(255,255,255,0.04)",color:P.cream,fontFamily:"inherit",fontWeight:600,fontSize:14.5,outline:"none"}}/></div><div style={{display:"grid",gap:8}}>{list.map((m,i)=>{
+    const bisa=(mode!=="online"||m.online)&&!m.sedangMain;
     const aktif=dipilih.some(x=>x.id===m.id);
     const handleClick=()=>{
       if(!bisa)return;
       if(multi)toggle(m);else onPick(m);
     };
-    return(<button key={m.id||i}disabled={!bisa}onClick={handleClick}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:13,borderRadius:16,border:`1px solid ${aktif?game.warna:"rgba(255,255,255,0.09)"}`,background:aktif?`${game.warna}14`:"rgba(255,255,255,0.03)",cursor:bisa?"pointer":"default",color:P.cream,textAlign:"left",opacity:bisa?1:.4,animationDelay:`${i*.04}s`}}><div style={{position:"relative"}}><Avatar nama={m.nama}/><span style={{position:"absolute",right:-1,bottom:-1,width:11,height:11,borderRadius:99,background:m.online?P.green:"#6B6391",border:`2px solid ${P.night}`}}/></div><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15}}>{m.nama}</div><div style={{color:P.muted,fontSize:12,fontWeight:600}}>{m.online?"Online":"Offline"} · {m.menang||0}M/{m.kalah||0}K</div></div>{bisa&&(multi?<span style={{width:24,height:24,borderRadius:8,border:`1.5px solid ${aktif?game.warna:"rgba(255,255,255,0.25)"}`,background:aktif?game.warna:"transparent",display:"grid",placeItems:"center",fontSize:13,fontWeight:800,color:"#1A1340",flexShrink:0}}>{aktif?"✓":""}</span>:<span style={{fontSize:12,fontWeight:800,color:"#1A1340",background:game.warna,padding:"6px 14px",borderRadius:99}}>Pilih</span>)}</button>);})}{!list.length&&<div style={{textAlign:"center",color:P.muted,fontWeight:600,padding:30}}>Tidak ada anggota ditemukan.</div>}</div>{multi&&<div style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:50}}><button onClick={()=>dipilih.length&&onPick(dipilih)}disabled={!dipilih.length}className="gf-btn"style={{width:"100%",padding:"14px",borderRadius:16,border:"none",background:dipilih.length?game.warna:"rgba(255,255,255,0.1)",color:dipilih.length?"#1A1340":P.muted,fontWeight:800,fontSize:15,cursor:dipilih.length?"pointer":"default",boxShadow:dipilih.length?"0 8px 24px rgba(0,0,0,0.4)":"none"}}>{dipilih.length?`Tantang ${dipilih.length} orang →`:"Pilih minimal 1 lawan"}</button></div>}</div>);
+    const keterangan=m.sedangMain?"Sedang main 🎮":m.online?"Online":"Offline";
+    return(<button key={m.id||i}disabled={!bisa}onClick={handleClick}className="gf-btn gf-rise"style={{display:"flex",alignItems:"center",gap:12,padding:13,borderRadius:16,border:`1px solid ${aktif?game.warna:"rgba(255,255,255,0.09)"}`,background:aktif?`${game.warna}14`:"rgba(255,255,255,0.03)",cursor:bisa?"pointer":"default",color:P.cream,textAlign:"left",opacity:bisa?1:.4,animationDelay:`${i*.04}s`}}><div style={{position:"relative"}}><Avatar nama={m.nama}/><span style={{position:"absolute",right:-1,bottom:-1,width:11,height:11,borderRadius:99,background:m.sedangMain?P.orange:m.online?P.green:"#6B6391",border:`2px solid ${P.night}`}}/></div><div style={{flex:1}}><div style={{fontWeight:800,fontSize:15}}>{m.nama}</div><div style={{color:m.sedangMain?P.orange:P.muted,fontSize:12,fontWeight:600}}>{keterangan} · {m.menang||0}M/{m.kalah||0}K</div></div>{bisa&&(multi?<span style={{width:24,height:24,borderRadius:8,border:`1.5px solid ${aktif?game.warna:"rgba(255,255,255,0.25)"}`,background:aktif?game.warna:"transparent",display:"grid",placeItems:"center",fontSize:13,fontWeight:800,color:"#1A1340",flexShrink:0}}>{aktif?"✓":""}</span>:<span style={{fontSize:12,fontWeight:800,color:"#1A1340",background:game.warna,padding:"6px 14px",borderRadius:99}}>Pilih</span>)}</button>);})}{!list.length&&<div style={{textAlign:"center",color:P.muted,fontWeight:600,padding:30}}>Tidak ada anggota ditemukan.</div>}</div>{multi&&<div style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:50}}><button onClick={()=>dipilih.length&&onPick(dipilih)}disabled={!dipilih.length}className="gf-btn"style={{width:"100%",padding:"14px",borderRadius:16,border:"none",background:dipilih.length?game.warna:"rgba(255,255,255,0.1)",color:dipilih.length?"#1A1340":P.muted,fontWeight:800,fontSize:15,cursor:dipilih.length?"pointer":"default",boxShadow:dipilih.length?"0 8px 24px rgba(0,0,0,0.4)":"none"}}>{dipilih.length?`Tantang ${dipilih.length} orang →`:"Pilih minimal 1 lawan"}</button></div>}</div>);
 }
 
 /* ── PUSHER HELPER ───────────────────────────────────────────── */
@@ -360,7 +361,7 @@ async function apiGet(url){
 }
 
 /* ── LOBI ONLINE (realtime via Pusher, sampai 3 lawan sekaligus) ────────── */
-function LobiOnline({lawanList,game,level,sessionCode,onBack,onMulai,onDeclined}){
+function LobiOnline({lawanList,game,level,sessionCode,isHost=true,hostName,onBack,onMulai,onDeclined}){
   const [fase,setFase]=useState(sessionCode?"tunggu":"kirim");
   const [kode,setKode]=useState(sessionCode||null);
   const [players,setPlayers]=useState([]); // dari GET /game/session/{code}: [{id,nama,status,...}]
@@ -432,16 +433,16 @@ function LobiOnline({lawanList,game,level,sessionCode,onBack,onMulai,onDeclined}
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
         <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:16}}>
           <div style={{textAlign:"center"}}><Avatar nama={namaSaya}size={54}ring={P.gold}/><div style={{marginTop:6,fontWeight:800,fontSize:12,color:P.cream}}>Kamu</div></div>
-          {lawanList.map(l=>{
+          {isHost?lawanList.map(l=>{
             const st=lawanStatus.find(p=>p.id===l.id)?.status||"invited";
             const ring=st==="accepted"?P.green:st==="declined"?P.red:game.warna;
             return(<div key={l.id}style={{textAlign:"center",opacity:st==="declined"?.45:1}}><Avatar nama={l.nama}size={54}ring={ring}/><div style={{marginTop:6,fontWeight:800,fontSize:12,color:P.cream}}>{l.nama}</div><div style={{fontSize:10,fontWeight:700,color:ring}}>{st==="accepted"?"Siap ✓":st==="declined"?"Menolak":"Menunggu…"}</div></div>);
-          })}
+          }):hostName&&<div style={{textAlign:"center"}}><Avatar nama={hostName}size={54}ring={game.warna}/><div style={{marginTop:6,fontWeight:800,fontSize:12,color:P.cream}}>{hostName}</div><div style={{fontSize:10,fontWeight:700,color:game.warna}}>Host</div></div>}
         </div>
-        <div key={fase}className="gf-pop"style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17,textAlign:"center",color:fase==="diterima"?P.green:fase==="error"?P.red:P.cream}}>{teks[fase]}</div>
+        <div key={fase}className="gf-pop"style={{fontFamily:"'Bricolage Grotesque',sans-serif",fontWeight:800,fontSize:17,textAlign:"center",color:fase==="diterima"?P.green:fase==="error"?P.red:P.cream}}>{isHost?teks[fase]:(fase==="diterima"?teks.diterima:`Menunggu ${hostName||"host"} memulai…`)}</div>
         {(fase==="kirim"||fase==="tunggu")&&<div style={{display:"flex",gap:6}}>{[0,1,2].map(i=><div key={i}style={{width:8,height:8,borderRadius:99,background:P.gold,animation:`gf-blink 1.2s ${i*.4}s ease infinite`}}/>)}</div>}
-        {kode&&fase==="tunggu"&&<div style={{fontSize:11,color:P.muted,fontWeight:600}}>Kode sesi: {kode}</div>}
-        {fase==="tunggu"&&<button onClick={mulaiSekarang}disabled={!bisaMulai}className="gf-btn"style={{marginTop:8,padding:"12px 28px",borderRadius:14,border:"none",background:bisaMulai?game.warna:"rgba(255,255,255,0.08)",color:bisaMulai?"#1A1340":P.muted,fontWeight:800,fontSize:14,cursor:bisaMulai?"pointer":"default"}}>{memulai?"Memulai…":acceptedCount>0?`Mulai Sekarang (${acceptedCount+1} pemain)`:"Menunggu ada yang siap…"}</button>}
+        {kode&&fase==="tunggu"&&isHost&&<div style={{fontSize:11,color:P.muted,fontWeight:600}}>Kode sesi: {kode}</div>}
+        {fase==="tunggu"&&isHost&&<button onClick={mulaiSekarang}disabled={!bisaMulai}className="gf-btn"style={{marginTop:8,padding:"12px 28px",borderRadius:14,border:"none",background:bisaMulai?game.warna:"rgba(255,255,255,0.08)",color:bisaMulai?"#1A1340":P.muted,fontWeight:800,fontSize:14,cursor:bisaMulai?"pointer":"default"}}>{memulai?"Memulai…":acceptedCount>0?`Mulai Sekarang (${acceptedCount+1} pemain)`:"Menunggu ada yang siap…"}</button>}
       </div>
     </div>
   );
@@ -1005,6 +1006,12 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
       if(d.scores)setSkor(d.scores);
       setTimeout(lanjut,1600);
     }
+    if(p.type==="round_timeout"&&p.ronde===idx&&!resolvedRef.current){
+      resolvedRef.current=true;
+      clearInterval(timerRef.current);
+      setPemenangRonde("seri");
+      setTimeout(lanjut,1700);
+    }
   },(d)=>{setSkor(Object.fromEntries(d.players.map(p=>[p.user_id,p.score])));setSelesai(true);});
 
   useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
@@ -1017,16 +1024,25 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   // (mis. semua pemain jawab salah), ronde SEBELUMNYA stuck selamanya
   // menunggu jawaban benar yang tidak akan pernah datang. Auto-resolve
   // ke "seri" supaya game selalu lanjut ke tokoh berikutnya.
+  //
+  // PENTING: tiap client menjalankan setInterval sendiri-sendiri (tidak ada
+  // jam server bersama), jadi timer di device yang berbeda TIDAK dijamin
+  // menyentuh nol di tick yang sama (background tab throttling dkk). Kalau
+  // kedua sisi cuma resolve "seri" secara lokal tanpa saling kabari, sisi
+  // yang timer-nya sedikit lebih lambat tidak akan pernah tahu ronde sudah
+  // berakhir dan macet selamanya menunggu event yang tak kunjung datang.
+  // Solusi: HANYA host yang broadcast round_timeout (mencegah race 2 sisi
+  // saling kirim barengan); kedua sisi (termasuk host sendiri) baru
+  // mengubah state lewat handler round_timeout di useOnlineGame di atas,
+  // sama seperti pola answered_correct.
   useEffect(()=>{
     if(selesai)return;
     timerRef.current=setInterval(()=>{
       setWaktu(w=>{
         const n=w<=0.1?0:+(w-.1).toFixed(1);
         waktuRef.current=n;
-        if(n===0&&!resolvedRef.current){
-          resolvedRef.current=true;
-          setPemenangRonde("seri");
-          setTimeout(lanjut,1700);
+        if(n===0&&!resolvedRef.current&&myId===hostId){
+          sendMove({type:"round_timeout",ronde:idx});
         }
         return n;
       });
@@ -1290,9 +1306,10 @@ function GameFeature(){
   const [hindariKeys,setHindariKeys]=useState([]); // soal yang harus dihindari (baru dipakai tenant ini beberapa match terakhir)
   const [hostId,setHostId]=useState(null); // hanya host yang mencatat soal terpakai ke server (lihat GameSessionController::recordQuestions)
   const [notif,setNotif]=useState(null);
+  const [notifHostName,setNotifHostName]=useState(null); // disalin dari notif saat diterima — dipakai LobiOnline invitee, karena notif sendiri langsung di-null-kan
   const [memoryLevel,setMemoryLevel]=useState(1); // 1=4x4, 2=8x8, 3=8x8+reshuffle — dipakai Solo/Tatap/Online
 
-  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setLawanList([]);setSessionCode(null);setPlayers(null);setHindariKeys([]);setHostId(null);setMemoryLevel(1);};
+  const pulang=()=>{setScreen("hub");setGame(null);setMode(null);setLawan(null);setLawanList([]);setSessionCode(null);setPlayers(null);setHindariKeys([]);setHostId(null);setMemoryLevel(1);setNotifHostName(null);};
   const mulaiGame=g=>{setGame(g);setScreen("cara");};
   const pilihCara=m=>{
     setMode(m);
@@ -1343,10 +1360,17 @@ function GameFeature(){
     if(!notif)return;
     try{
       await apiPost("/game/respond",{session_code:notif.session_code,accept:true});
-      setGame({id:notif.game_type});
+      setGame(GAME_DEFS.find(g=>g.id===notif.game_type)||{id:notif.game_type,warna:P.gold});
       setSessionCode(notif.session_code);
+      setNotifHostName(notif.host_name);
       setMode("online");
-      setScreen("main");
+      // JANGAN langsung ke "main" — host mungkin belum menekan "Mulai" (masih
+      // menunggu peserta lain merespons). Arahkan ke lobi tunggu yang sama
+      // dengan sisi host, tapi tanpa tombol "Mulai" (hanya host yang boleh
+      // memicu /game/start) — supaya kedua sisi baru masuk game bersamaan
+      // begitu host benar-benar menekan Mulai.
+      setLawanList([]);
+      setScreen("lobi-invitee");
       setNotif(null);
     }catch(e){setNotif(null);}
   };
@@ -1380,6 +1404,7 @@ function GameFeature(){
       {screen==="level"  &&game&&<PilihLevelMemory onBack={()=>setScreen("cara")}onPick={pilihLevel}/>}
       {screen==="lawan"  &&game&&<PilihLawan game={game}mode={mode}onBack={()=>setScreen(game.id==="memory"?"level":"cara")}onPick={pilihLawan}/>}
       {screen==="lobi"   &&game&&lawanList.length>0&&<LobiOnline lawanList={lawanList}game={game}level={memoryLevel}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
+      {screen==="lobi-invitee"&&game&&sessionCode&&<LobiOnline lawanList={[]}game={game}sessionCode={sessionCode}isHost={false}hostName={notifHostName}onBack={pulang}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={pulang}/>}
       {screen==="main"   &&<GameMain/>}
       {notif&&screen!=="main"&&<NotifTantangan notif={notif}onTerima={terimaNotif}onTolak={tolakNotif}/>}
     </div>

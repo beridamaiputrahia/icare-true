@@ -56,6 +56,17 @@ class GameController extends Controller
     {
         $ids = $users->pluck('id')->push($user->id);
 
+        // User yang sedang di sesi 'waiting'/'active' (menunggu lawan siap
+        // atau sedang bermain) — dipakai untuk badge "Sedang main" di daftar
+        // lawan, supaya tidak menantang orang yang sudah sibuk di game lain.
+        $busySessionIds = GameSession::whereIn('status', ['waiting', 'active'])
+            ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $ids)->whereIn('status', ['invited', 'accepted']))
+            ->pluck('id');
+        $busyUserIds = GameSessionParticipant::whereIn('game_session_id', $busySessionIds)
+            ->whereIn('status', ['invited', 'accepted'])
+            ->pluck('user_id')
+            ->unique();
+
         // Semua peserta 'accepted' dari sesi yang sudah selesai & melibatkan
         // salah satu user relevan (biar tidak scan seluruh tabel).
         $sessionIds = GameSession::where('status', 'finished')
@@ -91,12 +102,13 @@ class GameController extends Controller
         }
 
         return $users->map(fn($u) => [
-            'id'       => $u->id,
-            'nama'     => $u->name,
-            'role'     => $u->role ?? 'anggota',
-            'online'   => (bool) $u->is_online && $u->last_seen && $u->last_seen->gt(now()->subMinutes(3)),
-            'menang'   => $stats[$u->id]['menang'] ?? 0,
-            'kalah'    => $stats[$u->id]['kalah'] ?? 0,
+            'id'         => $u->id,
+            'nama'       => $u->name,
+            'role'       => $u->role ?? 'anggota',
+            'online'     => (bool) $u->is_online && $u->last_seen && $u->last_seen->gt(now()->subMinutes(3)),
+            'sedangMain' => $busyUserIds->contains($u->id),
+            'menang'     => $stats[$u->id]['menang'] ?? 0,
+            'kalah'      => $stats[$u->id]['kalah'] ?? 0,
         ])->values();
     }
 
