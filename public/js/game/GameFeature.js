@@ -4472,8 +4472,11 @@ function TebakOnline({
   const [clueIdx, setClueIdx] = useState(0);
   const [pilih, setPilih] = useState(null);
   const [youLock, setYouLock] = useState(false);
-  const [pemenangRonde, setPemenangRonde] = useState(null); // {id,nama} atau null
+  const [pemenangRonde, setPemenangRonde] = useState(null); // {id,nama} atau "seri" atau null
   const [selesai, setSelesai] = useState(false);
+  const [waktu, setWaktu] = useState(25);
+  const timerRef = useRef();
+  const waktuRef = useRef(25);
   const resolvedRef = useRef(false);
   const t = tokoh[idx];
   useEffect(() => {
@@ -4502,6 +4505,7 @@ function TebakOnline({
     const p = d.payload || {};
     if (p.type === "answered_correct" && !resolvedRef.current) {
       resolvedRef.current = true;
+      clearInterval(timerRef.current);
       const pemain = players.find(pl => pl.id === d.user_id);
       setPemenangRonde(pemain || {
         id: d.user_id,
@@ -4519,12 +4523,36 @@ function TebakOnline({
   }, [sesiDiakhiriKarenaKeluar]);
   useEffect(() => {
     resolvedRef.current = false;
+    waktuRef.current = 25;
+    setWaktu(25);
   }, [idx]);
+
+  // Timer per ronde — kalau tidak ada yang jawab benar sampai waktu habis
+  // (mis. semua pemain jawab salah), ronde SEBELUMNYA stuck selamanya
+  // menunggu jawaban benar yang tidak akan pernah datang. Auto-resolve
+  // ke "seri" supaya game selalu lanjut ke tokoh berikutnya.
+  useEffect(() => {
+    if (selesai) return;
+    timerRef.current = setInterval(() => {
+      setWaktu(w => {
+        const n = w <= 0.1 ? 0 : +(w - .1).toFixed(1);
+        waktuRef.current = n;
+        if (n === 0 && !resolvedRef.current) {
+          resolvedRef.current = true;
+          setPemenangRonde("seri");
+          setTimeout(lanjut, 1700);
+        }
+        return n;
+      });
+    }, 100);
+    return () => clearInterval(timerRef.current);
+  }, [idx, selesai, lanjut]);
   const jawab = i => {
     if (resolvedRef.current || pilih !== null) return;
     setPilih(i);
     if (t.opsi[i] === t.jawaban) {
       resolvedRef.current = true;
+      clearInterval(timerRef.current);
       const p = TEBAK_POIN[Math.min(clueIdx, 3)];
       const skorBaru = (skorRef.current[myId] || 0) + p;
       setSkor(s => ({
@@ -4559,7 +4587,8 @@ function TebakOnline({
     accent: P.purple,
     onExit: onExit
   });
-  const statusTeks = pemenangRonde ? pemenangRonde.id === myId ? "Kamu benar duluan! 🎉" : `${pemenangRonde.nama} lebih cepat…` : "Siapa yang jawab duluan?";
+  const statusTeks = pemenangRonde === "seri" ? "Waktu habis — tidak ada yang benar" : pemenangRonde ? pemenangRonde.id === myId ? "Kamu benar duluan! 🎉" : `${pemenangRonde.nama} lebih cepat…` : "Siapa yang jawab duluan?";
+  const ratio = waktu / 25;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       padding: "18px 20px 26px",
@@ -4588,7 +4617,24 @@ function TebakOnline({
     },
     className: "gf-btn",
     style: gBtn
-  }, "← Keluar")), /*#__PURE__*/React.createElement(PapanSkorN, {
+  }, "← Keluar"), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "relative",
+      display: "grid",
+      placeItems: "center"
+    }
+  }, /*#__PURE__*/React.createElement(TimerRing, {
+    ratio: ratio,
+    danger: ratio < .3,
+    size: 42
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      position: "absolute",
+      fontWeight: 800,
+      fontSize: 13,
+      color: ratio < .3 ? P.red : P.cream
+    }
+  }, Math.ceil(waktu)))), /*#__PURE__*/React.createElement(PapanSkorN, {
     players: players,
     scores: skor,
     myId: myId,

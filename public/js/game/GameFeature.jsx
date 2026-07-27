@@ -980,8 +980,11 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   const [clueIdx,setClueIdx]=useState(0);
   const [pilih,setPilih]=useState(null);
   const [youLock,setYouLock]=useState(false);
-  const [pemenangRonde,setPemenangRonde]=useState(null); // {id,nama} atau null
+  const [pemenangRonde,setPemenangRonde]=useState(null); // {id,nama} atau "seri" atau null
   const [selesai,setSelesai]=useState(false);
+  const [waktu,setWaktu]=useState(25);
+  const timerRef=useRef();
+  const waktuRef=useRef(25);
   const resolvedRef=useRef(false);
   const t=tokoh[idx];
 
@@ -996,6 +999,7 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
     const p=d.payload||{};
     if(p.type==="answered_correct"&&!resolvedRef.current){
       resolvedRef.current=true;
+      clearInterval(timerRef.current);
       const pemain=players.find(pl=>pl.id===d.user_id);
       setPemenangRonde(pemain||{id:d.user_id,nama:"?"});
       if(d.scores)setSkor(d.scores);
@@ -1005,13 +1009,37 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
 
   useEffect(()=>{if(sesiDiakhiriKarenaKeluar)onExit();},[sesiDiakhiriKarenaKeluar]);
 
-  useEffect(()=>{resolvedRef.current=false;},[idx]);
+  useEffect(()=>{
+    resolvedRef.current=false;waktuRef.current=25;setWaktu(25);
+  },[idx]);
+
+  // Timer per ronde — kalau tidak ada yang jawab benar sampai waktu habis
+  // (mis. semua pemain jawab salah), ronde SEBELUMNYA stuck selamanya
+  // menunggu jawaban benar yang tidak akan pernah datang. Auto-resolve
+  // ke "seri" supaya game selalu lanjut ke tokoh berikutnya.
+  useEffect(()=>{
+    if(selesai)return;
+    timerRef.current=setInterval(()=>{
+      setWaktu(w=>{
+        const n=w<=0.1?0:+(w-.1).toFixed(1);
+        waktuRef.current=n;
+        if(n===0&&!resolvedRef.current){
+          resolvedRef.current=true;
+          setPemenangRonde("seri");
+          setTimeout(lanjut,1700);
+        }
+        return n;
+      });
+    },100);
+    return()=>clearInterval(timerRef.current);
+  },[idx,selesai,lanjut]);
 
   const jawab=i=>{
     if(resolvedRef.current||pilih!==null)return;
     setPilih(i);
     if(t.opsi[i]===t.jawaban){
       resolvedRef.current=true;
+      clearInterval(timerRef.current);
       const p=TEBAK_POIN[Math.min(clueIdx,3)];
       const skorBaru=(skorRef.current[myId]||0)+p;
       setSkor(s=>({...s,[myId]:skorBaru}));
@@ -1027,8 +1055,9 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   useEffect(()=>{if(selesai)sendFinished(skorRef.current[myId]||0);},[selesai]);
 
   if(selesai)return<HasilN players={players}scores={skor}myId={myId}accent={P.purple}onExit={onExit}/>;
-  const statusTeks=pemenangRonde?(pemenangRonde.id===myId?"Kamu benar duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Siapa yang jawab duluan?";
-  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<EmojiReactionBar onKirim={kirimReaksi}/><ReactionOverlay reaksi={reaksiMasuk}players={players}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
+  const statusTeks=pemenangRonde==="seri"?"Waktu habis — tidak ada yang benar":pemenangRonde?(pemenangRonde.id===myId?"Kamu benar duluan! 🎉":`${pemenangRonde.nama} lebih cepat…`):"Siapa yang jawab duluan?";
+  const ratio=waktu/25;
+  return(<div style={{padding:"18px 20px 26px",maxWidth:460,margin:"0 auto"}}>{pemainKeluar&&<DialogPemainKeluar nama={pemainKeluar.nama}onLanjut={()=>putuskanKelanjutan("continue")}onAkhiri={()=>putuskanKelanjutan("end")}/>}<EmojiReactionBar onKirim={kirimReaksi}/><ReactionOverlay reaksi={reaksiMasuk}players={players}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><button onClick={()=>{keluarDariSesi();onExit();}}className="gf-btn"style={gBtn}>← Keluar</button><div style={{position:"relative",display:"grid",placeItems:"center"}}><TimerRing ratio={ratio}danger={ratio<.3}size={42}/><div style={{position:"absolute",fontWeight:800,fontSize:13,color:ratio<.3?P.red:P.cream}}>{Math.ceil(waktu)}</div></div></div><PapanSkorN players={players}scores={skor}myId={myId}pemainKeluarId={pemainDitandaiKeluar}/><div key={idx}style={{marginTop:16,padding:"16px",borderRadius:18,background:"rgba(167,139,250,0.08)",border:"1px solid rgba(167,139,250,0.2)"}}><div style={{fontSize:12,fontWeight:700,color:P.purple,letterSpacing:1,marginBottom:10}}>SIAPA AKU? · Tokoh {idx+1}/{tokoh.length}</div>{t.clues.slice(0,clueIdx+1).map((c,i)=><div key={i}style={{display:"flex",gap:8,marginBottom:7}}><span style={{color:P.purple,fontWeight:800}}>#{i+1}</span><span style={{fontSize:15,fontWeight:600,color:P.cream,lineHeight:1.4}}>{c}</span></div>)}{clueIdx<t.clues.length-1&&!pemenangRonde&&<button onClick={()=>setClueIdx(i=>i+1)}className="gf-btn"style={{marginTop:10,width:"100%",padding:"9px",borderRadius:12,border:`1px solid ${P.purple}44`,background:`${P.purple}12`,color:P.purple,fontWeight:700,fontSize:13}}>Buka Clue Berikutnya</button>}</div><div style={{marginTop:12,padding:"8px 12px",borderRadius:10,background:"rgba(255,255,255,0.04)",fontSize:13,fontWeight:700,color:pemenangRonde?(pemenangRonde.id===myId?P.green:P.p2):P.muted}}>{statusTeks}</div><div style={{display:"grid",gap:9,marginTop:14}}>{t.opsi.map((op,i)=>{let st="idle";if(pemenangRonde||youLock){st=op===t.jawaban?"benar":i===pilih?"salah":"redup";}else if(i===pilih)st="salah";return<OptBtn key={i}text={op}idx={i}state={st}onClick={()=>jawab(i)}disabled={!!pemenangRonde||youLock||pilih!==null}delay={i*.04}/>;})}</div>{youLock&&!pemenangRonde&&<div className="gf-shake"style={{textAlign:"center",marginTop:8,color:P.red,fontSize:13,fontWeight:700}}>Jawaban salah ✗</div>}</div>);
 }
 
 /* ════════════════════════════════════════════════════════════
