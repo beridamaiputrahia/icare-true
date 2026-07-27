@@ -29,8 +29,15 @@ class BibleApiService
     /**
      * Ambil satu ayat acak dari daftar referensi populer (config/bible-verses.php),
      * dengan teks live dari API.Bible. Melempar exception kalau API key belum
-     * di-set atau request gagal — pemanggil (Artisan command) bertanggung jawab
-     * menangani fallback.
+     * di-set, daftar referensi kosong, atau SEMUA percobaan referensi gagal.
+     *
+     * Beberapa ID USFM di config/bible-verses.php (mis. PSA.73.26, PSA.86.15)
+     * ternyata 404 di API.Bible — kemungkinan penomoran ayat Mazmur berbeda
+     * antara Terjemahan Baru dan skema USFM yang dipakai API (heading Ibrani
+     * kadang dihitung sebagai ayat 1, menggeser nomor ayat terakhir). Daripada
+     * menebak & memperbaiki tiap ID satu-satu (rawan berulang untuk referensi
+     * lain di masa depan), kalau satu referensi gagal coba referensi acak
+     * lain sampai berhasil atau kandidat habis dicoba.
      */
     public function randomVerse(): array
     {
@@ -44,14 +51,29 @@ class BibleApiService
             throw new RuntimeException('Daftar referensi ayat (config/bible-verses.php) kosong.');
         }
 
-        $pick = $verses[array_rand($verses)];
+        $kandidat = collect($verses)->shuffle();
+        $lastError = null;
 
-        $text = $this->fetchVerseText($pick['id']);
+        foreach ($kandidat as $pick) {
+            try {
+                $text = $this->fetchVerseText($pick['id']);
 
-        return [
-            'ayat'      => $text,
-            'referensi' => $pick['label'],
-        ];
+                return [
+                    'ayat'      => $text,
+                    'referensi' => $pick['label'],
+                ];
+            } catch (RuntimeException $e) {
+                $lastError = $e;
+                Log::warning('BibleApiService: referensi gagal, coba referensi lain', [
+                    'verse_id' => $pick['id'],
+                    'error'    => $e->getMessage(),
+                ]);
+            }
+        }
+
+        throw new RuntimeException(
+            'Semua ' . count($verses) . ' referensi ayat gagal diambil dari API.Bible. Error terakhir: ' . ($lastError?->getMessage() ?? 'tidak diketahui')
+        );
     }
 
     /**
