@@ -123,12 +123,6 @@ Route::middleware(['auth', 'role:superadmin'])->prefix('superadmin')->name('supe
         return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
     });
 
-    // TEMP: trigger manual verse:generate-daily untuk diagnosa kenapa
-    // beberapa tenant tidak dapat ayat harian otomatis. Hapus setelah selesai.
-    Route::get('_test-generate-verse', function () {
-        \Illuminate\Support\Facades\Artisan::call('verse:generate-daily', ['--verbose' => true]);
-        return response('<pre>' . e(\Illuminate\Support\Facades\Artisan::output()) . '</pre>');
-    });
 
     // TEMP DEBUG: baca tail laravel.log untuk diagnosa kenapa push notification
     // tidak muncul sebagai pop-up sistem. Hapus setelah selesai.
