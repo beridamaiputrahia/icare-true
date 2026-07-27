@@ -59,7 +59,19 @@ class GameController extends Controller
         // User yang sedang di sesi 'waiting'/'active' (menunggu lawan siap
         // atau sedang bermain) — dipakai untuk badge "Sedang main" di daftar
         // lawan, supaya tidak menantang orang yang sudah sibuk di game lain.
+        //
+        // PENTING: sesi 'waiting'/'active' bisa "nyangkut" selamanya kalau
+        // pemain menutup tab/mematikan koneksi sebelum sempat mengirim sinyal
+        // /game/leave (beforeunload/sendBeacon bisa gagal terkirim). Tanpa
+        // batas umur, user itu akan tampak "Sedang main" terus walau
+        // sebenarnya sudah lama tidak ada aktivitas apa pun — makanya cuma
+        // sesi yang masih "hidup" (dibuat dalam beberapa menit terakhir, ATAU
+        // baru mulai) yang dihitung, bukan seluruh sesi waiting/active.
         $busySessionIds = GameSession::whereIn('status', ['waiting', 'active'])
+            ->where(function ($q) {
+                $q->where('created_at', '>=', now()->subMinutes(10))
+                    ->orWhere('started_at', '>=', now()->subMinutes(30));
+            })
             ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $ids)->whereIn('status', ['invited', 'accepted']))
             ->pluck('id');
         $busyUserIds = GameSessionParticipant::whereIn('game_session_id', $busySessionIds)
