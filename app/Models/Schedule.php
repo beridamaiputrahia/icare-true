@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class Schedule extends Model
 {
@@ -49,16 +51,25 @@ class Schedule extends Model
      * Febri"), Google Maps text search bisa nyasar ke lokasi yang sama
      * sekali berbeda (bahkan luar negeri), padahal link_maps-nya sendiri
      * (tombol "Buka di Google Maps") sudah menunjuk titik yang benar.
-     * Di sini kita coba ekstrak koordinat presisi dari link_maps dulu
-     * (pola @lat,lng atau !3dlat!4dlng yang umum di URL share Google Maps),
-     * baru fallback ke text search kalau linknya tidak mengandung koordinat.
+     *
+     * Di sini kita coba ekstrak koordinat presisi dari link_maps dulu (pola
+     * @lat,lng atau !3dlat!4dlng yang umum di URL share Google Maps). Kalau
+     * link yang ditempel adalah link PENDEK (maps.app.goo.gl / goo.gl —
+     * format yang paling umum dipakai orang share dari app Google Maps di
+     * HP), URL itu sendiri tidak mengandung koordinat sama sekali — harus
+     * di-resolve dulu lewat redirect HTTP untuk dapat URL panjang yang
+     * mengandung koordinat, baru diekstrak. Hasil resolve di-cache permanen
+     * per link (link pendek Google Maps tidak pernah berubah tujuan)
+     * supaya tidak menghubungi Google di setiap page load.
      */
     public function getMapsEmbedUrlAttribute(): ?string
     {
         if ($this->link_maps) {
-            if (preg_match('/@(-?\d+\.\d+),(-?\d+\.\d+)/', $this->link_maps, $m)
-                || preg_match('/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/', $this->link_maps, $m)
-                || preg_match('/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/', $this->link_maps, $m)
+            $target = $this->resolveShortMapsLink($this->link_maps);
+
+            if (preg_match('/@(-?\d+\.\d+),(-?\d+\.\d+)/', $target, $m)
+                || preg_match('/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/', $target, $m)
+                || preg_match('/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/', $target, $m)
             ) {
                 return 'https://maps.google.com/maps?q=' . $m[1] . ',' . $m[2] . '&output=embed';
             }
@@ -69,5 +80,29 @@ class Schedule extends Model
         }
 
         return null;
+    }
+
+    /**
+     * Kalau $url adalah link pendek Google Maps (goo.gl/maps.app.goo.gl),
+     * ikuti redirect-nya untuk dapat URL panjang berkoordinat. Untuk link
+     * lain (sudah berupa URL panjang), kembalikan apa adanya tanpa request
+     * jaringan sama sekali.
+     */
+    private function resolveShortMapsLink(string $url): string
+    {
+        if (! preg_match('#^https?://(maps\.app\.)?goo\.gl/#i', $url)) {
+            return $url;
+        }
+
+        return Cache::rememberForever('maps_short_link_resolved:' . md5($url), function () use ($url) {
+            try {
+                $response = Http::timeout(4)->withOptions(['allow_redirects' => false])->get($url);
+                $location = $response->header('Location');
+
+                return $location ?: $url;
+            } catch (\Throwable $e) {
+                return $url;
+            }
+        });
     }
 }
