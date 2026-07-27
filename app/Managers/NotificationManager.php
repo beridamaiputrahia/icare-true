@@ -8,6 +8,7 @@ use App\Models\DailyVerse;
 use App\Models\Devotion;
 use App\Models\Prayer;
 use App\Models\Schedule;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\DailyVerseNotification;
 use App\Notifications\NewAnnouncementNotification;
@@ -42,14 +43,28 @@ class NotificationManager
         Notification::send($this->withSuperadmins($users), new ScheduleReminderNotification($schedule, $type));
     }
 
-    /** Send daily verse notification to all active users of the verse's own tenant at 07:00 (+ superadmins). */
+    /**
+     * Send daily verse notification to all active users, per tenant.
+     *
+     * Ini dipanggil dari command scheduler (routes/console.php), yang tidak
+     * punya user login — DailyVerse::getToday() tanpa argumen HANYA melihat
+     * tenant satu-satunya user yang login, yang tidak ada di konteks ini.
+     * Harus di-loop eksplisit per tenant aktif, sama seperti
+     * GenerateDailyVerse, jika tidak notifikasi cuma terkirim ke SATU tenant
+     * (tenant pertama di database) dan semua tenant lain tidak pernah
+     * kebagian notifikasi apa pun.
+     */
     public function sendDailyVerse(): void
     {
-        $verse = DailyVerse::getToday();
-        if (!$verse) return;
+        foreach (Tenant::where('is_active', true)->get() as $tenant) {
+            $verse = DailyVerse::getToday($tenant->id);
+            if (!$verse) continue;
 
-        $users = User::where('is_active', true)->where('tenant_id', $verse->tenant_id)->get();
-        Notification::send($this->withSuperadmins($users), new DailyVerseNotification($verse));
+            $users = User::where('is_active', true)->where('tenant_id', $tenant->id)->get();
+            if ($users->isEmpty()) continue;
+
+            Notification::send($this->withSuperadmins($users), new DailyVerseNotification($verse));
+        }
     }
 
     /** Send new announcement notification, scoped to the announcement's own tenant (+ superadmins). */

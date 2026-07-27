@@ -30,11 +30,17 @@ class DailyVerse extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public static function getToday()
+    /**
+     * Ayat aktif hari ini untuk tenant TERTENTU (dipakai command scheduler
+     * yang tidak punya user login untuk resolve tenant via BelongsToTenant
+     * scope) — atau tenant dari user yang sedang login kalau $tenantId
+     * dikosongkan (perilaku lama, dipakai controller/middleware).
+     */
+    public static function getToday(?int $tenantId = null)
     {
-        return static::where('tanggal', today())
-            ->where('is_active', true)
-            ->first()
-            ?? static::where('is_active', true)->latest()->first();
+        $query = $tenantId !== null ? static::withoutTenantScope()->where('tenant_id', $tenantId) : static::query();
+
+        return (clone $query)->where('tanggal', today())->where('is_active', true)->first()
+            ?? (clone $query)->where('is_active', true)->latest()->first();
     }
 }
