@@ -1356,13 +1356,16 @@ function GameFeature(){
     return()=>{pusher.unsubscribe("private-game-user."+userId);};
   },[]);
 
-  const terimaNotif=async()=>{
-    if(!notif)return;
+  // Dipakai baik dari kartu notifikasi in-page (Pusher, lihat effect di
+  // bawah) MAUPUN dari notifikasi global di layout luar /game (lonceng di
+  // topbar semua halaman) yang membawa pengguna kembali ke /game?join=KODE
+  // — lihat effect "auto-join dari query ?join=" di bawah.
+  const terimaSesi=async(sessionCode,gameType,hostName)=>{
     try{
-      await apiPost("/game/respond",{session_code:notif.session_code,accept:true});
-      setGame(GAME_DEFS.find(g=>g.id===notif.game_type)||{id:notif.game_type,warna:P.gold});
-      setSessionCode(notif.session_code);
-      setNotifHostName(notif.host_name);
+      await apiPost("/game/respond",{session_code:sessionCode,accept:true});
+      setGame(GAME_DEFS.find(g=>g.id===gameType)||{id:gameType,warna:P.gold});
+      setSessionCode(sessionCode);
+      setNotifHostName(hostName);
       setMode("online");
       // JANGAN langsung ke "main" — host mungkin belum menekan "Mulai" (masih
       // menunggu peserta lain merespons). Arahkan ke lobi tunggu yang sama
@@ -1371,14 +1374,37 @@ function GameFeature(){
       // begitu host benar-benar menekan Mulai.
       setLawanList([]);
       setScreen("lobi-invitee");
-      setNotif(null);
-    }catch(e){setNotif(null);}
+    }catch(e){/* sesi mungkin sudah kedaluwarsa/dibatalkan — biarkan user di hub */}
+  };
+
+  const terimaNotif=async()=>{
+    if(!notif)return;
+    await terimaSesi(notif.session_code,notif.game_type,notif.host_name);
+    setNotif(null);
   };
   const tolakNotif=async()=>{
     if(!notif)return;
     try{await apiPost("/game/respond",{session_code:notif.session_code,accept:false});}catch(e){}
     setNotif(null);
   };
+
+  // Auto-join saat dibuka dari notifikasi tantangan yang tampil di HALAMAN
+  // LAIN (luar /game) — lihat window.__icareGameChallengeToast di
+  // layouts/app.blade.php. Tombol "Terima" di sana membawa user ke
+  // /game?join=KODE alih-alih menerima langsung di tempat, supaya
+  // /game/respond tetap dipanggil dari dalam komponen game yang sudah
+  // pasti berhasil dimuat (dan bukan duplikat logic Pusher di luar React).
+  useEffect(()=>{
+    const params=new URLSearchParams(window.location.search);
+    const kodeJoin=params.get("join");
+    if(!kodeJoin)return;
+    window.history.replaceState({},"","/game"); // bersihkan query supaya tidak ke-trigger lagi kalau reload
+    apiGet("/game/pending").then(p=>{
+      if(p.pending&&p.session_code===kodeJoin){
+        terimaSesi(p.session_code,p.game_type,p.host_name);
+      }
+    }).catch(()=>{});
+  },[]);
 
   const GameMain=()=>{
     if(!game)return null;

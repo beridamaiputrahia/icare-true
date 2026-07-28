@@ -584,6 +584,9 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    @if(config('broadcasting.connections.pusher.key'))
+    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+    @endif
 
     <script>
     /* ── DARK MODE ────────────────────────────────────────── */
@@ -752,6 +755,96 @@
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') refreshCount();
         });
+    })();
+
+    /* ── TANTANGAN GAME GLOBAL ───────────────────────────────
+       Sebelumnya notifikasi "diajak main game" hanya muncul kalau user
+       sedang berada DI DALAM halaman /game (dirender oleh GameFeature.jsx).
+       Kalau user sedang di halaman lain (jadwal, pengumuman, dst.) saat
+       ditantang, tidak ada apa pun yang memberitahu — tantangan baru
+       kelihatan kalau dia kebetulan buka /game sendiri.
+
+       Blok ini membuat toast tantangan muncul di HALAMAN MANAPUN, memakai
+       channel Pusher yang sama ("private-game-user.{id}", event
+       "challenged") yang sudah dipakai GameFeature.jsx, plus fallback
+       polling /game/pending tiap 20 detik untuk device yang realtime-nya
+       gagal tersambung. "Terima" tidak memanggil /game/respond langsung
+       di sini — supaya logic penerimaan tetap satu tempat (GameFeature.jsx)
+       — melainkan mengarahkan ke /game?join=KODE, yang lalu otomatis
+       menerima & masuk ke lobi tunggu (lihat effect auto-join di
+       GameFeature.jsx). */
+    (function () {
+        const userId = {{ auth()->id() ?? 'null' }};
+        if (!userId) return;
+
+        let shown = null; // session_code yang sedang ditampilkan, cegah toast dobel
+
+        function renderToast(d) {
+            if (shown === d.session_code || document.getElementById('gameChallengeToast')) return;
+            shown = d.session_code;
+
+            const el = document.createElement('div');
+            el.id = 'gameChallengeToast';
+            el.style.cssText = 'position:fixed;bottom:calc(var(--nav-h,90px) + 12px);left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:420px;z-index:2000;';
+            el.innerHTML = `
+                <div class="card shadow-lg" style="border-radius:16px">
+                    <div class="card-body d-flex align-items-center gap-3 p-3">
+                        <div style="font-size:1.6rem">🎮</div>
+                        <div class="flex-grow-1" style="min-width:0">
+                            <div class="fw-semibold" style="font-size:.85rem">Tantangan Game Masuk!</div>
+                            <div class="text-muted" style="font-size:.78rem">
+                                <strong>${d.host_name}</strong> mengajakmu main <strong>${d.game_type}</strong>
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-success" id="gameChallengeAccept">Terima</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="gameChallengeDecline">✕</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(el);
+
+            document.getElementById('gameChallengeAccept').addEventListener('click', () => {
+                window.location.href = '{{ route('game.index') }}?join=' + encodeURIComponent(d.session_code);
+            });
+            document.getElementById('gameChallengeDecline').addEventListener('click', async () => {
+                el.remove();
+                shown = null;
+                try {
+                    const csrf = document.querySelector('meta[name="csrf-token"]').content;
+                    await fetch('{{ route('game.respond') }}', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                        body: JSON.stringify({ session_code: d.session_code, accept: false }),
+                    });
+                } catch (e) { /* abaikan */ }
+            });
+        }
+
+        // Jangan duplikat toast dengan yang sudah dirender GameFeature.jsx
+        // sendiri kalau kebetulan lagi di halaman /game.
+        if (window.location.pathname.startsWith('/game')) return;
+
+        if (window.Pusher) {
+            try {
+                const pusher = new Pusher('{{ config('broadcasting.connections.pusher.key') }}', {
+                    cluster: '{{ config('broadcasting.connections.pusher.options.cluster', 'ap1') }}',
+                    authEndpoint: '/broadcasting/auth',
+                    auth: { headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } },
+                });
+                pusher.subscribe('private-game-user.' + userId).bind('challenged', renderToast);
+            } catch (e) { /* fallback ke polling di bawah */ }
+        }
+
+        async function pollPending() {
+            if (document.getElementById('gameChallengeToast')) return;
+            try {
+                const r = await fetch('{{ route('game.pending') }}', { headers: { 'Accept': 'application/json' } });
+                if (!r.ok) return;
+                const data = await r.json();
+                if (data.pending) renderToast(data);
+            } catch (e) { /* coba lagi di interval berikutnya */ }
+        }
+        pollPending();
+        setInterval(pollPending, 20000);
     })();
     </script>
     @stack('scripts')
