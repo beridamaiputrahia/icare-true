@@ -25,7 +25,14 @@ use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 // ── Public ────────────────────────────────────────────────────────────────
-Route::get('/', fn () => redirect()->route('dashboard'));
+// Dibuka lagi setiap kali app PWA di-relaunch dari ikon homescreen (start_url
+// di manifest.json = '/') — termasuk saat OS/browser me-restart webview di
+// background, yang jauh lebih sering terjadi di HP daripada refresh manual.
+// Redirect SERVER-SIDE selalu ke /dashboard di sini akan selalu membuang
+// halaman terakhir yang sedang dibuka user. Redirect-nya karena itu dibuat
+// CLIENT-SIDE lewat localStorage (diisi oleh layouts/app.blade.php di tiap
+// page load) supaya app kembali ke halaman terakhir, bukan selalu dashboard.
+Route::get('/', fn () => view('root-redirect'));
 Route::get('/offline', fn () => view('offline'))->name('offline');
 
 

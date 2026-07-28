@@ -589,6 +589,16 @@
     @endif
 
     <script>
+    /* ── INGAT HALAMAN TERAKHIR (untuk PWA start_url) ────────
+       Dipakai oleh resources/views/root-redirect.blade.php: saat app PWA
+       di-relaunch dari ikon homescreen (start_url = '/'), OS/browser sering
+       me-restart webview di background bahkan tanpa user menutup app secara
+       sadar — jauh lebih sering daripada refresh manual. Tanpa ini, app
+       SELALU balik ke /dashboard tiap kali dibuka lagi, membuang halaman
+       yang sedang dilihat user. Layout ini hanya dipakai halaman yang sudah
+       login, jadi aman disimpan tanpa perlu kecualikan /login dkk. */
+    try { localStorage.setItem('icare_last_path', location.pathname + location.search); } catch (e) {}
+
     /* ── DARK MODE ────────────────────────────────────────── */
     (function() {
         const html  = document.documentElement;
