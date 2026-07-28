@@ -67,15 +67,27 @@ class GameController extends Controller
         // sebenarnya sudah lama tidak ada aktivitas apa pun — makanya cuma
         // sesi yang masih "hidup" (dibuat dalam beberapa menit terakhir, ATAU
         // baru mulai) yang dihitung, bukan seluruh sesi waiting/active.
+        // PENTING (lanjutan): session.status hanya pindah ke 'finished' kalau
+        // SEMUA peserta 'accepted' sudah finished=true (lihat
+        // GameSessionController::move()). Kalau salah satu lawan keluar diam2
+        // tanpa sempat kirim /game/leave ATAU tanpa sempat kirim gerakan
+        // finished terakhirnya, sesi itu nyangkut selamanya di status
+        // 'active' walau pemain yang lain SUDAH benar-benar selesai main
+        // (skornya sendiri sudah finished=true). Tanpa pengecualian ini,
+        // pemain yang sudah selesai itu tetap tampak "Sedang main" sampai
+        // jendela waktu di atas habis, padahal dari sisi dia game-nya sudah
+        // tuntas — makanya participant yang finished=true dikeluarkan dari
+        // hitungan busy sekalipun sesi induknya belum berstatus 'finished'.
         $busySessionIds = GameSession::whereIn('status', ['waiting', 'active'])
             ->where(function ($q) {
                 $q->where('created_at', '>=', now()->subMinutes(10))
                     ->orWhere('started_at', '>=', now()->subMinutes(30));
             })
-            ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $ids)->whereIn('status', ['invited', 'accepted']))
+            ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $ids)->whereIn('status', ['invited', 'accepted'])->where('finished', false))
             ->pluck('id');
         $busyUserIds = GameSessionParticipant::whereIn('game_session_id', $busySessionIds)
             ->whereIn('status', ['invited', 'accepted'])
+            ->where('finished', false)
             ->pluck('user_id')
             ->unique();
 
