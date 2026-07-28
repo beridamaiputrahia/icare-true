@@ -27,9 +27,26 @@ class GameSessionController extends Controller
     ];
     private const HINDARI_KELIPATAN = 3; // hindari soal dari 3 match terakhir
 
+    // Memory Match level 2/3 butuh 32 pasang, sementara bank bawaan
+    // (BANK_KARTU di GameFeature.jsx) juga PERSIS 32 entri. Kalau target
+    // hindari dihitung sama seperti game lain (32*3=96), frontend akan
+    // selalu menghindari LEBIH BANYAK dari sisa kandidat yang ada — begitu
+    // hindari-list menyisakan kurang dari 32 kandidat, siapkanKartuSeed()
+    // membuang seluruh filter dan pakai bank penuh tanpa hindari sama
+    // sekali (lihat kandidat.length<n fallback), jadi 32 kartu yang sama
+    // selalu terulang persis di match berikutnya — mekanisme anti-ulang
+    // untuk Memory jadi tidak pernah benar-benar aktif. Batasi target
+    // hindari Memory jauh lebih kecil (cukup hindari match SEBELUMNYA
+    // saja, bukan 3x lipat) supaya selalu ada kandidat tersisa untuk
+    // difilter secara nyata.
+    private const HINDARI_KELIPATAN_PER_GAME = [
+        'memory' => 0.5, // ~16 kartu terakhir dihindari, bukan 96 — bank 32 masih menyisakan kandidat
+    ];
+
     private function ambilKeyDihindari(int $tenantId, string $gameType): array
     {
-        $batas = (self::SOAL_PER_MATCH[$gameType] ?? 10) * self::HINDARI_KELIPATAN;
+        $kelipatan = self::HINDARI_KELIPATAN_PER_GAME[$gameType] ?? self::HINDARI_KELIPATAN;
+        $batas     = (int) floor((self::SOAL_PER_MATCH[$gameType] ?? 10) * $kelipatan);
 
         return GameQuestionHistory::where('tenant_id', $tenantId)
             ->where('game_type', $gameType)
@@ -85,6 +102,33 @@ class GameSessionController extends Controller
 
         if (empty($opponentIds)) {
             return response()->json(['message' => 'Pilih minimal 1 lawan yang valid.'], 422);
+        }
+
+        // Server-side sekarang juga menyaring lawan yang sedang sibuk main
+        // game lain — sebelumnya ini HANYA dicek di frontend (PilihLawan),
+        // yang bisa basi kalau lawan mulai match lain persis di jendela
+        // waktu antara render daftar & tombol "Tantang" ditekan. Tanpa
+        // pengecekan server, tantangan tetap terkirim ke lawan yang sudah
+        // sibuk, membuatnya "diterima" ke dua sesi sekaligus.
+        $busySessionIds = GameSession::whereIn('status', ['waiting', 'active'])
+            ->where(function ($q) {
+                $q->where('created_at', '>=', now()->subMinutes(10))
+                    ->orWhere('started_at', '>=', now()->subMinutes(30));
+            })
+            ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $opponentIds)->whereIn('status', ['invited', 'accepted'])->where('finished', false))
+            ->pluck('id');
+        $busyOpponentIds = GameSessionParticipant::whereIn('game_session_id', $busySessionIds)
+            ->whereIn('user_id', $opponentIds)
+            ->whereIn('status', ['invited', 'accepted'])
+            ->where('finished', false)
+            ->pluck('user_id')
+            ->unique()
+            ->all();
+
+        $opponentIds = array_values(array_diff($opponentIds, $busyOpponentIds));
+
+        if (empty($opponentIds)) {
+            return response()->json(['message' => 'Semua lawan yang dipilih sedang bermain game lain.'], 422);
         }
 
         // Batalkan sesi lama yang masih waiting dari user ini sebagai host
@@ -251,7 +295,31 @@ class GameSessionController extends Controller
         $participant = $session->participants()->where('user_id', $userId)->where('status', 'accepted')->firstOrFail();
 
         if (isset($request->payload['score'])) {
-            $participant->update(['score' => (int) $request->payload['score']]);
+            $skorBaru = (int) $request->payload['score'];
+
+            // MITIGASI: soal & jawaban benar sepenuhnya ada di client (untuk
+            // sinkronisasi seeded-shuffle antar pemain), jadi server TIDAK
+            // bisa memverifikasi apakah skor yang dikirim itu benar-benar
+            // hasil jawaban yang sah — perbaikan menyeluruh butuh server
+            // ikut jadi wasit (tahu soal & jawaban), di luar cakupan
+            // perbaikan ini. Sebagai lapis pertahanan murah tanpa mengubah
+            // arsitektur: tolak nilai yang jelas mustahil (negatif, atau di
+            // atas skor maksimum teoretis skenario TERBAIK di game manapun
+            // — Memory level 3: 32 pasang * 250 = 8000, game lain jauh di
+            // bawah itu) supaya request iseng "score: 999999999" langsung
+            // ditolak, bukan mencegah kecurangan yang lebih halus.
+            if ($skorBaru < 0 || $skorBaru > 8000) {
+                return response()->json(['message' => 'Skor tidak valid.'], 422);
+            }
+
+            // Skor per pemain SEHARUSNYA hanya naik (tiap ronde menambah,
+            // tidak pernah dikurangi) — turun drastis dari nilai sebelumnya
+            // adalah tanda payload yang dipalsukan/rusak, bukan gerakan sah.
+            if ($skorBaru < $participant->score) {
+                return response()->json(['message' => 'Skor tidak valid.'], 422);
+            }
+
+            $participant->update(['score' => $skorBaru]);
         }
 
         if (! empty($request->payload['finished'])) {
@@ -415,11 +483,17 @@ class GameSessionController extends Controller
         // proses undang) bisa nyangkut selamanya — tanpa batas umur, baris
         // 'invited' ini akan terus muncul sebagai "tantangan masuk" tak
         // terhingga meski sebenarnya sudah lama ditinggalkan.
+        // Ambil yang PALING LAMA (bukan ->latest()), bukan yang paling
+        // baru: kalau user ditantang 2 orang berbeda dalam window yang
+        // sama, ->latest() bikin tantangan yang lebih baru SELALU menang
+        // menutupi yang lebih lama — tantangan lama itu bisa lewat batas
+        // 10 menit di atas dan hilang tanpa pernah sempat terlihat sama
+        // sekali oleh user. Prioritaskan yang paling dekat kedaluwarsa.
         $participant = GameSessionParticipant::where('user_id', Auth::id())
             ->where('status', 'invited')
             ->whereHas('session', fn ($q) => $q->withoutGlobalScope('tenant')->where('status', 'waiting')->where('created_at', '>=', now()->subMinutes(10)))
             ->with(['session' => fn ($q) => $q->withoutGlobalScope('tenant')->with('host:id,name')])
-            ->latest()
+            ->oldest()
             ->first();
 
         if (! $participant) {

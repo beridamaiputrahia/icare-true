@@ -26,6 +26,12 @@ class GameController extends Controller
      * Soal tambahan dari bank soal superadmin (game_questions), dikelompokkan
      * per game_type supaya frontend tinggal menggabungkannya dengan bank
      * bawaan hardcoded — lihat public/js/game/GameFeature.jsx.
+     *
+     * GameQuestion SENGAJA tidak memakai BelongsToTenant (tidak ada kolom
+     * tenant_id sama sekali di model/migrasinya) — ini bank soal bersama
+     * yang dikurasi superadmin untuk SEMUA I Care Group, bukan data privat
+     * per tenant, jadi tidak perlu withoutTenantScope() di sini karena
+     * memang tidak pernah ter-scope tenant sejak awal.
      */
     private function buildCustomQuestions(): array
     {

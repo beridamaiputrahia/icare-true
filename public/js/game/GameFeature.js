@@ -1039,10 +1039,13 @@ function PerayaanMenang() {
     alt: "Bersorak untuk kemenanganmu",
     style: {
       width: 120,
-      height: "auto",
+      aspectRatio: "32/35",
       imageRendering: "pixelated",
       margin: "0 auto",
       display: "block"
+    },
+    onError: e => {
+      e.target.style.display = "none";
     }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1652,6 +1655,16 @@ function LobiOnline({
               clearInterval(pollRef.current);
               setFase("diterima");
               setTimeout(() => onMulai(kodeAktif), 800);
+            }
+            // Sesi dibatalkan (host membuat tantangan baru sehingga sesi
+            // lama ini otomatis di-declined, atau salah satu pemain
+            // memutuskan mengakhiri sesi lewat dialog "pemain keluar").
+            // Tanpa ini, invitee yang masih menunggu di lobi tidak pernah
+            // tahu sesi sudah dibatalkan dan macet selamanya di "Menunggu
+            // host memulai…" — cuma bisa keluar manual lewat tombol Kembali.
+            else if (s.status === "declined") {
+              clearInterval(pollRef.current);
+              onDeclined && onDeclined();
             }
           } catch (e) {/* abaikan, coba lagi di polling berikutnya */}
         }, 2000);
@@ -3170,6 +3183,12 @@ function KuisOnline({
       if (d.scores) setSkor(d.scores);
       setTimeout(lanjut, 1700);
     }
+    if (p.type === "round_timeout" && p.ronde === idx && !resolvedRef.current) {
+      resolvedRef.current = true;
+      clearInterval(timerRef.current);
+      setPemenangRonde("seri");
+      setTimeout(lanjut, 1700);
+    }
   }, d => {
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
@@ -3213,22 +3232,33 @@ function KuisOnline({
     youLockRef.current = false;
     waktuRef.current = 12;
   }, [idx]);
+
+  // Timer per ronde — sama seperti TebakOnline: timer tiap client berjalan
+  // sendiri-sendiri (tidak ada jam server bersama), jadi TIDAK dijamin
+  // menyentuh nol di tick yang sama (background-tab throttling dkk). Kalau
+  // tiap sisi resolve "seri" secara lokal tanpa saling kabari, dua sisi
+  // bisa berakhir dengan `idx`/skor yang berbeda (satu sudah lanjut ronde
+  // berikutnya, satu lagi masih di ronde lama) — skor jadi tidak sinkron
+  // permanen. HANYA host yang broadcast round_timeout (mencegah race dua
+  // sisi kirim barengan); kedua sisi (termasuk host) baru mengubah state
+  // lewat handler round_timeout di useOnlineGame di atas.
   useEffect(() => {
     if (selesai) return;
     timerRef.current = setInterval(() => {
       setWaktu(w => {
         const n = w <= 0.1 ? 0 : +(w - .1).toFixed(1);
         waktuRef.current = n;
-        if (n === 0 && !resolvedRef.current) {
-          resolvedRef.current = true;
-          setPemenangRonde("seri");
-          setTimeout(lanjut, 1700);
+        if (n === 0 && !resolvedRef.current && myId === hostId) {
+          sendMove({
+            type: "round_timeout",
+            ronde: idx
+          });
         }
         return n;
       });
     }, 100);
     return () => clearInterval(timerRef.current);
-  }, [idx, selesai, lanjut]);
+  }, [idx, selesai]);
   useEffect(() => {
     if (selesai) sendFinished(skor[myId] || 0);
   }, [selesai]);
@@ -3940,6 +3970,12 @@ function SusunOnline({
       if (d.scores) setSkor(d.scores);
       setTimeout(() => lanjutKe(idx + 1), 1600);
     }
+    if (p.type === "round_timeout" && p.ronde === idx && !resolvedRef.current) {
+      resolvedRef.current = true;
+      clearInterval(timerRef.current);
+      setPemenangRonde("seri");
+      setTimeout(() => lanjutKe(idx + 1), 1600);
+    }
   }, d => {
     setSkor(Object.fromEntries(d.players.map(p => [p.user_id, p.score])));
     setSelesai(true);
@@ -3956,26 +3992,33 @@ function SusunOnline({
     resolvedRef.current = false;
     waktuRef.current = 90;
   }, [idx]);
+
+  // Timer per ronde — sama seperti KuisOnline/TebakOnline: timer tiap
+  // client jalan sendiri-sendiri (tidak ada jam server bersama), jadi
+  // TIDAK dijamin menyentuh nol di tick yang sama. Sebelumnya SEMUA client
+  // resolve "seri" secara lokal DAN mem-broadcast ronde_selesai
+  // sendiri-sendiri — siapa pun yang timer-nya kebetulan lebih cepat
+  // "menang" ronde padahal sebenarnya cuma race timeout murni (bukan
+  // benar-benar menyusun ayat duluan). HANYA host yang broadcast
+  // round_timeout; kedua sisi (termasuk host) baru mengubah state lewat
+  // handler round_timeout di useOnlineGame di atas.
   useEffect(() => {
     if (selesai || pemenangRonde) return;
     timerRef.current = setInterval(() => {
       setWaktu(w => {
         const n = w <= 0.1 ? 0 : +(w - .1).toFixed(1);
         waktuRef.current = n;
-        if (n === 0 && !resolvedRef.current) {
-          resolvedRef.current = true;
-          setPemenangRonde("seri");
+        if (n === 0 && !resolvedRef.current && myId === hostId) {
           sendMove({
-            type: "ronde_selesai",
+            type: "round_timeout",
             ronde: idx
           });
-          setTimeout(() => lanjutKe(idx + 1), 1600);
         }
         return n;
       });
     }, 100);
     return () => clearInterval(timerRef.current);
-  }, [idx, selesai, pemenangRonde, lanjutKe, sendMove]);
+  }, [idx, selesai, pemenangRonde]);
   const tambah = i => {
     if (pemenangRonde) return;
     const item = bank[i];
