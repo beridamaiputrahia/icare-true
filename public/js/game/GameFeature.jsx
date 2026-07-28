@@ -681,15 +681,33 @@ function EmojiReactionBar({onKirim}){
   return ReactDOM.createPortal(konten,document.body);
 }
 
+// Berapa salinan emoji yang muncul serentak untuk SATU reaksi yang masuk —
+// efek "burst" beberapa emoji bertebaran, bukan cuma 1 emoji tunggal per tap.
+const REACTION_BURST_COUNT=6;
 function ReactionOverlay({reaksi,players}){
-  const[tampil,setTampil]=useState([]);
+  const[tampil,setTampil]=useState([]); // salinan emoji yang lagi mengambang (burst)
+  const[label,setLabel]=useState(null); // {id,userId,left} — nama pengirim, satu per burst
+  const burstIdRef=useRef(0);
   useEffect(()=>{
     if(!reaksi)return;
-    const item={...reaksi,left:10+Math.random()*70};
-    setTampil((prev)=>[...prev,item]);
+    const leftBurst=10+Math.random()*70;
+    const items=Array.from({length:REACTION_BURST_COUNT},(_,i)=>{
+      burstIdRef.current+=1;
+      return{
+        id:burstIdRef.current,
+        emoji:reaksi.emoji,
+        left:Math.min(85,Math.max(5,leftBurst+(Math.random()*30-15))),
+        delay:i*80+Math.random()*60, // ms — biar tidak muncul barengan persis, terasa "bertebaran"
+        size:28+Math.random()*14,
+      };
+    });
+    setTampil((prev)=>[...prev,...items]);
+    setLabel({id:reaksi.id,userId:reaksi.userId,left:leftBurst});
     const timer=setTimeout(()=>{
-      setTampil((prev)=>prev.filter((x)=>x.id!==item.id));
-    },1800);
+      const ids=new Set(items.map((x)=>x.id));
+      setTampil((prev)=>prev.filter((x)=>!ids.has(x.id)));
+      setLabel((prev)=>prev?.id===reaksi.id?null:prev);
+    },2000);
     return()=>clearTimeout(timer);
   },[reaksi]);
   if(tampil.length===0)return null;
@@ -697,11 +715,13 @@ function ReactionOverlay({reaksi,players}){
   const konten=(
     <div style={{position:"fixed",inset:0,zIndex:9996,pointerEvents:"none",overflow:"hidden"}}>
       {tampil.map((t)=>(
-        <div key={t.id}className="gf-float-emoji"style={{position:"absolute",left:`${t.left}%`,bottom:70,textAlign:"center"}}>
-          <div style={{fontSize:34,lineHeight:1}}>{t.emoji}</div>
-          <div style={{fontSize:10,fontWeight:700,color:P.cream,opacity:.85,marginTop:2,whiteSpace:"nowrap"}}>{namaFor(t.userId)}</div>
+        <div key={t.id}className="gf-float-emoji"style={{position:"absolute",left:`${t.left}%`,bottom:70,textAlign:"center",animationDelay:`${t.delay}ms`}}>
+          <div style={{fontSize:t.size,lineHeight:1}}>{t.emoji}</div>
         </div>
       ))}
+      {label&&<div style={{position:"absolute",left:`${label.left}%`,bottom:70,textAlign:"center",transform:"translateX(-50%)"}}>
+        <div style={{fontSize:10,fontWeight:700,color:P.cream,opacity:.85,whiteSpace:"nowrap"}}>{namaFor(label.userId)}</div>
+      </div>}
     </div>
   );
   return ReactDOM.createPortal(konten,document.body);
