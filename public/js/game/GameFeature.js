@@ -1021,13 +1021,46 @@ function ScorePill({
     }
   }, "🏆"));
 }
+
+/* ── PERAYAAN MENANG — animasi + kata semangat, tampil di layar hasil
+   akhir HANYA untuk pemenang (bukan yang kalah/seri), supaya tidak
+   terkesan mengejek pemain yang kalah. Ukuran dipatok pas untuk kartu
+   game (maxWidth 460px) — GIF 32x35px asli di-scale besar oleh SCALE=12
+   di generator-nya, jadi cukup dibatasi lebar tampil di sini. */
+function PerayaanMenang() {
+  return /*#__PURE__*/React.createElement("div", {
+    className: "gf-pop",
+    style: {
+      marginTop: 4,
+      marginBottom: 6
+    }
+  }, /*#__PURE__*/React.createElement("img", {
+    src: "/images/game/yesus-bersorak.gif",
+    alt: "Bersorak untuk kemenanganmu",
+    style: {
+      width: 120,
+      height: "auto",
+      imageRendering: "pixelated",
+      margin: "0 auto",
+      display: "block"
+    }
+  }), /*#__PURE__*/React.createElement("div", {
+    style: {
+      fontSize: 13,
+      fontWeight: 700,
+      color: P.gold,
+      marginTop: 6
+    }
+  }, "\"Bersorak-sorailah bagi TUHAN, hai bumi!\" — Mazmur 100:1"));
+}
 function Hasil({
   judul,
   skor,
   baris,
   custom,
   accent,
-  onExit
+  onExit,
+  menang
 }) {
   return /*#__PURE__*/React.createElement("div", {
     style: {
@@ -1065,7 +1098,7 @@ function Hasil({
       margin: "18px 0 4px",
       color: P.cream
     }
-  }, judul)), skor != null && /*#__PURE__*/React.createElement("div", {
+  }, judul)), menang && /*#__PURE__*/React.createElement(PerayaanMenang, null), skor != null && /*#__PURE__*/React.createElement("div", {
     className: "gf-rise",
     style: {
       animationDelay: ".1s"
@@ -2280,6 +2313,7 @@ function KuisTatap({
       skor: null,
       accent: skor.p1 >= skor.p2 ? P.p1 : P.p2,
       onExit: onExit,
+      menang: skor.p1 > skor.p2,
       custom: /*#__PURE__*/React.createElement("div", {
         style: {
           display: "flex",
@@ -3017,7 +3051,7 @@ function HasilN({
       margin: "18px 0 4px",
       color: P.cream
     }
-  }, menang ? "Kamu Menang! 🏆" : "Permainan Selesai")), /*#__PURE__*/React.createElement("div", {
+  }, menang ? "Kamu Menang! 🏆" : "Permainan Selesai")), menang && /*#__PURE__*/React.createElement(PerayaanMenang, null), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "grid",
       gap: 9,
@@ -3684,6 +3718,7 @@ function SusunTatap({
       skor: null,
       accent: skor.p1 >= skor.p2 ? P.p1 : P.p2,
       onExit: onExit,
+      menang: skor.p1 > skor.p2,
       custom: /*#__PURE__*/React.createElement("div", {
         style: {
           display: "flex",
@@ -4326,6 +4361,7 @@ function TebakTatap({
       skor: null,
       accent: skor.p1 >= skor.p2 ? P.p1 : P.p2,
       onExit: onExit,
+      menang: skor.p1 > skor.p2,
       custom: /*#__PURE__*/React.createElement("div", {
         style: {
           display: "flex",
@@ -5155,6 +5191,7 @@ function MemoryTatap({
       skor: null,
       accent: skor.p1 >= skor.p2 ? P.p1 : P.p2,
       onExit: onExit,
+      menang: skor.p1 > skor.p2,
       custom: /*#__PURE__*/React.createElement("div", {
         style: {
           display: "flex",
