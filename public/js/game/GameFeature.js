@@ -4839,7 +4839,7 @@ function TebakOnline({
 ════════════════════════════════════════════════════════════ */
 // Level 1: 4x4 (8 pasang). Level 2: 8x8 (32 pasang), tanpa reshuffle.
 // Level 3: 8x8 (32 pasang) + reshuffle kartu yang belum ketemu tiap 3
-// giliran gagal (juga preview semua kartu 3 detik di awal permainan).
+// giliran gagal (juga preview semua kartu 5 detik di awal permainan).
 const MEMORY_LEVEL_CFG = {
   1: {
     pasang: 8,
@@ -4948,14 +4948,14 @@ function MemorySolo({
   const checkRef = useRef(false);
   const timerRef = useRef();
   const [gagalBerturut, setGagalBerturut] = useState(0);
-  const [previewAwal, setPreviewAwal] = useState(!!cfg.reshuffle); // level 3: tampilkan semua kartu 3 detik di awal
+  const [previewAwal, setPreviewAwal] = useState(!!cfg.reshuffle); // level 3: tampilkan semua kartu 5 detik di awal
   const matchedRef = useRef([]);
   useEffect(() => {
     matchedRef.current = matched;
   }, [matched]);
   useEffect(() => {
     if (!previewAwal) return;
-    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    const t = setTimeout(() => setPreviewAwal(false), 5000);
     return () => clearTimeout(t);
   }, []);
   useEffect(() => {
@@ -4991,7 +4991,7 @@ function MemorySolo({
               if (ng >= 3) {
                 setCards(cs => acakUlangBelumMatched(cs, matchedRef.current));
                 setPreviewAwal(true);
-                setTimeout(() => setPreviewAwal(false), 3000);
+                setTimeout(() => setPreviewAwal(false), 5000);
                 return 0;
               }
               return ng;
@@ -5105,7 +5105,7 @@ function MemoryTatap({
   }, [matched]);
   useEffect(() => {
     if (!previewAwal) return;
-    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    const t = setTimeout(() => setPreviewAwal(false), 5000);
     return () => clearTimeout(t);
   }, []);
   useEffect(() => {
@@ -5138,7 +5138,7 @@ function MemoryTatap({
               if (ng >= 3) {
                 setCards(cs => acakUlangBelumMatched(cs, matchedRef.current));
                 setPreviewAwal(true);
-                setTimeout(() => setPreviewAwal(false), 3000);
+                setTimeout(() => setPreviewAwal(false), 5000);
                 return 0;
               }
               return ng;
@@ -5324,7 +5324,7 @@ function MemoryOnline({
   }, [skor]);
   useEffect(() => {
     if (!previewAwal) return;
-    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    const t = setTimeout(() => setPreviewAwal(false), 5000);
     return () => clearTimeout(t);
   }, []);
 
@@ -5336,7 +5336,7 @@ function MemoryOnline({
     if (!cfg.reshuffle || giliranIdx === 0 || giliranIdx % 3 !== 0) return;
     setCards(cs => acakUlangBelumMatched(cs, matchedRef.current, sessionCode + ":reshuffle:" + giliranIdx));
     setPreviewAwal(true);
-    const t = setTimeout(() => setPreviewAwal(false), 3000);
+    const t = setTimeout(() => setPreviewAwal(false), 5000);
     return () => clearTimeout(t);
   }, [giliranIdx]);
   const {

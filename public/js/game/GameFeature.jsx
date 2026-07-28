@@ -1133,7 +1133,7 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
 ════════════════════════════════════════════════════════════ */
 // Level 1: 4x4 (8 pasang). Level 2: 8x8 (32 pasang), tanpa reshuffle.
 // Level 3: 8x8 (32 pasang) + reshuffle kartu yang belum ketemu tiap 3
-// giliran gagal (juga preview semua kartu 3 detik di awal permainan).
+// giliran gagal (juga preview semua kartu 5 detik di awal permainan).
 const MEMORY_LEVEL_CFG={
   1:{pasang:8, kolom:4},
   2:{pasang:32,kolom:8},
@@ -1164,13 +1164,13 @@ function MemorySolo({level,onExit}){
   const [terbuka,setTerbuka]=useState([]);const [matched,setMatched]=useState([]);
   const [langkah,setLangkah]=useState(0);const [waktu,setWaktu]=useState(0);const [selesai,setSelesai]=useState(false);const checkRef=useRef(false);const timerRef=useRef();
   const [gagalBerturut,setGagalBerturut]=useState(0);
-  const [previewAwal,setPreviewAwal]=useState(!!cfg.reshuffle); // level 3: tampilkan semua kartu 3 detik di awal
+  const [previewAwal,setPreviewAwal]=useState(!!cfg.reshuffle); // level 3: tampilkan semua kartu 5 detik di awal
   const matchedRef=useRef([]);
   useEffect(()=>{matchedRef.current=matched;},[matched]);
 
   useEffect(()=>{
     if(!previewAwal)return;
-    const t=setTimeout(()=>setPreviewAwal(false),3000);
+    const t=setTimeout(()=>setPreviewAwal(false),5000);
     return()=>clearTimeout(t);
   },[]);
 
@@ -1194,7 +1194,7 @@ function MemorySolo({level,onExit}){
               if(ng>=3){
                 setCards(cs=>acakUlangBelumMatched(cs,matchedRef.current));
                 setPreviewAwal(true);
-                setTimeout(()=>setPreviewAwal(false),3000);
+                setTimeout(()=>setPreviewAwal(false),5000);
                 return 0;
               }
               return ng;
@@ -1220,7 +1220,7 @@ function MemoryTatap({lawan,level,onExit}){
   const [previewAwal,setPreviewAwal]=useState(!!cfg.reshuffle);
   const matchedRef=useRef([]);
   useEffect(()=>{matchedRef.current=matched;},[matched]);
-  useEffect(()=>{if(!previewAwal)return;const t=setTimeout(()=>setPreviewAwal(false),3000);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{if(!previewAwal)return;const t=setTimeout(()=>setPreviewAwal(false),5000);return()=>clearTimeout(t);},[]);
   useEffect(()=>{if(matched.length===cards.length&&cards.length>0)setSelesai(true);},[matched,cards.length]);
   const klik=i=>{
     if(previewAwal||checkRef.current||terbuka.includes(i)||matched.includes(i)||terbuka.length>=2)return;
@@ -1239,7 +1239,7 @@ function MemoryTatap({lawan,level,onExit}){
               if(ng>=3){
                 setCards(cs=>acakUlangBelumMatched(cs,matchedRef.current));
                 setPreviewAwal(true);
-                setTimeout(()=>setPreviewAwal(false),3000);
+                setTimeout(()=>setPreviewAwal(false),5000);
                 return 0;
               }
               return ng;
@@ -1272,7 +1272,7 @@ function MemoryOnline({players,sessionCode,hindariKeys,hostId,level,onExit}){
 
   useEffect(()=>{matchedRef.current=matched;},[matched]);
   useEffect(()=>{skorRef.current=skor;},[skor]);
-  useEffect(()=>{if(!previewAwal)return;const t=setTimeout(()=>setPreviewAwal(false),3000);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{if(!previewAwal)return;const t=setTimeout(()=>setPreviewAwal(false),5000);return()=>clearTimeout(t);},[]);
 
   // Reshuffle level 3 dipicu dari giliranIdx (naik lewat event "flip" gagal
   // yang di-broadcast, jadi nilainya SAMA di semua klien pada saat yang
@@ -1282,7 +1282,7 @@ function MemoryOnline({players,sessionCode,hindariKeys,hostId,level,onExit}){
     if(!cfg.reshuffle||giliranIdx===0||giliranIdx%3!==0)return;
     setCards(cs=>acakUlangBelumMatched(cs,matchedRef.current,sessionCode+":reshuffle:"+giliranIdx));
     setPreviewAwal(true);
-    const t=setTimeout(()=>setPreviewAwal(false),3000);
+    const t=setTimeout(()=>setPreviewAwal(false),5000);
     return()=>clearTimeout(t);
   },[giliranIdx]);
 
