@@ -464,7 +464,7 @@ function NotifTantangan({notif,onTerima,onTolak}){
   // center — translateX(-50%)-nya diam-diam dibatalkan oleh animasi.
   // Solusi: wrapper luar untuk positioning+centering, gf-pop cuma di anak.
   const konten=(
-    <div style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9999}}>
+    <div style={{position:"fixed",bottom:"calc(var(--nav-h, 90px) + 12px)",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:440,zIndex:9997}}>
       <div className="gf-pop"style={{padding:"16px 18px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)"}}>
         <div style={{fontWeight:800,fontSize:14,color:P.gold,marginBottom:4}}>🎮 Tantangan Masuk!</div>
         <div style={{fontWeight:700,fontSize:14,color:P.cream,marginBottom:12}}><b>{notif.host_name}</b> mengajakmu main <b>{notif.game_type}</b></div>
@@ -602,10 +602,25 @@ function useOnlineGame(sessionCode,onMove,onEnded){
     }
   },[sessionCode]);
 
+  // "beforeunload" SAJA tidak cukup — banyak browser mobile (Chrome/Safari
+  // Android/iOS) TIDAK memicu beforeunload saat user menutup app lewat
+  // tombol home/app-switcher/kunci layar, yang justru cara paling umum
+  // "keluar" di HP. Akibatnya sinyal /game/leave tidak pernah terkirim,
+  // dan pemain lain tidak pernah lihat notifikasi "pemain keluar" sama
+  // sekali — bukan salah tampil, tapi memang tidak pernah muncul.
+  // "pagehide" jauh lebih reliabel lintas platform untuk kasus ini (juga
+  // menangkap kasus bfcache di mobile yang tidak memicu beforeunload).
+  // TIDAK pakai "visibilitychange" di sini — itu juga terpicu saat user
+  // cuma sebentar pindah app/kunci layar lalu balik lagi, yang seharusnya
+  // TIDAK mengeluarkan pemain dari match yang masih berlangsung.
   useEffect(()=>{
     const handler=()=>keluarDariSesi();
     window.addEventListener("beforeunload",handler);
-    return()=>window.removeEventListener("beforeunload",handler);
+    window.addEventListener("pagehide",handler);
+    return()=>{
+      window.removeEventListener("beforeunload",handler);
+      window.removeEventListener("pagehide",handler);
+    };
   },[keluarDariSesi]);
 
   const putuskanKelanjutan=useCallback(async(action)=>{
@@ -636,7 +651,7 @@ function useOnlineGame(sessionCode,onMove,onEnded){
 /* ── DIALOG: SALAH SATU PEMAIN KELUAR DI TENGAH GAME ─────────── */
 function DialogPemainKeluar({nama,onLanjut,onAkhiri}){
   const konten=(
-    <div style={{position:"fixed",inset:0,zIndex:9998,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.6)",padding:20}}>
+    <div style={{position:"fixed",inset:0,zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,0.6)",padding:20}}>
       <div className="gf-pop"style={{width:"100%",maxWidth:380,padding:"22px 20px",borderRadius:20,background:"#241A57",border:`1.5px solid ${P.gold}`,boxShadow:"0 8px 32px rgba(0,0,0,0.5)",textAlign:"center"}}>
         <div style={{fontSize:32,marginBottom:8}}>🚪</div>
         <div style={{fontWeight:800,fontSize:16,color:P.cream,marginBottom:6}}>{nama} keluar dari game</div>

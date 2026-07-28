@@ -1820,7 +1820,7 @@ function NotifTantangan({
       transform: "translateX(-50%)",
       width: "calc(100% - 32px)",
       maxWidth: 440,
-      zIndex: 9999
+      zIndex: 9997
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "gf-pop",
@@ -2600,10 +2600,26 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
       }).catch(() => {});
     }
   }, [sessionCode]);
+
+  // "beforeunload" SAJA tidak cukup — banyak browser mobile (Chrome/Safari
+  // Android/iOS) TIDAK memicu beforeunload saat user menutup app lewat
+  // tombol home/app-switcher/kunci layar, yang justru cara paling umum
+  // "keluar" di HP. Akibatnya sinyal /game/leave tidak pernah terkirim,
+  // dan pemain lain tidak pernah lihat notifikasi "pemain keluar" sama
+  // sekali — bukan salah tampil, tapi memang tidak pernah muncul.
+  // "pagehide" jauh lebih reliabel lintas platform untuk kasus ini (juga
+  // menangkap kasus bfcache di mobile yang tidak memicu beforeunload).
+  // TIDAK pakai "visibilitychange" di sini — itu juga terpicu saat user
+  // cuma sebentar pindah app/kunci layar lalu balik lagi, yang seharusnya
+  // TIDAK mengeluarkan pemain dari match yang masih berlangsung.
   useEffect(() => {
     const handler = () => keluarDariSesi();
     window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
+    window.addEventListener("pagehide", handler);
+    return () => {
+      window.removeEventListener("beforeunload", handler);
+      window.removeEventListener("pagehide", handler);
+    };
   }, [keluarDariSesi]);
   const putuskanKelanjutan = useCallback(async action => {
     if (!sessionCode) return;
@@ -2662,7 +2678,7 @@ function DialogPemainKeluar({
     style: {
       position: "fixed",
       inset: 0,
-      zIndex: 9998,
+      zIndex: 9999,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
