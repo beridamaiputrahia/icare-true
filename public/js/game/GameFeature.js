@@ -1035,7 +1035,7 @@ function PerayaanMenang() {
       marginBottom: 6
     }
   }, /*#__PURE__*/React.createElement("img", {
-    src: "/images/game/yesus-bersorak.gif",
+    src: "/images/game/yesus_bersorak.gif",
     alt: "Bersorak untuk kemenanganmu",
     style: {
       width: 120,

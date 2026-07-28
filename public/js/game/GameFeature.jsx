@@ -298,7 +298,7 @@ function ScorePill({name,val,color,win}){return(<div style={{flex:1,padding:"14p
 function PerayaanMenang(){
   return(
     <div className="gf-pop"style={{marginTop:4,marginBottom:6}}>
-      <img src="/images/game/yesus-bersorak.gif"alt="Bersorak untuk kemenanganmu"style={{width:120,height:"auto",imageRendering:"pixelated",margin:"0 auto",display:"block"}}/>
+      <img src="/images/game/yesus_bersorak.gif"alt="Bersorak untuk kemenanganmu"style={{width:120,height:"auto",imageRendering:"pixelated",margin:"0 auto",display:"block"}}/>
       <div style={{fontSize:13,fontWeight:700,color:P.gold,marginTop:6}}>"Bersorak-sorailah bagi TUHAN, hai bumi!" — Mazmur 100:1</div>
     </div>
   );
