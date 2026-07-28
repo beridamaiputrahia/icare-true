@@ -138,7 +138,13 @@ class GameSessionController extends Controller
         ]);
 
         $userId      = Auth::id();
-        $session     = GameSession::where('code', $request->session_code)->where('status', 'waiting')->firstOrFail();
+        // withoutTenantScope: peserta yang diundang bisa dari tenant lain
+        // (lihat challenge() — undangan lintas-tenant kini diizinkan), jadi
+        // sesi ini bisa saja "milik" tenant lain dari sudut pandang si
+        // penerima undangan. Keamanan tetap terjaga karena firstOrFail() di
+        // bawah mensyaratkan baris participant miliknya sendiri untuk sesi
+        // INI secara spesifik — bukan izin melihat sesi tenant lain manapun.
+        $session     = GameSession::withoutTenantScope()->where('code', $request->session_code)->where('status', 'waiting')->firstOrFail();
         $participant = $session->participants()->where('user_id', $userId)->where('status', 'invited')->firstOrFail();
 
         $participant->update(['status' => $request->accept ? 'accepted' : 'declined']);
@@ -199,7 +205,12 @@ class GameSessionController extends Controller
         ]);
 
         $userId  = Auth::id();
-        $session = GameSession::where('code', $request->session_code)
+        // withoutTenantScope: dipanggil frontend dari SEMUA pemain (bukan
+        // cuma host) — cek host_id di bawah baru menyaring siapa yang
+        // benar-benar mencatat. Peserta lintas-tenant tetap harus lolos
+        // firstOrFail() di sini dulu, bukan 404 duluan.
+        $session = GameSession::withoutTenantScope()
+            ->where('code', $request->session_code)
             ->where('status', 'active')
             ->firstOrFail();
 
@@ -231,7 +242,9 @@ class GameSessionController extends Controller
         // ronde terakhirnya bisa saja mengirim gerakan SETELAH sesi sudah
         // ditandai selesai oleh pemain lain. Menolak request itu (404) membuat
         // sisi yang lebih lambat macet permanen karena movenya tak pernah terkirim.
-        $session = GameSession::whereIn('status', ['active', 'finished'])
+        // withoutTenantScope: peserta (bukan host) sesi lintas-tenant.
+        $session = GameSession::withoutTenantScope()
+            ->whereIn('status', ['active', 'finished'])
             ->where('code', $request->session_code)
             ->firstOrFail();
 
@@ -271,7 +284,9 @@ class GameSessionController extends Controller
         $request->validate(['session_code' => 'required|string']);
 
         $userId  = Auth::id();
-        $session = GameSession::where('code', $request->session_code)
+        // withoutTenantScope: peserta (bukan host) sesi lintas-tenant.
+        $session = GameSession::withoutTenantScope()
+            ->where('code', $request->session_code)
             ->where('status', 'active')
             ->firstOrFail();
 
@@ -300,7 +315,9 @@ class GameSessionController extends Controller
         ]);
 
         $userId  = Auth::id();
-        $session = GameSession::where('code', $request->session_code)
+        // withoutTenantScope: peserta (bukan host) sesi lintas-tenant.
+        $session = GameSession::withoutTenantScope()
+            ->where('code', $request->session_code)
             ->where('status', 'active')
             ->firstOrFail();
 
@@ -340,7 +357,13 @@ class GameSessionController extends Controller
     public function show(string $code)
     {
         $userId  = Auth::id();
-        $session = GameSession::where('code', $code)
+        // withoutTenantScope: dipanggil oleh SEMUA peserta termasuk yang
+        // bukan dari tenant host (lihat challenge() — undangan lintas-tenant
+        // kini diizinkan). abort_unless isParticipant() di bawah tetap jadi
+        // penjaga akses — bukan tenant-nya yang menentukan boleh lihat atau
+        // tidak, tapi apakah dia benar-benar terdaftar sebagai peserta sesi INI.
+        $session = GameSession::withoutTenantScope()
+            ->where('code', $code)
             ->with(['host:id,name', 'participants.user:id,name'])
             ->firstOrFail();
 
@@ -365,10 +388,16 @@ class GameSessionController extends Controller
     // GET /game/pending — cek apakah ada tantangan masuk untuk user ini
     public function pending()
     {
+        // GameSessionParticipant sendiri tidak ber-tenant, tapi relasi
+        // session() menuju GameSession yang ber-tenant — whereHas/with di
+        // bawah diam-diam menerapkan scope tenant HOST lewat relasi itu,
+        // jadi tantangan dari host tenant lain (kini diizinkan, lihat
+        // challenge()) akan hilang tanpa pesan error kalau tidak
+        // withoutGlobalScope di sini.
         $participant = GameSessionParticipant::where('user_id', Auth::id())
             ->where('status', 'invited')
-            ->whereHas('session', fn ($q) => $q->where('status', 'waiting'))
-            ->with('session.host:id,name')
+            ->whereHas('session', fn ($q) => $q->withoutGlobalScope('tenant')->where('status', 'waiting'))
+            ->with(['session' => fn ($q) => $q->withoutGlobalScope('tenant')->with('host:id,name')])
             ->latest()
             ->first();
 
