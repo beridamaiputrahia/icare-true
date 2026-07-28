@@ -2568,18 +2568,32 @@ function useOnlineGame(sessionCode, onMove, onEnded) {
       console.error("[Game] Gagal kirim move:", e);
     }
   }, [sessionCode]);
+
+  // PENTING: kalau POST ini gagal diam-diam (jaringan sempat putus, CSRF
+  // token kedaluwarsa di sesi yang lama terbuka, dll) dan tidak pernah
+  // dicoba ulang, baris participant pemain ini permanen finished=false —
+  // sesi tidak akan PERNAH pindah ke status 'finished' (lihat
+  // GameSessionController::move()), dan pemain itu tampak "Sedang main"
+  // selamanya di daftar lawan walau layar Selesai sudah tampil di
+  // perangkatnya sendiri (layar itu murni state lokal, tidak bergantung
+  // pada POST ini berhasil). Retry beberapa kali dengan jeda singkat
+  // sebelum benar-benar menyerah.
   const sendFinished = useCallback(async score => {
     if (!sessionCode) return;
-    try {
-      await apiPost("/game/move", {
-        session_code: sessionCode,
-        payload: {
-          finished: true,
-          score
-        }
-      });
-    } catch (e) {
-      console.error("[Game] Gagal kirim finished:", e);
+    for (let percobaan = 1; percobaan <= 3; percobaan++) {
+      try {
+        await apiPost("/game/move", {
+          session_code: sessionCode,
+          payload: {
+            finished: true,
+            score
+          }
+        });
+        return;
+      } catch (e) {
+        console.error(`[Game] Gagal kirim finished (percobaan ${percobaan}/3):`, e);
+        if (percobaan < 3) await new Promise(r => setTimeout(r, 1000 * percobaan));
+      }
     }
   }, [sessionCode]);
   const keluarDariSesi = useCallback(() => {

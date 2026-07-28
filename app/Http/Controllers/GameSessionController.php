@@ -299,6 +299,21 @@ class GameSessionController extends Controller
             'user_name'   => $participant->user->name ?? '',
         ]));
 
+        // Kalau SEMUA pemain yang masih 'accepted' (bukan yang baru saja
+        // 'left' ini) sudah selesai ronde mereka sebelum orang ini keluar,
+        // sesi harus langsung ditutup di sini juga — bukan cuma di
+        // resolveLeave() (yang baru terpicu kalau ada pemain TERSISA yang
+        // menekan "Lanjutkan"/"Akhiri" di dialog). Tanpa ini, urutan
+        // "pemain lain selesai duluan → pemain terakhir keluar tanpa pernah
+        // finished" membuat sesi macet selamanya di status 'active', dan
+        // pemain yang sudah selesai tadi tetap tampak "Sedang main".
+        $session->load('participants');
+        $accepted = $session->participants->where('status', 'accepted');
+        if ($accepted->isNotEmpty() && $accepted->every(fn ($p) => $p->finished) && $session->status !== 'finished') {
+            $session->update(['status' => 'finished', 'finished_at' => now()]);
+            broadcast(new GameEnded($session->fresh('participants.user')));
+        }
+
         return response()->json(['status' => 'left']);
     }
 
@@ -394,9 +409,15 @@ class GameSessionController extends Controller
         // jadi tantangan dari host tenant lain (kini diizinkan, lihat
         // challenge()) akan hilang tanpa pesan error kalau tidak
         // withoutGlobalScope di sini.
+        //
+        // PENTING: sesi 'waiting' yang host-nya tidak pernah menekan Mulai
+        // ATAU tidak pernah dibatalkan (mis. host keluar app di tengah
+        // proses undang) bisa nyangkut selamanya — tanpa batas umur, baris
+        // 'invited' ini akan terus muncul sebagai "tantangan masuk" tak
+        // terhingga meski sebenarnya sudah lama ditinggalkan.
         $participant = GameSessionParticipant::where('user_id', Auth::id())
             ->where('status', 'invited')
-            ->whereHas('session', fn ($q) => $q->withoutGlobalScope('tenant')->where('status', 'waiting'))
+            ->whereHas('session', fn ($q) => $q->withoutGlobalScope('tenant')->where('status', 'waiting')->where('created_at', '>=', now()->subMinutes(10)))
             ->with(['session' => fn ($q) => $q->withoutGlobalScope('tenant')->with('host:id,name')])
             ->latest()
             ->first();

@@ -44,9 +44,19 @@ class GameSession extends Model
 
     public static function generateCode(): string
     {
+        // withoutTenantScope: kode sesi HARUS unik secara GLOBAL, bukan
+        // cuma dalam tenant pembuatnya — withoutTenantScope() dipakai di
+        // banyak tempat (GameSessionController::respond/move/leave/dst,
+        // routes/channels.php) untuk mencari sesi lintas-tenant lewat kode
+        // ini saja. Kalau uniqueness cuma dicek dalam scope tenant sendiri
+        // (perilaku default query di sini), dua tenant berbeda bisa
+        // menghasilkan kode yang sama tanpa saling tahu, dan lookup
+        // withoutTenantScope()->where('code',$code)->first() di tempat lain
+        // bisa salah mengembalikan sesi milik tenant yang sama sekali
+        // berbeda.
         do {
             $code = strtoupper(substr(md5(uniqid()), 0, 8));
-        } while (static::where('code', $code)->exists());
+        } while (static::withoutTenantScope()->where('code', $code)->exists());
 
         return $code;
     }

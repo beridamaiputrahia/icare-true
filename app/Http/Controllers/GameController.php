@@ -78,7 +78,15 @@ class GameController extends Controller
         // jendela waktu di atas habis, padahal dari sisi dia game-nya sudah
         // tuntas — makanya participant yang finished=true dikeluarkan dari
         // hitungan busy sekalipun sesi induknya belum berstatus 'finished'.
-        $busySessionIds = GameSession::whereIn('status', ['waiting', 'active'])
+        // withoutTenantScope: otherUsers() sudah lintas-tenant (User tidak
+        // ber-tenant), dan sejak tantangan lintas-tenant diizinkan, sesi
+        // waiting/active seorang lawan bisa "milik" tenant lain (tenant si
+        // host) — tanpa ini, badge "Sedang main" tidak akan menyala untuk
+        // lawan yang sedang main game lintas-tenant kalau dilihat dari
+        // tenant kita sendiri (kebalikan dari bug awal: bukan nyangkut
+        // terus, tapi malah tidak pernah menyala untuk kasus ini).
+        $busySessionIds = GameSession::withoutTenantScope()
+            ->whereIn('status', ['waiting', 'active'])
             ->where(function ($q) {
                 $q->where('created_at', '>=', now()->subMinutes(10))
                     ->orWhere('started_at', '>=', now()->subMinutes(30));
@@ -93,7 +101,10 @@ class GameController extends Controller
 
         // Semua peserta 'accepted' dari sesi yang sudah selesai & melibatkan
         // salah satu user relevan (biar tidak scan seluruh tabel).
-        $sessionIds = GameSession::where('status', 'finished')
+        // withoutTenantScope: match lintas-tenant tetap harus dihitung di
+        // statistik menang/kalah, bukan cuma yang searah tenant kita sendiri.
+        $sessionIds = GameSession::withoutTenantScope()
+            ->where('status', 'finished')
             ->whereHas('participants', fn ($q) => $q->whereIn('user_id', $ids)->where('status', 'accepted'))
             ->pluck('id');
 
@@ -140,7 +151,13 @@ class GameController extends Controller
     {
         $allUsers = $users->push($user)->keyBy('id');
 
-        $sessionIds = GameSession::where('status', 'finished')
+        // withoutTenantScope (kedua query): leaderboard mingguan harus tetap
+        // menghitung match lintas-tenant milik user yang bersangkutan, bukan
+        // cuma sesi yang tenant_id-nya kebetulan sama dengan tenant aktif
+        // viewer saat ini — kalau tidak, poin dari match lintas-tenant
+        // hilang begitu saja dari perhitungan.
+        $sessionIds = GameSession::withoutTenantScope()
+            ->where('status', 'finished')
             ->where('finished_at', '>=', now()->startOfWeek())
             ->pluck('id', 'id');
 
@@ -149,7 +166,7 @@ class GameController extends Controller
             ->whereIn('user_id', $allUsers->keys())
             ->get(['game_session_id', 'user_id', 'score']);
 
-        $sessionGameType = GameSession::whereIn('id', $sessionIds->keys())->pluck('game_type', 'id');
+        $sessionGameType = GameSession::withoutTenantScope()->whereIn('id', $sessionIds->keys())->pluck('game_type', 'id');
 
         $points = [];
         foreach ($participants as $p) {
