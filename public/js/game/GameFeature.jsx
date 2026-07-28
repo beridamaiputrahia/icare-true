@@ -895,10 +895,27 @@ function KuisOnline({players,sessionCode,hindariKeys,hostId,onExit}){
   // permanen. HANYA host yang broadcast round_timeout (mencegah race dua
   // sisi kirim barengan); kedua sisi (termasuk host) baru mengubah state
   // lewat handler round_timeout di useOnlineGame di atas.
+  //
+  // FALLBACK: kalau host sendiri yang koneksinya putus/app-nya mati PERSIS
+  // saat waktu habis, tidak akan pernah ada yang mengirim round_timeout —
+  // pemain lain yang sudah terlanjur salah jawab (youLock) macet
+  // menunggu selamanya tanpa jalan keluar. Beri jeda tunggu singkat untuk
+  // broadcast host datang; kalau lewat jeda itu masih belum ter-resolve,
+  // SIAPA PUN boleh mengambil alih mengirim round_timeout sendiri — aman
+  // dari race karena begitu satu broadcast diterima, resolvedRef di semua
+  // sisi (termasuk pengirim susulan ini) langsung jadi true.
   useEffect(()=>{
     if(selesai)return;
     timerRef.current=setInterval(()=>{setWaktu(w=>{const n=w<=0.1?0:+(w-.1).toFixed(1);waktuRef.current=n;if(n===0&&!resolvedRef.current&&myId===hostId){sendMove({type:"round_timeout",ronde:idx});}return n;});},100);
     return()=>clearInterval(timerRef.current);
+  },[idx,selesai]);
+
+  useEffect(()=>{
+    if(selesai||myId===hostId)return;
+    const t=setTimeout(()=>{
+      if(!resolvedRef.current)sendMove({type:"round_timeout",ronde:idx});
+    },16000);
+    return()=>clearTimeout(t);
   },[idx,selesai]);
 
   useEffect(()=>{if(selesai)sendFinished(skor[myId]||0);},[selesai]);
@@ -1019,6 +1036,19 @@ function SusunOnline({players,sessionCode,hindariKeys,hostId,onExit}){
     },100);
     return()=>clearInterval(timerRef.current);
   },[idx,selesai,pemenangRonde]);
+
+  // FALLBACK: kalau host koneksinya putus/app-nya mati persis saat waktu
+  // habis, tidak akan pernah ada yang mengirim round_timeout — ronde
+  // macet selamanya untuk pemain lain. Beri jeda tunggu untuk broadcast
+  // host datang; kalau lewat jeda itu masih belum ter-resolve, SIAPA PUN
+  // boleh mengambil alih (aman dari race berkat guard resolvedRef).
+  useEffect(()=>{
+    if(selesai||myId===hostId)return;
+    const t=setTimeout(()=>{
+      if(!resolvedRef.current)sendMove({type:"round_timeout",ronde:idx});
+    },94000);
+    return()=>clearTimeout(t);
+  },[idx,selesai]);
 
   const tambah=i=>{
     if(pemenangRonde)return;
@@ -1161,6 +1191,20 @@ function TebakOnline({players,sessionCode,hindariKeys,hostId,onExit}){
     },100);
     return()=>clearInterval(timerRef.current);
   },[idx,selesai,lanjut]);
+
+  // FALLBACK: kalau host koneksinya putus/app-nya mati persis saat waktu
+  // habis, tidak akan pernah ada yang mengirim round_timeout — ronde
+  // macet selamanya untuk pemain lain (khususnya yang sudah terlanjur
+  // salah jawab dan cuma bisa menunggu). Beri jeda tunggu untuk broadcast
+  // host datang; kalau lewat jeda itu masih belum ter-resolve, SIAPA PUN
+  // boleh mengambil alih (aman dari race berkat guard resolvedRef).
+  useEffect(()=>{
+    if(selesai||myId===hostId)return;
+    const t=setTimeout(()=>{
+      if(!resolvedRef.current)sendMove({type:"round_timeout",ronde:idx});
+    },29000);
+    return()=>clearTimeout(t);
+  },[idx,selesai]);
 
   const jawab=i=>{
     if(resolvedRef.current||pilih!==null)return;
