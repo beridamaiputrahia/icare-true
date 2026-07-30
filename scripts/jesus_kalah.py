@@ -166,8 +166,13 @@ SEQ = [
 
 frames = [make_frame(b, a, s, i) for i, (b, a, s) in enumerate(SEQ)]
 
+import os
+OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "public", "js", "game")
+os.makedirs(OUT_DIR, exist_ok=True)
+OUT_PATH = os.path.join(OUT_DIR, "yesus_kalah.gif")
+
 frames[0].save(
-    "/mnt/user-data/outputs/yesus_kalah.gif",
+    OUT_PATH,
     save_all=True,
     append_images=frames[1:],
     duration=[220, 220, 220, 220, 220, 220, 220, 220],
@@ -176,5 +181,4 @@ frames[0].save(
     disposal=2,
 )
 
-frames[0].save("/home/claude/preview_jesus_kalah.png")
-print("selesai")
+print("selesai:", os.path.abspath(OUT_PATH))
