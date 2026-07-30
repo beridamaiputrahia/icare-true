@@ -1030,17 +1030,32 @@ const PERAYAAN_HASIL = {
   menang: {
     src: "/js/game/yesus_bersorak.gif",
     alt: "Bersorak untuk kemenanganmu",
-    kutipan: `"Bersorak-sorailah bagi TUHAN, hai bumi!" — Mazmur 100:1`
+    kutipan: `"Bersorak-sorailah bagi TUHAN, hai bumi!" — Mazmur 100:1`,
+    rasio: "32/35",
+    lebar: 120
   },
   seri: {
     src: "/js/game/yesus_seri.gif",
     alt: "Menemanimu dengan sukacita",
-    kutipan: `"Sebab di mana dua atau tiga orang berkumpul dalam nama-Ku, di situ Aku ada di tengah-tengah mereka." — Matius 18:20`
+    kutipan: `"Sebab di mana dua atau tiga orang berkumpul dalam nama-Ku, di situ Aku ada di tengah-tengah mereka." — Matius 18:20`,
+    rasio: "32/35",
+    lebar: 120
   },
   kalah: {
     src: "/js/game/yesus_kalah.gif",
     alt: "Menguatkanmu untuk mencoba lagi",
-    kutipan: `"Sebab tujuh kali orang benar jatuh, namun ia bangun kembali." — Amsal 24:16`
+    kutipan: `"Sebab tujuh kali orang benar jatuh, namun ia bangun kembali." — Amsal 24:16`,
+    rasio: "32/35",
+    lebar: 120
+  },
+  // Mode Solo tidak punya lawan — tidak ada menang/kalah/seri, jadi
+  // statusnya cukup "selesai" saja, dipakai sama untuk keempat game Solo.
+  selesai: {
+    src: "/js/game/yesus_domba.gif",
+    alt: "Gembala Baik menyertaimu",
+    kutipan: `"Akulah gembala yang baik. Gembala yang baik memberikan nyawanya bagi domba-dombanya." — Yohanes 10:11`,
+    rasio: "56/35",
+    lebar: 170
   }
 };
 function PerayaanHasil({
@@ -1058,8 +1073,8 @@ function PerayaanHasil({
     src: cfg.src,
     alt: cfg.alt,
     style: {
-      width: 120,
-      aspectRatio: "32/35",
+      width: cfg.lebar,
+      aspectRatio: cfg.rasio,
       imageRendering: "pixelated",
       margin: "0 auto",
       display: "block"
@@ -2144,6 +2159,7 @@ function KuisSolo({
     skor: skor,
     accent: P.gold,
     onExit: onExit,
+    hasil: "selesai",
     baris: [{
       label: "Jawaban benar",
       val: `${benarTotal}/10`
@@ -3574,6 +3590,7 @@ function SusunSolo({
     skor: skor,
     accent: P.p2,
     onExit: onExit,
+    hasil: "selesai",
     baris: [{
       label: "Ayat tersusun",
       val: `${benarTotal}/5`
@@ -4265,6 +4282,7 @@ function TebakSolo({
     skor: skor,
     accent: P.purple,
     onExit: onExit,
+    hasil: "selesai",
     baris: [{
       label: "Tokoh tertebak",
       val: `${benarTotal}/${tokoh.length}`
@@ -5169,6 +5187,7 @@ function MemorySolo({
     skor: skor,
     accent: P.orange,
     onExit: onExit,
+    hasil: "selesai",
     baris: [{
       label: "Waktu",
       val: `${mnt}:${dtk}`
