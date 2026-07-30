@@ -113,6 +113,24 @@
     </div>
 </div>
 
+{{-- Row 2b: Attendance per Meeting --}}
+<div class="row g-3 mb-3">
+    <div class="col-12">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0 fw-semibold"><i class="fa-solid fa-clipboard-user text-primary me-2"></i>Kehadiran per Pertemuan</h6>
+            </div>
+            <div class="card-body">
+                @if(count($attendancePerMeeting))
+                    <div class="chart-wrap"><canvas id="chartAttendance"></canvas></div>
+                @else
+                    <div class="text-center py-4 text-muted" style="font-size:.85rem">Belum ada data kehadiran</div>
+                @endif
+            </div>
+        </div>
+    </div>
+</div>
+
 {{-- Row 3: Top Writers + Age Group + Achievement Dist --}}
 <div class="row g-3">
     <div class="col-12 col-lg-5">
@@ -267,6 +285,27 @@ new Chart(document.getElementById('chartMemberGrowth'), {
         responsive: true, maintainAspectRatio: false
     }
 });
+
+// Attendance per Meeting Bar
+@if(count($attendancePerMeeting))
+new Chart(document.getElementById('chartAttendance'), {
+    type: 'bar',
+    data: {
+        labels: @json(array_column($attendancePerMeeting, 'date')),
+        datasets: [{
+            label: 'Jumlah Hadir',
+            data: @json(array_column($attendancePerMeeting, 'count')),
+            backgroundColor: '#2563eb',
+            borderRadius: 6
+        }]
+    },
+    options: {
+        plugins: { legend: { display: false } },
+        scales: chartDefaults.scales,
+        responsive: true, maintainAspectRatio: false
+    }
+});
+@endif
 
 // Age Group Bar
 new Chart(document.getElementById('chartAgeGroup'), {

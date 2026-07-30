@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AchievementController;
+use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AlbumController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AppSettingController;
@@ -220,6 +221,12 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::get('schedules/{schedule}', [ScheduleController::class, 'show'])->name('schedules.show');
     Route::resource('schedules', ScheduleController::class)->except(['index', 'show', 'create'])
          ->middleware(['role:admin,icl,ctl', 'feature:jadwal']);
+
+    // ── Absensi ─────────────────────────────────────────────────────────
+    Route::middleware('role:admin,icl,ctl')->group(function () {
+        Route::get('schedules/{schedule}/scan',  [AttendanceController::class, 'scan'])->name('attendances.scan');
+        Route::post('schedules/{schedule}/scan', [AttendanceController::class, 'store'])->name('attendances.store');
+    });
 
     // ── Pengumuman ──────────────────────────────────────────────────────
     Route::get('announcements', [AnnouncementController::class, 'index'])->name('announcements.index');

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Achievement;
+use App\Models\Attendance;
 use App\Models\Devotion;
 use Illuminate\Support\Facades\DB;
 use App\Models\Member;
@@ -99,10 +100,26 @@ class StatisticsController extends Controller
                               ->whereRaw("EXTRACT(YEAR FROM AGE(CURRENT_DATE, tanggal_lahir)) > 40")->count(),
         ];
 
+        // ── Attendance per Meeting ─────────────────────────────────
+        $attendancePerMeeting = Schedule::withCount('attendances')
+            ->where('status', 'done')
+            ->orderByDesc('tanggal')
+            ->take(10)
+            ->get()
+            ->map(fn ($s) => [
+                'name'  => $s->nama_kegiatan,
+                'date'  => $s->formatted_date,
+                'count' => $s->attendances_count,
+            ])
+            ->reverse()
+            ->values()
+            ->toArray();
+
         return view('statistics.index', compact(
             'kpi', 'monthlyActivity', 'memberGrowth',
             'devotionStatus', 'prayerStatus',
-            'topWriters', 'achievementStats', 'ageGroups'
+            'topWriters', 'achievementStats', 'ageGroups',
+            'attendancePerMeeting'
         ));
     }
 }

@@ -4,13 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Managers\NotificationManager;
 use App\Models\Schedule;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class ScheduleController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Schedule::with('creator')->latest('tanggal');
+        $query = Schedule::with(['creator', 'speaker'])->latest('tanggal');
 
         if ($request->filled('search')) {
             $query->where('nama_kegiatan', 'like', '%' . $request->search . '%')
@@ -29,7 +30,9 @@ class ScheduleController extends Controller
 
     public function create()
     {
-        return view('schedules.create');
+        $members = $this->speakerOptions();
+
+        return view('schedules.create', compact('members'));
     }
 
     public function store(Request $request)
@@ -40,17 +43,24 @@ class ScheduleController extends Controller
             'jam'           => 'required',
             'lokasi'        => 'required|string|max:255',
             'link_maps'     => 'nullable|url',
-            'pembicara'     => 'nullable|string|max:255',
+            'pembicara_id'  => 'nullable|exists:users,id',
             'deskripsi'     => 'nullable|string',
             'status'        => 'required|in:upcoming,ongoing,done',
         ]);
 
         $validated['created_by'] = auth()->id();
+        $validated['pembicara']  = $validated['pembicara_id']
+            ? User::find($validated['pembicara_id'])->name
+            : null;
 
         $schedule = Schedule::create($validated);
 
         try {
             app(NotificationManager::class)->sendNewSchedule($schedule);
+
+            if ($schedule->pembicara_id) {
+                app(NotificationManager::class)->sendSpeakerAssigned($schedule, $schedule->speaker);
+            }
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi jadwal baru', [
                 'message' => $e->getMessage(),
@@ -63,12 +73,16 @@ class ScheduleController extends Controller
 
     public function show(Schedule $schedule)
     {
+        $schedule->load(['attendances.member', 'speaker']);
+
         return view('schedules.show', compact('schedule'));
     }
 
     public function edit(Schedule $schedule)
     {
-        return view('schedules.edit', compact('schedule'));
+        $members = $this->speakerOptions();
+
+        return view('schedules.edit', compact('schedule', 'members'));
     }
 
     public function update(Request $request, Schedule $schedule)
@@ -79,15 +93,40 @@ class ScheduleController extends Controller
             'jam'           => 'required',
             'lokasi'        => 'required|string|max:255',
             'link_maps'     => 'nullable|url',
-            'pembicara'     => 'nullable|string|max:255',
+            'pembicara_id'  => 'nullable|exists:users,id',
             'deskripsi'     => 'nullable|string',
             'status'        => 'required|in:upcoming,ongoing,done',
         ]);
 
+        $previousSpeakerId = $schedule->pembicara_id;
+
+        $validated['pembicara'] = $validated['pembicara_id']
+            ? User::find($validated['pembicara_id'])->name
+            : null;
+
         $schedule->update($validated);
+
+        if ($schedule->pembicara_id && $schedule->pembicara_id !== $previousSpeakerId) {
+            try {
+                app(NotificationManager::class)->sendSpeakerAssigned($schedule, $schedule->speaker);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('Gagal kirim notifikasi pembicara', [
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
 
         return redirect()->route('schedules.index')
             ->with('success', 'Jadwal berhasil diperbarui.');
+    }
+
+    /** Anggota yang bisa dipilih sebagai pembicara (user aktif dengan profil anggota). */
+    private function speakerOptions()
+    {
+        return User::where('is_active', true)
+            ->whereHas('member')
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     public function destroy(Schedule $schedule)

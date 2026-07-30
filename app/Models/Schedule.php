@@ -19,6 +19,7 @@ class Schedule extends Model
         'lokasi',
         'link_maps',
         'pembicara',
+        'pembicara_id',
         'deskripsi',
         'status',
         'created_by',
@@ -32,6 +33,16 @@ class Schedule extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function speaker()
+    {
+        return $this->belongsTo(User::class, 'pembicara_id');
+    }
+
+    public function attendances()
+    {
+        return $this->hasMany(Attendance::class);
     }
 
     public function getFormattedDateAttribute(): string

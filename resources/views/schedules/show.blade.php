@@ -65,6 +65,42 @@
                     @endif
                 </div>
 
+                {{-- Attendance ────────────────────────────────────────── --}}
+                <div class="mb-4">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                        <h6 class="fw-semibold text-muted mb-0" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.05em">
+                            <i class="fa-solid fa-clipboard-user text-primary me-1"></i>Kehadiran ({{ $schedule->attendances->count() }})
+                        </h6>
+                        @if(auth()->user()->isLeader())
+                        <a href="{{ route('attendances.scan', $schedule) }}" class="btn btn-sm btn-primary">
+                            <i class="fa-solid fa-qrcode me-1"></i>Scan Absensi
+                        </a>
+                        @endif
+                    </div>
+                    @if($schedule->attendances->isEmpty())
+                        <p class="text-muted small mb-0">Belum ada anggota yang absen.</p>
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Nama</th>
+                                        <th>Waktu Scan</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($schedule->attendances as $att)
+                                    <tr>
+                                        <td>{{ $att->member->nama_lengkap }}</td>
+                                        <td>{{ $att->scanned_at->format('d M Y, H:i') }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+
                 @if($schedule->deskripsi)
                 <div class="mb-4">
                     <h6 class="fw-semibold text-muted mb-2" style="font-size:.8rem;text-transform:uppercase;letter-spacing:.05em">Deskripsi</h6>

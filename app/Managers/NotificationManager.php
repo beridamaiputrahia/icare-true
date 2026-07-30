@@ -17,6 +17,7 @@ use App\Notifications\NewPhotosUploadedNotification;
 use App\Notifications\NewPrayerRequestNotification;
 use App\Notifications\NewScheduleNotification;
 use App\Notifications\ScheduleReminderNotification;
+use App\Notifications\SpeakerAssignedNotification;
 use Illuminate\Support\Facades\Notification;
 
 class NotificationManager
@@ -112,6 +113,12 @@ class NotificationManager
     {
         $users = User::where('is_active', true)->where('tenant_id', $schedule->tenant_id)->get();
         Notification::send($this->withSuperadmins($users), new NewScheduleNotification($schedule));
+    }
+
+    /** Notify a user they've been assigned as speaker for a schedule. */
+    public function sendSpeakerAssigned(Schedule $schedule, User $speaker): void
+    {
+        Notification::send($speaker, new SpeakerAssignedNotification($schedule));
     }
 
     /** Get unread count for user. */

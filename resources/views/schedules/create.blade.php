@@ -44,9 +44,13 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Pembicara</label>
-                            <input type="text" name="pembicara" class="form-control @error('pembicara') is-invalid @enderror"
-                                   value="{{ old('pembicara') }}" placeholder="Nama pembicara">
-                            @error('pembicara')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                            <select name="pembicara_id" class="form-select @error('pembicara_id') is-invalid @enderror">
+                                <option value="">— Pilih Pembicara —</option>
+                                @foreach($members as $member)
+                                <option value="{{ $member->id }}" {{ old('pembicara_id')==$member->id ? 'selected' : '' }}>{{ $member->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('pembicara_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
                         </div>
                         <div class="col-12">
                             <label class="form-label">Link Google Maps</label>
