@@ -72,9 +72,14 @@
                             <i class="fa-solid fa-clipboard-user text-primary me-1"></i>Kehadiran ({{ $schedule->attendances->count() }})
                         </h6>
                         @if(auth()->user()->isLeader())
-                        <a href="{{ route('attendances.scan', $schedule) }}" class="btn btn-sm btn-primary">
-                            <i class="fa-solid fa-qrcode me-1"></i>Scan Absensi
-                        </a>
+                        <div class="d-flex gap-2">
+                            <a href="{{ route('attendances.scan', $schedule) }}" class="btn btn-sm btn-primary">
+                                <i class="fa-solid fa-qrcode me-1"></i>Scan Absensi
+                            </a>
+                            <a href="{{ route('attendances.index', $schedule) }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fa-solid fa-list-check me-1"></i>Kelola Kehadiran
+                            </a>
+                        </div>
                         @endif
                     </div>
                     @if($schedule->attendances->isEmpty())

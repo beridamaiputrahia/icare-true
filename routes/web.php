@@ -226,6 +226,11 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::middleware('role:admin,icl,ctl')->group(function () {
         Route::get('schedules/{schedule}/scan',  [AttendanceController::class, 'scan'])->name('attendances.scan');
         Route::post('schedules/{schedule}/scan', [AttendanceController::class, 'store'])->name('attendances.store');
+
+        Route::get('schedules/{schedule}/attendances',        [AttendanceController::class, 'index'])->name('attendances.index');
+        Route::post('schedules/{schedule}/attendances',       [AttendanceController::class, 'storeManual'])->name('attendances.store-manual');
+        Route::put('schedules/{schedule}/attendances/{attendance}',    [AttendanceController::class, 'update'])->name('attendances.update');
+        Route::delete('schedules/{schedule}/attendances/{attendance}', [AttendanceController::class, 'destroy'])->name('attendances.destroy');
     });
 
     // ── Pengumuman ──────────────────────────────────────────────────────
