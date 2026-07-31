@@ -173,6 +173,33 @@ class GameSessionController extends Controller
         ]);
     }
 
+    // POST /game/cancel — host membatalkan sesi 'waiting' yang belum
+    // dimulai (mis. menekan "Kembali" di lobi, atau berubah pikiran tidak
+    // jadi main). SEBELUM endpoint ini ada, tidak ada cara server tahu host
+    // membatalkan — sesi 'waiting' tetap tersimpan begitu saja, sehingga
+    // SEMUA yang diundang (status 'invited'/'accepted') tetap terhitung
+    // "sedang bermain" oleh buildMembers()/challenge() sampai jendela waktu
+    // 10 menit (created_at) habis, padahal host sudah jelas-jelas batal.
+    // Host sendiri pun ikut nyangkut "sedang main" karena dia sendiri
+    // adalah participant 'accepted' di sesi yang sama.
+    public function cancel(Request $request)
+    {
+        $request->validate(['session_code' => 'required|string']);
+
+        $session = GameSession::where('code', $request->session_code)
+            ->where('host_id', Auth::id())
+            ->where('status', 'waiting')
+            ->firstOrFail();
+
+        $session->update(['status' => 'declined']);
+
+        broadcast(new GameMove($session->fresh('participants.user'), Auth::id(), [
+            'type' => 'session_ended_by_leave',
+        ]));
+
+        return response()->json(['status' => 'declined']);
+    }
+
     // POST /game/respond — peserta yang diundang terima atau tolak
     public function respond(Request $request)
     {
@@ -188,8 +215,16 @@ class GameSessionController extends Controller
         // penerima undangan. Keamanan tetap terjaga karena firstOrFail() di
         // bawah mensyaratkan baris participant miliknya sendiri untuk sesi
         // INI secara spesifik — bukan izin melihat sesi tenant lain manapun.
+        // Selain 'invited' (respons pertama kali), terima juga peserta yang
+        // statusnya sudah 'accepted' MEMBATALKAN keikutsertaannya (accept:
+        // false) sebelum host menekan Mulai — mis. menekan "Kembali" di
+        // lobi tunggu setelah sempat menerima. Tanpa ini baris participant
+        // tetap 'accepted' walau dia sudah pergi dari lobi, sehingga dia
+        // tetap terhitung "sedang bermain" sampai sesi berakhir/timeout.
+        $statusDiterima = $request->accept ? ['invited'] : ['invited', 'accepted'];
+
         $session     = GameSession::withoutTenantScope()->where('code', $request->session_code)->where('status', 'waiting')->firstOrFail();
-        $participant = $session->participants()->where('user_id', $userId)->where('status', 'invited')->firstOrFail();
+        $participant = $session->participants()->where('user_id', $userId)->whereIn('status', $statusDiterima)->firstOrFail();
 
         $participant->update(['status' => $request->accept ? 'accepted' : 'declined']);
 
@@ -514,6 +549,37 @@ class GameSessionController extends Controller
             'game_type'    => $participant->session->game_type,
             'host_name'    => $participant->session->host->name,
             'host_id'      => $participant->session->host_id,
+        ]);
+    }
+
+    // GET /game/pending-host — cek apakah user ini adalah host dari sesi
+    // 'waiting' yang masih hidup, supaya kalau dia TIDAK SENGAJA me-refresh
+    // halaman /game persis sesudah /game/challenge berhasil terkirim (sesi
+    // sudah dibuat & undangan sudah sampai ke lawan), dia tidak kembali ke
+    // Hub kosong seolah tantangannya hilang — dia diarahkan otomatis
+    // kembali ke lobi tunggu yang sama, bukan harus mengundang ulang dari
+    // nol (yang bakal mengirim undangan KEDUA ke lawan yang sama).
+    public function pendingHost()
+    {
+        $session = GameSession::where('host_id', Auth::id())
+            ->where('status', 'waiting')
+            ->where('created_at', '>=', now()->subMinutes(10))
+            ->with('participants.user:id,name')
+            ->latest()
+            ->first();
+
+        if (! $session) {
+            return response()->json(['pending' => false]);
+        }
+
+        return response()->json([
+            'pending'      => true,
+            'session_code' => $session->code,
+            'game_type'    => $session->game_type,
+            'lawan'        => $session->participants->where('user_id', '!=', Auth::id())->map(fn ($p) => [
+                'id'   => $p->user_id,
+                'nama' => $p->user->name,
+            ])->values(),
         ]);
     }
 }

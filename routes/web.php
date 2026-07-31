@@ -320,6 +320,7 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::get('game', [GameController::class, 'index'])->name('game.index');
     Route::get('game/members', [GameController::class, 'members'])->name('game.members');
     Route::post('game/challenge',     [\App\Http\Controllers\GameSessionController::class, 'challenge'])->name('game.challenge');
+    Route::post('game/cancel',        [\App\Http\Controllers\GameSessionController::class, 'cancel'])->name('game.cancel');
     Route::post('game/respond',       [\App\Http\Controllers\GameSessionController::class, 'respond'])->name('game.respond');
     Route::post('game/start',         [\App\Http\Controllers\GameSessionController::class, 'start'])->name('game.start');
     Route::post('game/record-questions', [\App\Http\Controllers\GameSessionController::class, 'recordQuestions'])->name('game.record-questions');
@@ -327,6 +328,7 @@ Route::middleware(['auth', 'birthday', 'tenant.selected'])->group(function () {
     Route::post('game/resolve-leave', [\App\Http\Controllers\GameSessionController::class, 'resolveLeave'])->name('game.resolve-leave');
     Route::post('game/move',          [\App\Http\Controllers\GameSessionController::class, 'move'])->name('game.move');
     Route::get('game/pending',        [\App\Http\Controllers\GameSessionController::class, 'pending'])->name('game.pending');
+    Route::get('game/pending-host',   [\App\Http\Controllers\GameSessionController::class, 'pendingHost'])->name('game.pending-host');
     Route::get('game/session/{code}', [\App\Http\Controllers\GameSessionController::class, 'show'])->name('game.session.show');
 
     // ── Phase 4: Leaderboard ─────────────────────────────────────────────

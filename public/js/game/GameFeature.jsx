@@ -455,11 +455,52 @@ function LobiOnline({lawanList,game,level,sessionCode,isHost=true,hostName,onBac
     catch(e){setMemulai(false);}
   };
 
+  // Host membatalkan sesi 'waiting' (via /game/cancel) ATAU invitee
+  // membatalkan keikutsertaannya (via /game/respond accept:false) — dulu
+  // tidak ada sinyal apa pun ke server saat seseorang menekan
+  // "Kembali"/menutup tab di lobi tunggu, jadi baris participant-nya tetap
+  // 'invited'/'accepted' dan sesi tetap 'waiting' di DB. Akibatnya SEMUA
+  // yang terlibat (termasuk host sendiri) tetap terhitung "sedang bermain"
+  // di buildMembers() sampai jendela 10 menit habis, walau sudah jelas-jelas
+  // batal main. sendBeacon dipakai supaya sinyal tetap terkirim walau tab
+  // langsung ditutup (pola sama seperti keluarDariSesi() di useOnlineGame
+  // untuk sesi yang sudah aktif).
+  const batalkanSesi=useCallback(()=>{
+    if(!kode)return;
+    const token=document.querySelector('meta[name="csrf-token"]')?.content||"";
+    const url=isHost?"/game/cancel":"/game/respond";
+    const payload=isHost?{session_code:kode}:{session_code:kode,accept:false};
+    const data=new Blob([JSON.stringify(payload)],{type:"application/json"});
+    if(navigator.sendBeacon){
+      navigator.sendBeacon(url+"?_token="+encodeURIComponent(token),data);
+    }else{
+      apiPost(url,payload).catch(()=>{});
+    }
+  },[isHost,kode]);
+
+  useEffect(()=>{
+    const handler=()=>batalkanSesi();
+    window.addEventListener("beforeunload",handler);
+    window.addEventListener("pagehide",handler);
+    return()=>{
+      window.removeEventListener("beforeunload",handler);
+      window.removeEventListener("pagehide",handler);
+    };
+  },[batalkanSesi]);
+
+  const kembali=()=>{
+    // Sesi belum aktif ("diterima" berarti sudah started, biarkan berjalan)
+    // — batalkan/tolak di server dulu supaya pihak lain tidak nyangkut
+    // "sedang bermain" gara-gara orang ini berubah pikiran di sini.
+    if(fase!=="diterima")batalkanSesi();
+    onBack();
+  };
+
   const teks={kirim:"Mengirim tantangan…",tunggu:"Menunggu lawan menerima…",diterima:"Sesi dimulai! 🎉",error:"Gagal mengirim tantangan."};
 
   return(
     <div style={{padding:"24px 20px",minHeight:400,maxWidth:460,margin:"0 auto",display:"flex",flexDirection:"column"}}>
-      <TopBar onBack={onBack}title="Menghubungkan…"/>
+      <TopBar onBack={kembali}title="Menghubungkan…"/>
       <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20}}>
         <div style={{display:"flex",flexWrap:"wrap",justifyContent:"center",gap:16}}>
           <div style={{textAlign:"center"}}><Avatar nama={namaSaya}size={54}ring={P.gold}/><div style={{marginTop:6,fontWeight:800,fontSize:12,color:P.cream}}>Kamu</div></div>
@@ -1565,6 +1606,27 @@ function GameFeature(){
     }).catch(()=>{});
   },[]);
 
+  // Resume otomatis sebagai HOST kalau user tidak sengaja me-refresh /game
+  // persis sesudah /game/challenge berhasil (sesi 'waiting' sudah dibuat &
+  // undangan sudah terkirim ke lawan), sebelum sempat menekan "Mulai".
+  // Tanpa ini, refresh membuat state React (screen/lawanList/sessionCode)
+  // hilang total dan user kembali ke Hub kosong — kelihatan seolah
+  // tantangannya tidak pernah terkirim, padahal di sisi lawan undangan itu
+  // sudah nyata sampai. Cek sekali di awal; kalau ketemu, arahkan langsung
+  // ke lobi tunggu yang SAMA (bukan buat sesi baru — itu akan mengundang
+  // lawan yang sama untuk kedua kalinya).
+  useEffect(()=>{
+    if(new URLSearchParams(window.location.search).get("join"))return; // biar tidak tabrakan dgn auto-join di atas
+    apiGet("/game/pending-host").then(p=>{
+      if(!p.pending)return;
+      setGame(GAME_DEFS.find(g=>g.id===p.game_type)||{id:p.game_type,warna:P.gold});
+      setMode("online");
+      setLawanList(p.lawan||[]);
+      setSessionCode(p.session_code);
+      setScreen("lobi");
+    }).catch(()=>{});
+  },[]);
+
   const GameMain=()=>{
     if(!game)return null;
     if(mode==="solo"){if(game.id==="kuis")return<KuisSolo onExit={pulang}/>;if(game.id==="susun")return<SusunSolo onExit={pulang}/>;if(game.id==="tebak")return<TebakSolo onExit={pulang}/>;if(game.id==="memory")return<MemorySolo level={memoryLevel}onExit={pulang}/>;}
@@ -1588,7 +1650,7 @@ function GameFeature(){
       {screen==="cara"   &&game&&<PilihCara game={game}onBack={pulang}onPick={pilihCara}/>}
       {screen==="level"  &&game&&<PilihLevelMemory onBack={()=>setScreen("cara")}onPick={pilihLevel}/>}
       {screen==="lawan"  &&game&&<PilihLawan game={game}mode={mode}onBack={()=>setScreen(game.id==="memory"?"level":"cara")}onPick={pilihLawan}/>}
-      {screen==="lobi"   &&game&&lawanList.length>0&&<LobiOnline lawanList={lawanList}game={game}level={memoryLevel}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
+      {screen==="lobi"   &&game&&lawanList.length>0&&<LobiOnline lawanList={lawanList}game={game}level={memoryLevel}sessionCode={sessionCode}onBack={()=>setScreen("lawan")}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={()=>setScreen("lawan")}/>}
       {screen==="lobi-invitee"&&game&&sessionCode&&<LobiOnline lawanList={[]}game={game}sessionCode={sessionCode}isHost={false}hostName={notifHostName}onBack={pulang}onMulai={(code)=>{setSessionCode(code);setScreen("main");}}onDeclined={pulang}/>}
       {screen==="main"   &&<GameMain/>}
       {notif&&screen!=="main"&&<NotifTantangan notif={notif}onTerima={terimaNotif}onTolak={tolakNotif}/>}
