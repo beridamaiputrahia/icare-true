@@ -229,6 +229,14 @@ class GameSessionController extends Controller
         if ($tenantId) {
             $seed['avoid_keys'] = $this->ambilKeyDihindari($tenantId, $session->game_type);
         }
+        // Peserta yang masih 'invited' (belum sempat merespons) TIDAK ikut
+        // ronde ini — tandai 'declined' di sini juga, bukan cuma dianggap
+        // tidak ikut di frontend. Tanpa ini baris participant-nya tetap
+        // 'invited' selama sesi 'active' berjalan, sehingga badge "Sedang
+        // main" tetap menyala untuk orang yang sebenarnya tidak pernah
+        // benar-benar main ronde ini (lihat buildMembers() di GameController).
+        $session->participants()->where('status', 'invited')->update(['status' => 'declined']);
+
         $session->update(['status' => 'active', 'started_at' => now(), 'seed' => $seed]);
 
         broadcast(new GameStarted($session->fresh('participants.user')));
