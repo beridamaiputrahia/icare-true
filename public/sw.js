@@ -1,5 +1,5 @@
-// I Care True — Service Worker v1.0
-const CACHE_NAME = 'icaretrue-v1';
+// I Care True — Service Worker v1.1
+const CACHE_NAME = 'icaretrue-v2';
 const OFFLINE_URL = '/offline';
 
 // Static assets to pre-cache
@@ -7,7 +7,6 @@ const PRECACHE_ASSETS = [
     '/',
     '/offline',
     'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css',
-    'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
 ];
 
 // Install: pre-cache static assets

@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Maintenance — I Care True</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    {{-- Font Awesome self-hosted lewat Vite -- lihat catatan di layouts/app.blade.php --}}
+    @vite('resources/css/fontawesome.css')
     <style>
         body {
             min-height: 100vh;

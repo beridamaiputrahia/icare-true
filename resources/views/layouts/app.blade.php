@@ -24,9 +24,17 @@
 
     {{-- CSS CDN --}}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+
+    {{-- Font Awesome: self-hosted lewat Vite (bukan CDN cdnjs.cloudflare.com)
+         -- ikon tidak tampil untuk sebagian user karena CDN itu gagal
+         dimuat (diblokir jaringan/ad-blocker/region tertentu), padahal
+         angka & layout tetap tampil normal karena tidak bergantung pada
+         aset eksternal itu. Self-host menghilangkan titik kegagalan ini
+         sepenuhnya untuk ikon, terpisah dari resources/css/app.css supaya
+         Tailwind base/reset tidak ikut ke-inject ke layout ini. --}}
+    @vite('resources/css/fontawesome.css')
 
     {{-- Dynamic Theme --}}
     <style>{!! app(\App\Managers\ThemeManager::class)->generateCss() !!}</style>
