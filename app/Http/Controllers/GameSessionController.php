@@ -337,6 +337,22 @@ class GameSessionController extends Controller
 
         $participant = $session->participants()->where('user_id', $userId)->where('status', 'accepted')->firstOrFail();
 
+        // PENTING: validasi skor TIDAK BOLEH menggagalkan seluruh request
+        // (return 422) kalau payload ini JUGA membawa finished:true di
+        // dalamnya (lihat sendFinished() di GameFeature.jsx, yang mengirim
+        // {finished:true, score} dalam SATU payload). Sebelumnya skor yang
+        // ditolak (mis. race kondisi client mengirim ulang skor lama secara
+        // kebetulan lebih rendah dari yang sudah tercatat) membuat method ini
+        // return lebih awal SEBELUM baris finished=true di bawah sempat
+        // jalan sama sekali — dan karena 422 bukan network error, retry
+        // sendFinished() mengirim payload yang SAMA persis 3x, gagal 3x
+        // dengan alasan yang sama, lalu menyerah diam-diam. Peserta itu
+        // tidak pernah tercatat finished=true di server (walau layar
+        // "Selesai" sudah tampil di device-nya sendiri), sehingga dia
+        // nyangkut "sedang bermain" terus di buildMembers() sampai jendela
+        // waktu 10/30 menit habis. Skor tidak valid sekarang cukup
+        // DIABAIKAN (skor lama dipertahankan), bukan menggagalkan
+        // penandaan selesai yang menyertainya.
         if (isset($request->payload['score'])) {
             $skorBaru = (int) $request->payload['score'];
 
@@ -349,20 +365,14 @@ class GameSessionController extends Controller
             // arsitektur: tolak nilai yang jelas mustahil (negatif, atau di
             // atas skor maksimum teoretis skenario TERBAIK di game manapun
             // — Memory level 3: 32 pasang * 250 = 8000, game lain jauh di
-            // bawah itu) supaya request iseng "score: 999999999" langsung
-            // ditolak, bukan mencegah kecurangan yang lebih halus.
-            if ($skorBaru < 0 || $skorBaru > 8000) {
-                return response()->json(['message' => 'Skor tidak valid.'], 422);
-            }
+            // bawah itu), dan abaikan skor yang turun drastis dari nilai
+            // sebelumnya (tanda payload dipalsukan/rusak, bukan gerakan
+            // sah) — tanpa menggagalkan sisa request (lihat catatan di atas).
+            $skorValid = $skorBaru >= 0 && $skorBaru <= 8000 && $skorBaru >= $participant->score;
 
-            // Skor per pemain SEHARUSNYA hanya naik (tiap ronde menambah,
-            // tidak pernah dikurangi) — turun drastis dari nilai sebelumnya
-            // adalah tanda payload yang dipalsukan/rusak, bukan gerakan sah.
-            if ($skorBaru < $participant->score) {
-                return response()->json(['message' => 'Skor tidak valid.'], 422);
+            if ($skorValid) {
+                $participant->update(['score' => $skorBaru]);
             }
-
-            $participant->update(['score' => $skorBaru]);
         }
 
         if (! empty($request->payload['finished'])) {
