@@ -112,7 +112,15 @@ Route::get('/manifest.json', function (\Illuminate\Http\Request $request) {
             ['name' => 'Doa',       'url' => '/prayers',   'icons' => [['src' => $icon96, 'sizes' => '96x96']]],
         ],
     ];
-    return response()->json($manifest)->header('Content-Type', 'application/manifest+json');
+    // no-store: manifest.json HARUS selalu di-fetch ulang, bukan cuma
+    // di-cache sekali per origin oleh browser -- URL-nya sekarang sudah
+    // dibedakan per tenant lewat query ?t= (lihat layouts/app.blade.php &
+    // layouts/guest.blade.php), tapi tanpa header ini pun update nama/logo
+    // tenant yang sama tidak akan langsung terlihat di ikon PWA yang sudah
+    // ter-install sampai browser memutuskan sendiri untuk refetch.
+    return response()->json($manifest)
+        ->header('Content-Type', 'application/manifest+json')
+        ->header('Cache-Control', 'no-store');
 })->name('manifest');
 Route::get('game/assets/feature-js', [\App\Http\Controllers\GameController::class, 'serveJsx'])->name('game.jsx');
 

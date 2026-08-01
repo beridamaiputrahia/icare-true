@@ -45,6 +45,20 @@ class SettingsManager
         return (string) ($this->resolveTenantId() ?? 'global');
     }
 
+    /**
+     * ID tenant aktif untuk dipakai di luar kelas ini (mis. layout blade yang
+     * perlu membedakan URL manifest.json per tenant -- lihat komentar di
+     * routes/web.php route('manifest') soal kenapa itu penting: browser
+     * meng-cache manifest.json PER URL, bukan per sesi/cookie, jadi kalau
+     * URL-nya sama untuk semua tenant, tenant yang login lebih dulu di
+     * perangkat itu "mengunci" nama/ikon PWA untuk tenant-tenant berikutnya
+     * yang login di perangkat/browser yang sama.
+     */
+    public function tenantIdForManifest(): int|string
+    {
+        return $this->resolveTenantId() ?? 'global';
+    }
+
     public function get(string $key, mixed $default = null): mixed
     {
         $tid = $this->tenantId();

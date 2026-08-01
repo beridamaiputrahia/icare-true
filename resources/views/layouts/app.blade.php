@@ -12,7 +12,11 @@
     <title>@yield('title', 'Dashboard') — {{ $_appName }}</title>
 
     {{-- PWA --}}
-    <link rel="manifest" href="{{ route('manifest') }}" crossorigin="use-credentials">
+    {{-- t={tenant id} bikin URL manifest unik per tenant -- tanpa ini browser
+         meng-cache manifest.json satu kali per ORIGIN (bukan per user/sesi),
+         jadi tenant pertama yang login di suatu perangkat "mengunci" nama &
+         ikon PWA untuk tenant lain yang login di perangkat yang sama setelahnya. --}}
+    <link rel="manifest" href="{{ route('manifest') }}?t={{ $_settings->tenantIdForManifest() }}" crossorigin="use-credentials">
     <link rel="apple-touch-icon" href="{{ $_settings->logoIconUrl() ?? '/pwa-icons/icon-192.svg' }}">
     @if($_settings->faviconUrl())
     <link rel="icon" href="{{ $_settings->faviconUrl() }}">

@@ -12,7 +12,9 @@
     <title>{{ $_appName }} — {{ $title ?? 'Masuk' }}</title>
 
     {{-- PWA --}}
-    <link rel="manifest" href="{{ route('manifest') }}" crossorigin="use-credentials">
+    {{-- t={tenant id} -- lihat catatan di layouts/app.blade.php soal kenapa
+         URL manifest perlu dibedakan per tenant. --}}
+    <link rel="manifest" href="{{ route('manifest') }}?t={{ $_settings->tenantIdForManifest() }}" crossorigin="use-credentials">
     <link rel="apple-touch-icon" href="{{ $_settings->logoIconUrl() ?? '/pwa-icons/icon-192.svg' }}">
     @if($_settings->faviconUrl())
     <link rel="icon" href="{{ $_settings->faviconUrl() }}">
